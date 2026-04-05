@@ -71,6 +71,8 @@ const sellerInitials = computed(() =>
     .map((w) => w[0]?.toUpperCase() ?? "")
     .join("")
 )
+
+const sellerAvatarError = ref(false)
 </script>
 
 <template>
@@ -144,11 +146,12 @@ const sellerInitials = computed(() =>
             class="inline-flex items-center justify-center size-5 rounded-full bg-muted text-xs font-medium text-muted-foreground overflow-hidden"
           >
             <img
-              v-if="seller.avatar_url"
+              v-if="seller.avatar_url && !sellerAvatarError"
               :src="seller.avatar_url"
               :alt="seller.name"
               referrerpolicy="no-referrer"
               class="size-full object-cover"
+              @error="sellerAvatarError = true"
             />
             <span v-else>{{ sellerInitials }}</span>
           </span>

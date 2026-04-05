@@ -9,7 +9,10 @@ const slug = computed(() => route.params.slug as string)
 const authStore = useAuthStore()
 const isOwner = computed(() => authStore.user?.id === listing.value?.seller.id)
 
-const { data: res, error } = await useFetch<DetailResp>(() => `/api/listings/${slug.value}`)
+const { data: res, error } = await useFetch<DetailResp>(
+  () => `/api/listings/${slug.value}`,
+  { transform: (d: DetailResp) => JSON.parse(JSON.stringify(d)) as DetailResp },
+)
 
 if (error.value || !res.value) {
   throw createError({ statusCode: 404, message: "İlan bulunamadı" })
@@ -83,7 +86,7 @@ useHead({
   script: [
     {
       type: "application/ld+json",
-      innerHTML: computed(() =>
+      innerHTML: () =>
         JSON.stringify({
           "@context": "https://schema.org",
           "@type": "Product",
@@ -114,6 +117,8 @@ const memberSince = computed(() => {
   const d = new Date(listing.value.seller.created_at)
   return d.toLocaleDateString("tr-TR", { year: "numeric", month: "long" })
 })
+
+const sellerAvatarError = ref(false)
 </script>
 
 <template>
@@ -230,11 +235,12 @@ const memberSince = computed(() => {
               class="inline-flex shrink-0 items-center justify-center size-11 rounded-full bg-muted text-sm font-medium text-muted-foreground overflow-hidden"
             >
               <img
-                v-if="listing.seller.avatar_url"
+                v-if="listing.seller.avatar_url && !sellerAvatarError"
                 :src="listing.seller.avatar_url"
                 :alt="sellerName"
                 referrerpolicy="no-referrer"
                 class="size-full object-cover"
+                @error="sellerAvatarError = true"
               />
               <span v-else>{{ sellerInitials }}</span>
             </span>
