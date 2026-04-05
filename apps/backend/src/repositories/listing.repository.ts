@@ -194,6 +194,16 @@ export const listingRepository = {
     };
   },
 
+  async findByIds(db: D1Database, ids: string[]): Promise<ListingListItem[]> {
+    if (ids.length === 0) return [];
+    const placeholders = ids.map(() => "?").join(", ");
+    const rows = await db
+      .prepare(`${JOIN_SQL} WHERE l.id IN (${placeholders})`)
+      .bind(...ids)
+      .all<ListingRowJoined>();
+    return (rows.results ?? []).map(toListItem);
+  },
+
   async findByUserId(
     db: D1Database,
     userId: string,

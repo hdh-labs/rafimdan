@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Heart } from "lucide-vue-next"
-import type { ListingListItem } from "@rafimdan/shared"
+import type { ListingListItem, FavoritesResponse } from "@rafimdan/shared"
 import { apiFetch } from "~/utils/api"
 
 definePageMeta({ middleware: ["auth"] })
@@ -27,23 +27,11 @@ const cardItems = computed(() =>
 
 onMounted(async () => {
   try {
-    await favoritesStore.fetchFavorites()
-    const ids = [...favoritesStore.ids]
-
-    if (ids.length === 0) {
-      loading.value = false
-      return
-    }
-
-    const results = await Promise.all(
-      ids.map((id) =>
-        apiFetch<{ data: ListingListItem; status: "ok" }>(`/api/listings/${id}`).catch(() => null),
-      ),
-    )
-
-    listings.value = results
-      .filter((r): r is { data: ListingListItem; status: "ok" } => r !== null)
-      .map((r) => r.data)
+    const res = await apiFetch<{ data: FavoritesResponse; status: "ok" }>("/api/favorites")
+    listings.value = res.data.listings
+    favoritesStore.ids = new Set(res.data.listings.map((l) => l.id))
+  } catch {
+    listings.value = []
   } finally {
     loading.value = false
   }

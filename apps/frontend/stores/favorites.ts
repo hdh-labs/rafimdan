@@ -17,7 +17,7 @@ export const useFavoritesStore = defineStore("favorites", () => {
     }
     try {
       const res = await apiFetch<{ data: FavoritesResponse; status: "ok" }>("/api/favorites")
-      ids.value = new Set(res.data.listing_ids)
+      ids.value = new Set(res.data.listings.map((l) => l.id))
     } catch {
       ids.value = new Set()
     }

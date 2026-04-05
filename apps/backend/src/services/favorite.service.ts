@@ -1,3 +1,4 @@
+import type { ListingListItem } from "@rafimdan/shared";
 import { favoriteRepository } from "../repositories/favorite.repository";
 import { listingRepository } from "../repositories/listing.repository";
 import { ListingNotFoundError, FavoriteAlreadyExistsError } from "../errors";
@@ -17,7 +18,8 @@ export const favoriteService = {
     await favoriteRepository.remove(db, userId, listingId);
   },
 
-  async getListingIds(db: D1Database, userId: string): Promise<string[]> {
-    return favoriteRepository.findListingIdsByUserId(db, userId);
+  async getListings(db: D1Database, userId: string): Promise<ListingListItem[]> {
+    const ids = await favoriteRepository.findListingIdsByUserId(db, userId);
+    return listingRepository.findByIds(db, ids);
   },
 } as const;

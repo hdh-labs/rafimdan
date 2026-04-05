@@ -1,9 +1,29 @@
 <script setup lang="ts">
+import { ChevronDown } from "lucide-vue-next"
+
 const authStore = useAuthStore()
 
 const displayName = computed(
   () => authStore.user?.display_name || authStore.user?.name || null,
 )
+
+const initials = computed(
+  () => (displayName.value ?? "?")[0]?.toUpperCase() ?? "?",
+)
+
+const menuOpen = ref(false)
+
+function closeMenu() {
+  menuOpen.value = false
+}
+
+onMounted(() => {
+  document.addEventListener("click", closeMenu)
+})
+
+onUnmounted(() => {
+  document.removeEventListener("click", closeMenu)
+})
 </script>
 
 <template>
@@ -13,7 +33,7 @@ const displayName = computed(
         Rafımdan
       </NuxtLink>
 
-      <nav class="flex items-center gap-2">
+      <nav class="flex items-center gap-3">
         <NuxtLink
           to="/ilanlar"
           class="text-sm text-muted-foreground hover:text-foreground px-2 py-1 rounded cursor-pointer transition-colors"
@@ -23,26 +43,19 @@ const displayName = computed(
 
         <template v-if="authStore.isLoggedIn">
           <NuxtLink
-            to="/favoriler"
-            class="text-sm text-muted-foreground hover:text-foreground px-2 py-1 rounded cursor-pointer transition-colors"
-          >
-            Favoriler
-          </NuxtLink>
-          <NuxtLink
             to="/ilan-ver"
             class="text-sm bg-foreground text-background px-3 py-1.5 rounded-md cursor-pointer hover:opacity-90 transition-opacity"
           >
             İlan Ver
           </NuxtLink>
 
-          <div class="relative flex items-center gap-1 ml-1">
-            <NuxtLink
-              v-if="authStore.user?.slug"
-              :to="`/profil/${authStore.user.slug}`"
-              class="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+          <div class="relative" @click.stop>
+            <button
+              class="flex items-center gap-1.5 cursor-pointer"
+              @click="menuOpen = !menuOpen"
             >
               <span
-                class="inline-flex items-center justify-center size-7 rounded-full bg-muted text-xs font-medium overflow-hidden shrink-0"
+                class="inline-flex items-center justify-center size-8 rounded-full bg-muted text-sm font-medium overflow-hidden shrink-0"
               >
                 <img
                   v-if="authStore.user?.avatar_url"
@@ -51,23 +64,46 @@ const displayName = computed(
                   referrerpolicy="no-referrer"
                   class="size-full object-cover"
                 />
-                <span v-else>{{ (displayName ?? "?")[0]?.toUpperCase() }}</span>
+                <span v-else>{{ initials }}</span>
               </span>
-              <span class="hidden sm:block truncate max-w-24">{{ displayName }}</span>
-            </NuxtLink>
-
-            <NuxtLink
-              to="/ayarlar"
-              class="text-xs text-muted-foreground hover:text-foreground px-2 py-1 cursor-pointer transition-colors"
-            >
-              Ayarlar
-            </NuxtLink>
-            <button
-              class="text-xs text-muted-foreground hover:text-foreground px-2 py-1 cursor-pointer transition-colors"
-              @click="authStore.logout()"
-            >
-              Çıkış
+              <ChevronDown class="size-3.5 text-muted-foreground" :class="menuOpen && 'rotate-180'" />
             </button>
+
+            <div
+              v-if="menuOpen"
+              class="absolute right-0 top-full mt-1.5 w-44 bg-white border border-border rounded-lg shadow-md py-1 z-50"
+            >
+              <NuxtLink
+                v-if="authStore.user?.slug"
+                :to="`/profil/${authStore.user.slug}`"
+                class="flex items-center px-3 py-2 text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
+                @click="closeMenu"
+              >
+                {{ displayName }}
+              </NuxtLink>
+              <div class="border-t border-border my-1" />
+              <NuxtLink
+                to="/favoriler"
+                class="flex items-center px-3 py-2 text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
+                @click="closeMenu"
+              >
+                Favoriler
+              </NuxtLink>
+              <NuxtLink
+                to="/ayarlar"
+                class="flex items-center px-3 py-2 text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
+                @click="closeMenu"
+              >
+                Ayarlar
+              </NuxtLink>
+              <div class="border-t border-border my-1" />
+              <button
+                class="flex w-full items-center px-3 py-2 text-sm text-red-600 hover:bg-muted cursor-pointer transition-colors"
+                @click="authStore.logout(); closeMenu()"
+              >
+                Çıkış Yap
+              </button>
+            </div>
           </div>
         </template>
 

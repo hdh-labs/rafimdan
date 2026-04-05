@@ -3,5 +3,5 @@ export type FavoriteAddInput = {
 };
 
 export type FavoritesResponse = {
-  listing_ids: string[];
+  listings: import("./listing").ListingListItem[];
 };

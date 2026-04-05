@@ -23,8 +23,8 @@ function handleError(c: Context<HonoEnv>, err: unknown) {
 favorites.get("/", authMiddleware, async (c) => {
   try {
     const { sub } = c.get("user");
-    const listing_ids = await favoriteService.getListingIds(c.env.DB, sub);
-    return c.json({ data: { listing_ids }, status: "ok" });
+    const listings = await favoriteService.getListings(c.env.DB, sub);
+    return c.json({ data: { listings }, status: "ok" });
   } catch (err) {
     return handleError(c, err);
   }
