@@ -26,14 +26,22 @@ const submitting = ref(false)
 const error = ref<string | null>(null)
 const avatarError = ref(false)
 
+const WHATSAPP_RE = /^5\d{9}$/
+
 async function save() {
   error.value = null
+
+  if (form.whatsapp && !WHATSAPP_RE.test(form.whatsapp.replace(/\s/g, ""))) {
+    error.value = "WhatsApp numarası 5 ile başlayan 10 haneli olmalıdır. (örn: 5321234567)"
+    return
+  }
+
   submitting.value = true
 
   try {
     const body: Record<string, string> = {}
     if (form.display_name) body.display_name = form.display_name
-    if (form.whatsapp) body.whatsapp = form.whatsapp
+    if (form.whatsapp) body.whatsapp = form.whatsapp.replace(/\s/g, "")
     if (form.city) body.city = form.city
     if (form.district) body.district = form.district
 
