@@ -12,6 +12,7 @@ const initials = computed(
 )
 
 const menuOpen = ref(false)
+const avatarError = ref(false)
 
 function closeMenu() {
   menuOpen.value = false
@@ -58,11 +59,12 @@ onUnmounted(() => {
                 class="inline-flex items-center justify-center size-8 rounded-full bg-muted text-sm font-medium overflow-hidden shrink-0"
               >
                 <img
-                  v-if="authStore.user?.avatar_url"
+                  v-if="authStore.user?.avatar_url && !avatarError"
                   :src="authStore.user.avatar_url"
                   :alt="displayName ?? ''"
                   referrerpolicy="no-referrer"
                   class="size-full object-cover"
+                  @error="avatarError = true"
                 />
                 <span v-else>{{ initials }}</span>
               </span>
