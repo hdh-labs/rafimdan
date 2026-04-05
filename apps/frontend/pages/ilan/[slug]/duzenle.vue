@@ -145,13 +145,29 @@ function onFileChange(e: Event) {
   input.value = ""
 }
 
+const previewUrls = new Map<File, string>()
+
+function previewUrl(file: File): string {
+  if (!previewUrls.has(file)) {
+    previewUrls.set(file, URL.createObjectURL(file))
+  }
+  return previewUrls.get(file)!
+}
+
 function removeNewFile(i: number) {
+  const file = newFiles.value[i]
+  if (file) {
+    const url = previewUrls.get(file)
+    if (url) URL.revokeObjectURL(url)
+    previewUrls.delete(file)
+  }
   newFiles.value = newFiles.value.filter((_, idx) => idx !== i)
 }
 
-function previewUrl(file: File) {
-  return URL.createObjectURL(file)
-}
+onUnmounted(() => {
+  previewUrls.forEach((url) => URL.revokeObjectURL(url))
+  previewUrls.clear()
+})
 
 async function deleteExistingPhoto(index: number) {
   deletingPhotoIndex.value = index

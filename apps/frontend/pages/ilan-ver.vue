@@ -83,13 +83,29 @@ function onFileChange(e: Event) {
   input.value = ""
 }
 
+const previewUrls = new Map<File, string>()
+
+function previewUrl(file: File): string {
+  if (!previewUrls.has(file)) {
+    previewUrls.set(file, URL.createObjectURL(file))
+  }
+  return previewUrls.get(file)!
+}
+
 function removeFile(i: number) {
+  const file = selectedFiles.value[i]
+  if (file) {
+    const url = previewUrls.get(file)
+    if (url) URL.revokeObjectURL(url)
+    previewUrls.delete(file)
+  }
   selectedFiles.value = selectedFiles.value.filter((_, idx) => idx !== i)
 }
 
-function previewUrl(file: File) {
-  return URL.createObjectURL(file)
-}
+onUnmounted(() => {
+  previewUrls.forEach((url) => URL.revokeObjectURL(url))
+  previewUrls.clear()
+})
 
 async function submit() {
   submitError.value = null
