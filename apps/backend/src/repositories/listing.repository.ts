@@ -169,8 +169,9 @@ export const listingRepository = {
     if (params.price_type) { conditions.push("l.price_type = ?"); bindings.push(params.price_type); }
     if (params.condition) { conditions.push("l.condition = ?"); bindings.push(params.condition); }
     if (params.q) {
-      conditions.push("(l.title LIKE ? OR l.description LIKE ?)");
-      const pattern = `%${params.q}%`;
+      conditions.push("(l.title LIKE ? ESCAPE '\\' OR l.description LIKE ? ESCAPE '\\')");
+      const escaped = params.q.replace(/[\\%_]/g, "\\$&");
+      const pattern = `%${escaped}%`;
       bindings.push(pattern, pattern);
     }
 
