@@ -114,7 +114,7 @@ listings.delete("/:slug", authMiddleware, async (c) => {
   try {
     const { sub } = c.get("user");
     const slug = c.req.param("slug");
-    await listingService.delete(c.env.DB, sub, slug);
+    await listingService.delete(c.env.DB, c.env, sub, slug);
     return c.json({ data: null, status: "ok" });
   } catch (err) {
     return handleError(c, err);

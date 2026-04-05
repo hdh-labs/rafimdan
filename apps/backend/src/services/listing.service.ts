@@ -104,11 +104,23 @@ export const listingService = {
     return updated!;
   },
 
-  async delete(db: D1Database, userId: string, slug: string): Promise<void> {
+  async delete(db: D1Database, env: Env, userId: string, slug: string): Promise<void> {
     const listing = await listingRepository.findBySlug(db, slug);
     if (!listing) throw new ListingNotFoundError();
     if (listing.seller.id !== userId) throw new ForbiddenError("Bu ilan size ait değil");
+
+    await Promise.allSettled(
+      listing.photos.map((url) => {
+        const key = url.replace(/^.*\/api\/storage\//, "");
+        return env.STORAGE.delete(key);
+      }),
+    );
+
     await listingRepository.delete(db, listing.id);
+  },
+
+  async getStatsByUserId(db: D1Database, userId: string) {
+    return listingRepository.getStatsByUserId(db, userId);
   },
 
   async uploadPhoto(
