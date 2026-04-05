@@ -1,0 +1,16 @@
+{
+  "name": "rafimdan-v2",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "pnpm run --parallel dev:backend dev:frontend",
+    "dev:backend": "pnpm --filter @rafimdan/backend dev",
+    "dev:frontend": "pnpm --filter @rafimdan/frontend dev",
+    "typecheck": "pnpm --filter @rafimdan/backend typecheck && pnpm --filter @rafimdan/frontend typecheck",
+    "test": "pnpm --filter @rafimdan/backend test"
+  }
+}

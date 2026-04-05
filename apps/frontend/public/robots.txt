@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+Disallow: /ayarlar
+Disallow: /ilan-ver
+Disallow: /ilan/*/duzenle
+Disallow: /auth/
+Disallow: /giris
+
+Sitemap: https://rafimdan.com/sitemap.xml

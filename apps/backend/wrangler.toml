@@ -1,0 +1,26 @@
+name = "rafimdan-backend"
+main = "src/index.ts"
+compatibility_date = "2024-12-05"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+CORS_ORIGIN = "https://rafimdan.com"
+STORAGE_PUBLIC_URL = "https://api.rafimdan.com/api/storage"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "rafimdan-db"
+database_id = "cbd7af3c-c429-4fa9-9b5c-15d42f0c5205"
+
+[[r2_buckets]]
+binding = "STORAGE"
+bucket_name = "rafimdan-storage"
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+head_sampling_rate = 1
+
+[dev]
+port = 8787
+local_protocol = "http"

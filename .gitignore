@@ -1,0 +1,10 @@
+node_modules
+.wrangler
+dist
+.output
+.nuxt
+*.local
+.dev.vars
+.env
+.env.*
+!.env.example

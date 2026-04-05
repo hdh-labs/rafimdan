@@ -1,0 +1,136 @@
+import type {
+  ListingDetail,
+  ListingListItem,
+  CreateListingInput,
+  UpdateListingInput,
+  ListingStatus,
+  ListingsQueryParams,
+  PaginatedResponse,
+} from "@rafimdan/shared";
+import type { Env } from "../types/env";
+import { listingRepository } from "../repositories/listing.repository";
+import { categoryRepository } from "../repositories/category.repository";
+import { userRepository } from "../repositories/user.repository";
+import { generateSlug, findUniqueSlug } from "../lib/slug";
+import {
+  ListingNotFoundError,
+  ForbiddenError,
+  CategoryNotFoundError,
+  FileTooLargeError,
+  InvalidFileTypeError,
+  TooManyPhotosError,
+} from "../errors";
+
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+export const listingService = {
+  async create(
+    db: D1Database,
+    userId: string,
+    input: CreateListingInput,
+  ): Promise<ListingDetail> {
+    const category = await categoryRepository.findById(db, input.category_id);
+    if (!category) throw new CategoryNotFoundError();
+
+    const slug = await findUniqueSlug(db, "listings", generateSlug(input.title));
+
+    return listingRepository.create(db, {
+      id: crypto.randomUUID(),
+      user_id: userId,
+      slug,
+      ...input,
+    });
+  },
+
+  async getAll(
+    db: D1Database,
+    params: ListingsQueryParams,
+  ): Promise<PaginatedResponse<ListingListItem>> {
+    return listingRepository.findAll(db, params);
+  },
+
+  async getBySlug(db: D1Database, slug: string): Promise<ListingDetail> {
+    const listing = await listingRepository.findBySlug(db, slug);
+    if (!listing) throw new ListingNotFoundError();
+    await listingRepository.incrementViewCount(db, listing.id);
+    return { ...listing, view_count: listing.view_count + 1 };
+  },
+
+  async update(
+    db: D1Database,
+    userId: string,
+    slug: string,
+    input: UpdateListingInput,
+  ): Promise<ListingDetail> {
+    const listing = await listingRepository.findBySlug(db, slug);
+    if (!listing) throw new ListingNotFoundError();
+    if (listing.seller.id !== userId) throw new ForbiddenError("Bu ilan size ait değil");
+
+    if (input.category_id) {
+      const category = await categoryRepository.findById(db, input.category_id);
+      if (!category) throw new CategoryNotFoundError();
+    }
+
+    const updated = await listingRepository.update(db, listing.id, input);
+    return updated!;
+  },
+
+  async updateStatus(
+    db: D1Database,
+    userId: string,
+    slug: string,
+    status: ListingStatus,
+  ): Promise<ListingDetail> {
+    const listing = await listingRepository.findBySlug(db, slug);
+    if (!listing) throw new ListingNotFoundError();
+    if (listing.seller.id !== userId) throw new ForbiddenError("Bu ilan size ait değil");
+
+    const updated = await listingRepository.updateStatus(db, listing.id, status);
+    return updated!;
+  },
+
+  async delete(db: D1Database, userId: string, slug: string): Promise<void> {
+    const listing = await listingRepository.findBySlug(db, slug);
+    if (!listing) throw new ListingNotFoundError();
+    if (listing.seller.id !== userId) throw new ForbiddenError("Bu ilan size ait değil");
+    await listingRepository.delete(db, listing.id);
+  },
+
+  async uploadPhoto(
+    db: D1Database,
+    env: Env,
+    userId: string,
+    slug: string,
+    file: File,
+  ): Promise<ListingDetail> {
+    const listing = await listingRepository.findBySlug(db, slug);
+    if (!listing) throw new ListingNotFoundError();
+    if (listing.seller.id !== userId) throw new ForbiddenError("Bu ilan size ait değil");
+
+    if (listing.photos.length >= listingRepository.MAX_PHOTOS) throw new TooManyPhotosError();
+    if (file.size > MAX_FILE_SIZE) throw new FileTooLargeError();
+    if (!(ALLOWED_TYPES as readonly string[]).includes(file.type)) throw new InvalidFileTypeError();
+
+    const ext = file.type === "image/jpeg" ? "jpg" : file.type.split("/")[1];
+    const key = `listings/${listing.id}/${crypto.randomUUID()}.${ext}`;
+
+    await env.STORAGE.put(key, file.stream(), {
+      httpMetadata: { contentType: file.type },
+    });
+
+    const bucketUrl = env.STORAGE_PUBLIC_URL ?? "/api/storage";
+    const photoUrl = `${bucketUrl}/${key}`;
+    const photos = [...listing.photos, photoUrl];
+
+    await listingRepository.updatePhotos(db, listing.id, photos);
+
+    return { ...listing, photos };
+  },
+
+  async getByUser(db: D1Database, slug: string): Promise<ListingListItem[]> {
+    const user = await userRepository.findBySlug(db, slug);
+    if (!user) return [];
+    return listingRepository.findByUserId(db, user.id, "active");
+  },
+} as const;
