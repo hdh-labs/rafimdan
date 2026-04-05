@@ -119,12 +119,36 @@ export const listingService = {
       httpMetadata: { contentType: file.type },
     });
 
-    const bucketUrl = env.STORAGE_PUBLIC_URL ?? "/api/storage";
+    const bucketUrl = env.STORAGE_PUBLIC_URL || "/api/storage";
     const photoUrl = `${bucketUrl}/${key}`;
     const photos = [...listing.photos, photoUrl];
 
     await listingRepository.updatePhotos(db, listing.id, photos);
 
+    return { ...listing, photos };
+  },
+
+  async deletePhoto(
+    db: D1Database,
+    env: Env,
+    userId: string,
+    slug: string,
+    index: number,
+  ): Promise<ListingDetail> {
+    const listing = await listingRepository.findBySlug(db, slug);
+    if (!listing) throw new ListingNotFoundError();
+    if (listing.seller.id !== userId) throw new ForbiddenError("Bu ilan size ait değil");
+
+    if (index < 0 || index >= listing.photos.length) {
+      throw new ListingNotFoundError();
+    }
+
+    const photoUrl = listing.photos[index]!;
+    const key = photoUrl.replace(/^.*\/api\/storage\//, "");
+    await env.STORAGE.delete(key);
+
+    const photos = listing.photos.filter((_, i) => i !== index);
+    await listingRepository.updatePhotos(db, listing.id, photos);
     return { ...listing, photos };
   },
 

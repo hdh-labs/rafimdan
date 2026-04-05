@@ -152,4 +152,23 @@ listings.post("/:slug/photos", authMiddleware, async (c) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// DELETE /:slug/photos/:index — fotoğraf sil
+// ---------------------------------------------------------------------------
+
+listings.delete("/:slug/photos/:index", authMiddleware, async (c) => {
+  try {
+    const { sub } = c.get("user");
+    const slug = c.req.param("slug");
+    const index = Number(c.req.param("index"));
+    if (!Number.isInteger(index) || index < 0) {
+      return c.json({ error: "Geçersiz index", status: "error", code: "INVALID_INDEX" }, 400);
+    }
+    const listing = await listingService.deletePhoto(c.env.DB, c.env, sub, slug, index);
+    return c.json({ data: listing, status: "ok" });
+  } catch (err) {
+    return handleError(c, err);
+  }
+});
+
 export default listings;
