@@ -79,15 +79,12 @@ auth.get("/google/callback", async (c) => {
     setRefreshCookie(c, result.refreshToken);
 
     const frontendUrl = c.env.CORS_ORIGIN || "http://localhost:3000";
-    return c.redirect(
-      `${frontendUrl}/auth/callback#access_token=${result.access_token}`,
-      302,
-    );
+    return c.redirect(`${frontendUrl}/auth/callback`, 302);
   } catch (err) {
     if (err instanceof AppError) {
       const frontendUrl = c.env.CORS_ORIGIN || "http://localhost:3000";
       return c.redirect(
-        `${frontendUrl}/auth/callback#error=${encodeURIComponent(err.message)}`,
+        `${frontendUrl}/auth/callback?error=${encodeURIComponent(err.message)}`,
         302,
       );
     }

@@ -1,20 +1,25 @@
 <script setup lang="ts">
+import type { UserProfile } from "@rafimdan/shared"
+
 definePageMeta({ layout: false })
 
 const authStore = useAuthStore()
 
 onMounted(async () => {
-  const hash = window.location.hash.slice(1)
-  const params = new URLSearchParams(hash)
-  const token = params.get("access_token")
+  const params = new URLSearchParams(window.location.search)
+  const error = params.get("error")
 
-  if (!token) {
+  if (error) {
     await navigateTo("/giris")
     return
   }
 
   try {
-    await authStore.login(token)
+    const res = await $fetch<{ data: { user: UserProfile; access_token: string }; status: "ok" }>(
+      "/api/auth/refresh",
+      { method: "POST", credentials: "include" },
+    )
+    await authStore.login(res.data.access_token)
     await navigateTo("/")
   } catch {
     await navigateTo("/giris")
