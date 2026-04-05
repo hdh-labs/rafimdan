@@ -11,7 +11,7 @@ export type ReportRow = {
 export type ReportWithDetails = ReportRow & {
   listing_slug: string;
   listing_title: string;
-  reporter_email: string;
+  reporter_name: string;
 };
 
 async function create(
@@ -46,7 +46,7 @@ async function findAll(db: D1Database): Promise<ReportWithDetails[]> {
     .prepare(
       `SELECT r.id, r.listing_id, r.reporter_id, r.reason, r.created_at,
               l.slug AS listing_slug, l.title AS listing_title,
-              u.email AS reporter_email
+              u.name AS reporter_name
        FROM reports r
        JOIN listings l ON l.id = r.listing_id
        JOIN users u ON u.id = r.reporter_id
