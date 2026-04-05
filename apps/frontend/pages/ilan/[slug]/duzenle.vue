@@ -75,6 +75,7 @@ const ilceler = computed(() => getIlceler(form.city))
 
 const submitting = ref(false)
 const deleting = ref(false)
+const showDeleteConfirm = ref(false)
 const statusChanging = ref(false)
 const deletingPhotoIndex = ref<number | null>(null)
 const submitError = ref<string | null>(null)
@@ -235,9 +236,9 @@ async function changeStatus(status: ListingStatus) {
   }
 }
 
-async function deleteListing() {
-  if (!confirm("İlanı kalıcı olarak silmek istediğinize emin misiniz?")) return
+async function confirmDelete() {
   deleting.value = true
+  showDeleteConfirm.value = false
   submitError.value = null
   try {
     await apiFetch(`/api/listings/${slug}`, { method: "DELETE" })
@@ -263,14 +264,42 @@ async function deleteListing() {
       <div class="flex items-center justify-between">
         <h1 class="text-xl font-bold text-foreground">İlanı Düzenle</h1>
         <button
+          v-if="!showDeleteConfirm"
           type="button"
           :disabled="deleting"
           class="flex items-center gap-1.5 text-sm text-destructive hover:opacity-70 cursor-pointer transition-opacity disabled:opacity-40"
-          @click="deleteListing"
+          @click="showDeleteConfirm = true"
         >
           <Trash2 class="size-4" />
           İlanı Sil
         </button>
+      </div>
+
+      <div
+        v-if="showDeleteConfirm"
+        class="rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-3"
+      >
+        <p class="text-sm font-medium text-foreground">
+          <span class="text-destructive">"{{ listing.title }}"</span> ilanını kalıcı olarak silmek istediğine emin misin?
+        </p>
+        <div class="flex gap-2">
+          <button
+            type="button"
+            :disabled="deleting"
+            class="px-4 py-1.5 text-sm bg-destructive text-white rounded-lg cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5"
+            @click="confirmDelete"
+          >
+            <Loader2 v-if="deleting" class="size-3.5 animate-spin" />
+            Evet, sil
+          </button>
+          <button
+            type="button"
+            class="px-4 py-1.5 text-sm border border-border rounded-lg cursor-pointer hover:bg-muted transition-colors"
+            @click="showDeleteConfirm = false"
+          >
+            Vazgeç
+          </button>
+        </div>
       </div>
 
       <!-- İlan Durumu -->
@@ -380,7 +409,7 @@ async function deleteListing() {
         <!-- Fiyat -->
         <div v-if="form.price_type !== 'free'">
           <label class="block text-sm font-medium text-foreground mb-1">
-            Fiyat (₺) <span class="text-destructive">*</span>
+            {{ form.price_type === 'negotiable' ? 'Başlangıç Fiyatı (₺)' : 'Fiyat (₺)' }} <span class="text-destructive">*</span>
           </label>
           <input
             v-model.number="form.price"
