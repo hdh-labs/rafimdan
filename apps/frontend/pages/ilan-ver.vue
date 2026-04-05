@@ -115,11 +115,13 @@ async function submit() {
 
     const { slug } = res.data
 
-    for (const file of selectedFiles.value) {
-      const fd = new FormData()
-      fd.append("file", file)
-      await apiFetch(`/api/listings/${slug}/photos`, { method: "POST", body: fd })
-    }
+    await Promise.allSettled(
+      selectedFiles.value.map((file) => {
+        const fd = new FormData()
+        fd.append("file", file)
+        return apiFetch(`/api/listings/${slug}/photos`, { method: "POST", body: fd })
+      }),
+    )
 
     await navigateTo(`/ilan/${slug}`)
   } catch (err) {
