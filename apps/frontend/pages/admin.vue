@@ -9,7 +9,7 @@ type Report = {
   listing_id: string
   listing_slug: string
   listing_title: string
-  reporter_email: string
+  reporter_name: string
   reason: string
   created_at: string
 }
@@ -106,7 +106,7 @@ function formatDate(iso: string) {
                 <ExternalLink class="size-3 shrink-0" />
               </NuxtLink>
               <p class="text-xs text-muted-foreground mt-0.5">
-                {{ r.reporter_email }} · {{ formatDate(r.created_at) }}
+                {{ r.reporter_name }} · {{ formatDate(r.created_at) }}
               </p>
             </div>
             <span class="shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
