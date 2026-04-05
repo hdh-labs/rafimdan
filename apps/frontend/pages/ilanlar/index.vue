@@ -49,6 +49,21 @@ watch(() => draft.city, () => {
   if (!getIlceler(draft.city).includes(draft.district)) draft.district = ""
 })
 
+// back/forward navigasyonunda draft'ı URL ile senkronize tut
+watch(() => route.query, (q) => {
+  draft.city = (q.city as string) || ""
+  draft.district = (q.district as string) || ""
+  draft.category = (q.category as string) || ""
+  draft.price_type = (q.price_type as string) || ""
+  draft.condition = (q.condition as string) || ""
+  draft.q = (q.q as string) || ""
+})
+
+// sayfa değişince listeye scroll
+watch(currentPage, () => {
+  if (import.meta.client) window.scrollTo({ top: 0, behavior: "smooth" })
+})
+
 function applyFilters() {
   const query: Record<string, string> = {}
   if (draft.city) query.city = draft.city
