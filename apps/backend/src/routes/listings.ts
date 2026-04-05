@@ -4,6 +4,7 @@ import { zValidator } from "@hono/zod-validator";
 import type { HonoEnv } from "../types/env";
 import { authMiddleware } from "../middleware/auth";
 import { listingService } from "../services/listing.service";
+import { reportService } from "../services/report.service";
 import { AppError } from "../errors";
 import {
   createListingSchema,
@@ -166,6 +167,23 @@ listings.delete("/:slug/photos/:index", authMiddleware, async (c) => {
     }
     const listing = await listingService.deletePhoto(c.env.DB, c.env, sub, slug, index);
     return c.json({ data: listing, status: "ok" });
+  } catch (err) {
+    return handleError(c, err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /:slug/report — bildir
+// ---------------------------------------------------------------------------
+
+listings.post("/:slug/report", authMiddleware, async (c) => {
+  try {
+    const { sub } = c.get("user");
+    const slug = c.req.param("slug");
+    const body = await c.req.json<{ reason?: string }>();
+    const reason = body?.reason ?? "other";
+    await reportService.report(c.env.DB, sub, slug, reason);
+    return c.json({ data: null, status: "ok" }, 201);
   } catch (err) {
     return handleError(c, err);
   }
