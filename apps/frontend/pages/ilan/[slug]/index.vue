@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { MapPin, Eye, MessageCircle, ChevronLeft, ChevronRight, Pencil } from "lucide-vue-next"
+import { MapPin, Eye, MessageCircle, ChevronLeft, ChevronRight, Pencil, Flag } from "lucide-vue-next"
+import { toast } from "vue-sonner"
 import type { ListingDetail } from "@rafimdan/shared"
+import { apiFetch, ApiError } from "~/utils/api"
 
 type DetailResp = { data: ListingDetail; status: "ok" }
 
@@ -115,6 +117,39 @@ const memberSince = computed(() => {
 })
 
 const sellerAvatarError = ref(false)
+
+const reportPending = ref(false)
+
+const REPORT_REASONS = [
+  { value: "spam", label: "Spam / Reklam" },
+  { value: "fraud", label: "Dolandırıcılık" },
+  { value: "inappropriate", label: "Uygunsuz İçerik" },
+  { value: "wrong_category", label: "Yanlış Kategori" },
+  { value: "other", label: "Diğer" },
+] as const
+
+const showReportModal = ref(false)
+const reportReason = ref<string>("other")
+
+async function submitReport() {
+  if (!authStore.isLoggedIn) {
+    await navigateTo("/giris")
+    return
+  }
+  reportPending.value = true
+  try {
+    await apiFetch(`/api/listings/${slug.value}/report`, {
+      method: "POST",
+      body: JSON.stringify({ reason: reportReason.value }),
+    })
+    toast.success("İlan bildirildi. Teşekkürler.")
+    showReportModal.value = false
+  } catch (err) {
+    toast.error(err instanceof ApiError ? err.message : "Bir hata oluştu.")
+  } finally {
+    reportPending.value = false
+  }
+}
 </script>
 
 <template>
@@ -271,7 +306,62 @@ const sellerAvatarError = ref(false)
         <p v-else class="text-sm text-muted-foreground text-center">
           Satıcı iletişim bilgisi paylaşmamış.
         </p>
+
+        <button
+          v-if="!isOwner"
+          type="button"
+          class="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors cursor-pointer w-full justify-center pt-1"
+          @click="showReportModal = true"
+        >
+          <Flag class="size-3" />
+          İlanı Bildir
+        </button>
       </div>
     </div>
   </div>
+
+  <!-- Bildir Modal -->
+  <Teleport to="body">
+    <div
+      v-if="showReportModal"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
+      @click.self="showReportModal = false"
+    >
+      <div class="w-full max-w-sm bg-background rounded-lg border border-border shadow-lg p-5 space-y-4">
+        <h2 class="text-sm font-semibold text-foreground">İlanı Bildir</h2>
+        <div class="space-y-2">
+          <label
+            v-for="opt in REPORT_REASONS"
+            :key="opt.value"
+            class="flex items-center gap-2 text-sm cursor-pointer"
+          >
+            <input
+              v-model="reportReason"
+              type="radio"
+              :value="opt.value"
+              class="accent-foreground cursor-pointer"
+            />
+            {{ opt.label }}
+          </label>
+        </div>
+        <div class="flex gap-2 pt-1">
+          <button
+            type="button"
+            class="flex-1 py-2 text-sm border border-border rounded-md hover:bg-muted cursor-pointer transition-colors"
+            @click="showReportModal = false"
+          >
+            Vazgeç
+          </button>
+          <button
+            type="button"
+            :disabled="reportPending"
+            class="flex-1 py-2 text-sm bg-foreground text-background rounded-md hover:opacity-90 cursor-pointer transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+            @click="submitReport"
+          >
+            {{ reportPending ? "Gönderiliyor..." : "Gönder" }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
