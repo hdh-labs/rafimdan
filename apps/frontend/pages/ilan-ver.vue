@@ -245,7 +245,7 @@ async function submit() {
       <!-- Fiyat -->
       <div v-if="form.price_type !== 'free'">
         <label class="block text-sm font-medium text-foreground mb-1">
-          Fiyat (₺) <span class="text-destructive">*</span>
+          {{ form.price_type === 'negotiable' ? 'Başlangıç Fiyatı (₺)' : 'Fiyat (₺)' }} <span class="text-destructive">*</span>
         </label>
         <input
           v-model.number="form.price"
