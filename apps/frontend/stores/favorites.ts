@@ -5,9 +5,14 @@ import type { FavoritesResponse } from "@rafimdan/shared"
 export const useFavoritesStore = defineStore("favorites", () => {
   const authStore = useAuthStore()
   const ids = ref<Set<string>>(new Set())
+  const pending = ref<Set<string>>(new Set())
 
   function isFavorited(listingId: string): boolean {
     return ids.value.has(listingId)
+  }
+
+  function isPending(listingId: string): boolean {
+    return pending.value.has(listingId)
   }
 
   async function fetchFavorites(): Promise<void> {
@@ -29,6 +34,9 @@ export const useFavoritesStore = defineStore("favorites", () => {
       return
     }
 
+    if (pending.value.has(listingId)) return
+
+    pending.value = new Set([...pending.value, listingId])
     const wasFavorited = ids.value.has(listingId)
 
     if (wasFavorited) {
@@ -53,7 +61,10 @@ export const useFavoritesStore = defineStore("favorites", () => {
         ids.value = new Set(ids.value)
       }
     }
+
+    pending.value.delete(listingId)
+    pending.value = new Set(pending.value)
   }
 
-  return { ids, isFavorited, fetchFavorites, toggle }
+  return { ids, isFavorited, isPending, fetchFavorites, toggle }
 })

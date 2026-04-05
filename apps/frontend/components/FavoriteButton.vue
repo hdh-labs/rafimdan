@@ -5,6 +5,7 @@ const props = defineProps<{ listingId: string }>()
 
 const favoritesStore = useFavoritesStore()
 const isFavorited = computed(() => favoritesStore.isFavorited(props.listingId))
+const isPending = computed(() => favoritesStore.isPending(props.listingId))
 
 async function handleClick(e: Event) {
   e.preventDefault()
@@ -16,9 +17,10 @@ async function handleClick(e: Event) {
 <template>
   <button
     type="button"
+    :disabled="isPending"
     :aria-label="isFavorited ? 'Favorilerden çıkar' : 'Favorilere ekle'"
     :aria-pressed="isFavorited"
-    class="flex items-center justify-center size-8 rounded-full bg-white/90 shadow-sm hover:bg-white transition-colors cursor-pointer"
+    class="flex items-center justify-center size-8 rounded-full bg-white/90 shadow-sm hover:bg-white transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
     @click="handleClick"
   >
     <Heart
