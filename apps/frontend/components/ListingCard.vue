@@ -36,6 +36,13 @@ const CONDITION_LABELS: Record<Condition, string> = {
   fair: "Fena Değil",
 }
 
+const CONDITION_COLORS: Record<Condition, string> = {
+  new: "bg-green-50 text-green-700",
+  like_new: "bg-blue-50 text-blue-700",
+  good: "bg-amber-50 text-amber-700",
+  fair: "bg-gray-100 text-gray-600",
+}
+
 const isOverlaid = computed(() => props.status === "reserved" || props.status === "sold")
 
 const statusLabel = computed(() => {
@@ -47,7 +54,7 @@ const statusLabel = computed(() => {
 const priceDisplay = computed(() => {
   if (props.price_type === "free") return "Ücretsiz"
   const formatted = props.price.toLocaleString("tr-TR") + " ₺"
-  if (props.price_type === "negotiable") return `${formatted} · Pazarlığa açık`
+  if (props.price_type === "negotiable") return formatted + " · Pazarlık"
   return formatted
 })
 
@@ -70,11 +77,12 @@ const sellerInitials = computed(() =>
   <NuxtLink
     :to="`/ilan/${slug}`"
     :class="cn(
-      'group block rounded-lg border border-border bg-background overflow-hidden',
-      'hover:shadow-md transition-shadow cursor-pointer',
-      isOverlaid && 'opacity-70'
+      'group block rounded-xl border border-border bg-white overflow-hidden',
+      'hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer',
+      isOverlaid && 'opacity-60'
     )"
   >
+    <!-- Görsel -->
     <div class="relative aspect-[4/3] bg-muted overflow-hidden">
       <img
         v-if="cover_photo"
@@ -88,7 +96,7 @@ const sellerInitials = computed(() =>
         class="size-full flex items-center justify-center"
         aria-hidden="true"
       >
-        <ImageOff class="size-10 text-muted-foreground/40" />
+        <ImageOff class="size-10 text-muted-foreground/30" />
       </div>
 
       <div
@@ -105,46 +113,46 @@ const sellerInitials = computed(() =>
       </div>
     </div>
 
-    <div class="p-3 flex flex-col gap-2">
-      <div class="flex items-start justify-between gap-2">
-        <h3 class="text-sm font-medium text-foreground line-clamp-2 leading-snug flex-1">
-          {{ title }}
-        </h3>
+    <!-- Bilgiler -->
+    <div class="p-3 space-y-1.5">
+      <h3 class="text-sm font-semibold text-foreground line-clamp-2 leading-snug">
+        {{ title }}
+      </h3>
+
+      <div class="flex items-center justify-between gap-2">
+        <p
+          class="text-sm font-bold"
+          :class="price_type === 'free' ? 'text-green-700' : 'text-foreground'"
+        >
+          {{ priceDisplay }}
+        </p>
         <span
-          class="shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground"
+          class="shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+          :class="CONDITION_COLORS[condition]"
         >
           {{ CONDITION_LABELS[condition] }}
         </span>
       </div>
 
-      <p
-        :class="cn(
-          'text-sm font-semibold',
-          price_type === 'free' ? 'text-green-700' : 'text-foreground'
-        )"
-      >
-        {{ priceDisplay }}
-      </p>
-
-      <div class="flex items-center gap-1 text-xs text-muted-foreground">
-        <MapPin class="size-3 shrink-0" />
-        <span class="truncate">{{ locationDisplay }}</span>
-      </div>
-
-      <div class="flex items-center gap-2 pt-1 border-t border-border">
-        <span
-          class="inline-flex shrink-0 items-center justify-center size-6 rounded-full bg-muted text-xs font-medium text-muted-foreground overflow-hidden"
-        >
-          <img
-            v-if="seller.avatar_url"
-            :src="seller.avatar_url"
-            :alt="seller.name"
-            referrerpolicy="no-referrer"
-            class="size-full object-cover"
-          />
-          <span v-else>{{ sellerInitials }}</span>
-        </span>
-        <span class="text-xs text-muted-foreground truncate">{{ seller.name }}</span>
+      <div class="flex items-center justify-between pt-1 border-t border-border/60">
+        <div class="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
+          <MapPin class="size-3 shrink-0" />
+          <span class="truncate">{{ locationDisplay }}</span>
+        </div>
+        <div class="flex items-center gap-1 shrink-0 ml-2">
+          <span
+            class="inline-flex items-center justify-center size-5 rounded-full bg-muted text-xs font-medium text-muted-foreground overflow-hidden"
+          >
+            <img
+              v-if="seller.avatar_url"
+              :src="seller.avatar_url"
+              :alt="seller.name"
+              referrerpolicy="no-referrer"
+              class="size-full object-cover"
+            />
+            <span v-else>{{ sellerInitials }}</span>
+          </span>
+        </div>
       </div>
     </div>
   </NuxtLink>
