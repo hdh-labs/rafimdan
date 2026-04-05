@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { SlidersHorizontal, X, Search } from "lucide-vue-next"
 import type { ListingListItem, CategoryTree, PaginatedResponse } from "@rafimdan/shared"
+import { IL_NAMES, getIlceler } from "~/utils/turkey-locations"
 
 type ListingsResp = { data: PaginatedResponse<ListingListItem>; status: "ok" }
 type CategoriesResp = { data: CategoryTree[]; status: "ok" }
@@ -16,6 +17,7 @@ const { data: listingsRes, pending } = await useFetch<ListingsResp>(
     const p = new URLSearchParams()
     const q = route.query
     if (q.city) p.set("city", q.city as string)
+    if (q.district) p.set("district", q.district as string)
     if (q.category) p.set("category", q.category as string)
     if (q.price_type) p.set("price_type", q.price_type as string)
     if (q.condition) p.set("condition", q.condition as string)
@@ -34,15 +36,23 @@ const totalPages = computed(() => Math.ceil(total.value / 20))
 
 const draft = reactive({
   city: (route.query.city as string) || "",
+  district: (route.query.district as string) || "",
   category: (route.query.category as string) || "",
   price_type: (route.query.price_type as string) || "",
   condition: (route.query.condition as string) || "",
   q: (route.query.q as string) || "",
 })
 
+const ilceler = computed(() => getIlceler(draft.city))
+
+watch(() => draft.city, () => {
+  if (!getIlceler(draft.city).includes(draft.district)) draft.district = ""
+})
+
 function applyFilters() {
   const query: Record<string, string> = {}
   if (draft.city) query.city = draft.city
+  if (draft.district) query.district = draft.district
   if (draft.category) query.category = draft.category
   if (draft.price_type) query.price_type = draft.price_type
   if (draft.condition) query.condition = draft.condition
@@ -51,7 +61,7 @@ function applyFilters() {
 }
 
 function clearFilters() {
-  Object.assign(draft, { city: "", category: "", price_type: "", condition: "", q: "" })
+  Object.assign(draft, { city: "", district: "", category: "", price_type: "", condition: "", q: "" })
   router.push({ query: {} })
 }
 
@@ -60,7 +70,7 @@ function goToPage(p: number) {
 }
 
 const hasFilters = computed(
-  () => draft.city || draft.category || draft.price_type || draft.condition || draft.q,
+  () => draft.city || draft.district || draft.category || draft.price_type || draft.condition || draft.q,
 )
 
 const CONDITION_LABELS: Record<string, string> = {
@@ -118,13 +128,25 @@ useSeoMeta({
 
           <div>
             <label class="text-xs font-medium text-muted-foreground mb-1 block">Şehir</label>
-            <input
+            <select
               v-model="draft.city"
-              type="text"
-              placeholder="İstanbul, Ankara..."
-              class="w-full px-3 py-1.5 text-sm border border-border rounded-md bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-              @keydown.enter="applyFilters"
-            />
+              class="w-full px-3 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+            >
+              <option value="">Tümü</option>
+              <option v-for="il in IL_NAMES" :key="il" :value="il">{{ il }}</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="text-xs font-medium text-muted-foreground mb-1 block">İlçe</label>
+            <select
+              v-model="draft.district"
+              :disabled="!draft.city"
+              class="w-full px-3 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <option value="">Tümü</option>
+              <option v-for="ilce in ilceler" :key="ilce" :value="ilce">{{ ilce }}</option>
+            </select>
           </div>
 
           <div>

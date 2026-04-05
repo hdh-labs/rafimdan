@@ -2,6 +2,7 @@
 import { Upload, X, ImagePlus } from "lucide-vue-next"
 import type { ListingDetail, CategoryTree, ApiResponse } from "@rafimdan/shared"
 import { apiFetch, ApiError } from "~/utils/api"
+import { IL_NAMES, getIlceler } from "~/utils/turkey-locations"
 
 definePageMeta({ middleware: ["auth"] })
 
@@ -16,14 +17,32 @@ const form = reactive({
   condition: "" as "new" | "like_new" | "good" | "fair" | "",
   price_type: "fixed" as "fixed" | "negotiable" | "free",
   price: "" as number | "",
-  city: authStore.user?.city ?? "",
-  district: authStore.user?.district ?? "",
+  city: IL_NAMES.includes(authStore.user?.city ?? "") ? (authStore.user?.city ?? "") : "",
+  district: "",
   description: "",
 })
 
+const errors = reactive<Record<string, string>>({})
 const selectedFiles = ref<File[]>([])
 const submitting = ref(false)
-const error = ref<string | null>(null)
+const submitError = ref<string | null>(null)
+
+const ilceler = computed(() => getIlceler(form.city))
+
+watch(() => form.city, () => {
+  const saved = authStore.user?.district ?? ""
+  form.district = getIlceler(form.city).includes(saved) ? saved : ""
+  delete errors.city
+})
+
+watch(() => form.title, () => { delete errors.title })
+watch(() => form.category_id, () => { delete errors.category_id })
+watch(() => form.condition, () => { delete errors.condition })
+watch(() => form.price, () => { delete errors.price })
+watch(() => form.price_type, (val) => {
+  if (val === "free") form.price = ""
+  delete errors.price
+})
 
 const CONDITION_OPTIONS = [
   { value: "new", label: "Yeni" },
@@ -34,9 +53,26 @@ const CONDITION_OPTIONS = [
 
 const priceDisabled = computed(() => form.price_type === "free")
 
-watch(() => form.price_type, (val) => {
-  if (val === "free") form.price = ""
-})
+function validate(): boolean {
+  const e: Record<string, string> = {}
+
+  const title = form.title.trim()
+  if (!title) e.title = "Başlık zorunludur."
+  else if (title.length < 3) e.title = "Başlık en az 3 karakter olmalıdır."
+  else if (title.length > 100) e.title = "Başlık en fazla 100 karakter olabilir."
+
+  if (!form.category_id) e.category_id = "Kategori seçiniz."
+  if (!form.condition) e.condition = "Ürün durumu seçiniz."
+  if (!form.city) e.city = "Şehir seçiniz."
+
+  if (form.price_type !== "free") {
+    if (form.price === "" || form.price === null) e.price = "Fiyat zorunludur."
+    else if (Number(form.price) <= 0) e.price = "Fiyat 0'dan büyük olmalıdır."
+  }
+
+  Object.assign(errors, e)
+  return Object.keys(e).length === 0
+}
 
 function onFileChange(e: Event) {
   const input = e.target as HTMLInputElement
@@ -56,28 +92,20 @@ function previewUrl(file: File) {
 }
 
 async function submit() {
-  error.value = null
-
-  if (!form.title || !form.category_id || !form.condition || !form.city) {
-    error.value = "Zorunlu alanları doldurun."
-    return
-  }
-  if (form.price_type !== "free" && !form.price) {
-    error.value = "Fiyat giriniz."
-    return
-  }
+  submitError.value = null
+  if (!validate()) return
 
   submitting.value = true
   try {
     const body: Record<string, unknown> = {
-      title: form.title,
+      title: form.title.trim(),
       category_id: form.category_id,
       condition: form.condition,
       price_type: form.price_type,
       city: form.city,
     }
     if (form.district) body.district = form.district
-    if (form.description) body.description = form.description
+    if (form.description.trim()) body.description = form.description.trim()
     if (form.price !== "") body.price = Number(form.price)
 
     const res = await apiFetch<ApiResponse<ListingDetail>>("/api/listings", {
@@ -95,7 +123,7 @@ async function submit() {
 
     await navigateTo(`/ilan/${slug}`)
   } catch (err) {
-    error.value = err instanceof ApiError ? err.message : "Bir hata oluştu."
+    submitError.value = err instanceof ApiError ? err.message : "Bir hata oluştu, tekrar deneyin."
   } finally {
     submitting.value = false
   }
@@ -106,7 +134,9 @@ async function submit() {
   <div class="max-w-2xl mx-auto px-4 py-8">
     <h1 class="text-xl font-bold text-foreground mb-6">İlan Ver</h1>
 
-    <form class="space-y-5" @submit.prevent="submit">
+    <form class="space-y-5" novalidate @submit.prevent="submit">
+
+      <!-- Başlık -->
       <div>
         <label class="block text-sm font-medium text-foreground mb-1">
           Başlık <span class="text-destructive">*</span>
@@ -116,17 +146,25 @@ async function submit() {
           type="text"
           maxlength="100"
           placeholder="Ne satıyorsunuz?"
-          class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+          :class="[
+            'w-full px-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 transition-colors',
+            errors.title ? 'border-destructive focus:ring-destructive' : 'border-border focus:ring-ring',
+          ]"
         />
+        <p v-if="errors.title" class="mt-1 text-xs text-destructive">{{ errors.title }}</p>
       </div>
 
+      <!-- Kategori -->
       <div>
         <label class="block text-sm font-medium text-foreground mb-1">
           Kategori <span class="text-destructive">*</span>
         </label>
         <select
           v-model="form.category_id"
-          class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+          :class="[
+            'w-full px-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 cursor-pointer transition-colors',
+            errors.category_id ? 'border-destructive focus:ring-destructive' : 'border-border focus:ring-ring',
+          ]"
         >
           <option value="" disabled>Seçiniz</option>
           <template v-for="cat in categories" :key="cat.id">
@@ -136,8 +174,10 @@ async function submit() {
             </option>
           </template>
         </select>
+        <p v-if="errors.category_id" class="mt-1 text-xs text-destructive">{{ errors.category_id }}</p>
       </div>
 
+      <!-- Ürün Durumu -->
       <div>
         <label class="block text-sm font-medium text-foreground mb-2">
           Ürün Durumu <span class="text-destructive">*</span>
@@ -149,14 +189,18 @@ async function submit() {
             class="flex items-center justify-center py-2 px-3 rounded-md border text-sm cursor-pointer transition-colors"
             :class="form.condition === opt.value
               ? 'border-foreground bg-foreground text-background'
-              : 'border-border hover:bg-muted'"
+              : errors.condition
+                ? 'border-destructive hover:bg-muted'
+                : 'border-border hover:bg-muted'"
           >
             <input v-model="form.condition" type="radio" :value="opt.value" class="sr-only" />
             {{ opt.label }}
           </label>
         </div>
+        <p v-if="errors.condition" class="mt-1 text-xs text-destructive">{{ errors.condition }}</p>
       </div>
 
+      <!-- Fiyat Tipi -->
       <div>
         <label class="block text-sm font-medium text-foreground mb-2">
           Fiyat Tipi <span class="text-destructive">*</span>
@@ -180,44 +224,56 @@ async function submit() {
         </div>
       </div>
 
-      <div>
+      <!-- Fiyat -->
+      <div v-if="form.price_type !== 'free'">
         <label class="block text-sm font-medium text-foreground mb-1">
-          Fiyat (₺)
-          <span v-if="form.price_type !== 'free'" class="text-destructive">*</span>
+          Fiyat (₺) <span class="text-destructive">*</span>
         </label>
         <input
           v-model.number="form.price"
           type="number"
-          min="0"
-          :disabled="priceDisabled"
+          min="1"
           placeholder="0"
-          class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-40 disabled:cursor-not-allowed"
+          :class="[
+            'w-full px-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 transition-colors',
+            errors.price ? 'border-destructive focus:ring-destructive' : 'border-border focus:ring-ring',
+          ]"
         />
+        <p v-if="errors.price" class="mt-1 text-xs text-destructive">{{ errors.price }}</p>
       </div>
 
+      <!-- Şehir / İlçe -->
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium text-foreground mb-1">
             Şehir <span class="text-destructive">*</span>
           </label>
-          <input
+          <select
             v-model="form.city"
-            type="text"
-            placeholder="İstanbul"
-            class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-          />
+            :class="[
+              'w-full px-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 cursor-pointer transition-colors',
+              errors.city ? 'border-destructive focus:ring-destructive' : 'border-border focus:ring-ring',
+            ]"
+          >
+            <option value="" disabled>Seçiniz</option>
+            <option v-for="il in IL_NAMES" :key="il" :value="il">{{ il }}</option>
+          </select>
+          <p v-if="errors.city" class="mt-1 text-xs text-destructive">{{ errors.city }}</p>
         </div>
         <div>
           <label class="block text-sm font-medium text-foreground mb-1">İlçe</label>
-          <input
+          <select
             v-model="form.district"
-            type="text"
-            placeholder="Kadıköy"
-            class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-          />
+            :disabled="!form.city"
+            class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <option value="">Seçiniz</option>
+            <option v-for="ilce in ilceler" :key="ilce" :value="ilce">{{ ilce }}</option>
+          </select>
         </div>
       </div>
 
+      <!-- Açıklama -->
       <div>
         <label class="block text-sm font-medium text-foreground mb-1">Açıklama</label>
         <textarea
@@ -232,12 +288,12 @@ async function submit() {
         </p>
       </div>
 
+      <!-- Fotoğraflar -->
       <div>
         <label class="block text-sm font-medium text-foreground mb-2">
           Fotoğraflar
-          <span class="font-normal text-muted-foreground">(max 6)</span>
+          <span class="font-normal text-muted-foreground">(max 6, jpeg/png/webp)</span>
         </label>
-
         <div class="flex flex-wrap gap-2">
           <div
             v-for="(file, i) in selectedFiles"
@@ -271,7 +327,10 @@ async function submit() {
         </div>
       </div>
 
-      <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
+      <!-- Submit error -->
+      <p v-if="submitError" class="text-sm text-destructive bg-destructive/5 border border-destructive/20 rounded-md px-3 py-2">
+        {{ submitError }}
+      </p>
 
       <button
         type="submit"

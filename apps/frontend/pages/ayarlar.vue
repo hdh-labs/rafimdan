@@ -2,6 +2,7 @@
 import { Save } from "lucide-vue-next"
 import type { UserProfile, ApiResponse } from "@rafimdan/shared"
 import { apiFetch, ApiError } from "~/utils/api"
+import { IL_NAMES, getIlceler } from "~/utils/turkey-locations"
 
 definePageMeta({ middleware: ["auth"] })
 
@@ -10,8 +11,14 @@ const authStore = useAuthStore()
 const form = reactive({
   display_name: authStore.user?.display_name ?? "",
   whatsapp: authStore.user?.whatsapp ?? "",
-  city: authStore.user?.city ?? "",
+  city: IL_NAMES.includes(authStore.user?.city ?? "") ? (authStore.user?.city ?? "") : "",
   district: authStore.user?.district ?? "",
+})
+
+const ilceler = computed(() => getIlceler(form.city))
+
+watch(() => form.city, () => {
+  if (!getIlceler(form.city).includes(form.district)) form.district = ""
 })
 
 const submitting = ref(false)
@@ -110,21 +117,24 @@ async function save() {
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium text-foreground mb-1">Şehir</label>
-          <input
+          <select
             v-model="form.city"
-            type="text"
-            placeholder="İstanbul"
-            class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-          />
+            class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+          >
+            <option value="">Seçiniz</option>
+            <option v-for="il in IL_NAMES" :key="il" :value="il">{{ il }}</option>
+          </select>
         </div>
         <div>
           <label class="block text-sm font-medium text-foreground mb-1">İlçe</label>
-          <input
+          <select
             v-model="form.district"
-            type="text"
-            placeholder="Kadıköy"
-            class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-          />
+            :disabled="!form.city"
+            class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <option value="">Seçiniz</option>
+            <option v-for="ilce in ilceler" :key="ilce" :value="ilce">{{ ilce }}</option>
+          </select>
         </div>
       </div>
 

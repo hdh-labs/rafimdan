@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { MapPin, CalendarDays } from "lucide-vue-next"
+import { MapPin, CalendarDays, MessageCircle, ShoppingBag } from "lucide-vue-next"
 import type { UserProfile, ListingListItem } from "@rafimdan/shared"
 
+type ProfileWithStats = UserProfile & { listing_count: number; sold_count: number }
+
 type ProfileResp = {
-  data: { profile: UserProfile; listings: ListingListItem[] }
+  data: { profile: ProfileWithStats; listings: ListingListItem[] }
   status: "ok"
 }
 
@@ -39,6 +41,8 @@ const memberSince = computed(() => {
   return d.toLocaleDateString("tr-TR", { year: "numeric", month: "long" })
 })
 
+const avatarError = ref(false)
+
 useSeoMeta({
   title: () => `${displayName.value} — Rafımdan`,
   description: () =>
@@ -53,16 +57,17 @@ useSeoMeta({
         class="inline-flex shrink-0 items-center justify-center size-16 rounded-full bg-muted text-lg font-semibold text-muted-foreground overflow-hidden"
       >
         <img
-          v-if="profile.avatar_url"
+          v-if="profile.avatar_url && !avatarError"
           :src="profile.avatar_url"
           :alt="displayName"
           referrerpolicy="no-referrer"
           class="size-full object-cover"
+          @error="avatarError = true"
         />
         <span v-else>{{ initials }}</span>
       </span>
 
-      <div class="min-w-0 space-y-1">
+      <div class="min-w-0 space-y-1.5">
         <h1 class="text-xl font-bold text-foreground">{{ displayName }}</h1>
         <div class="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
           <span v-if="profile.city" class="flex items-center gap-1">
@@ -74,9 +79,22 @@ useSeoMeta({
             {{ memberSince }}'dan beri üye
           </span>
         </div>
-        <p class="text-sm text-muted-foreground">
-          {{ listings.length }} aktif ilan
-        </p>
+        <div class="flex flex-wrap gap-3 pt-0.5">
+          <span class="flex items-center gap-1 text-sm text-muted-foreground">
+            <ShoppingBag class="size-3.5 shrink-0" />
+            {{ profile.listing_count }} aktif ilan
+          </span>
+          <span v-if="profile.sold_count > 0" class="flex items-center gap-1 text-sm text-muted-foreground">
+            {{ profile.sold_count }} satış
+          </span>
+          <span
+            v-if="profile.whatsapp"
+            class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5"
+          >
+            <MessageCircle class="size-3 shrink-0" />
+            WhatsApp
+          </span>
+        </div>
       </div>
     </div>
 
