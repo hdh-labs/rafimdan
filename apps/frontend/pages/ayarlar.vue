@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Save } from "lucide-vue-next"
+import { toast } from "vue-sonner"
 import type { UserProfile, ApiResponse } from "@rafimdan/shared"
 import { apiFetch, ApiError } from "~/utils/api"
 import { IL_NAMES, getIlceler } from "~/utils/turkey-locations"
@@ -22,12 +23,11 @@ watch(() => form.city, () => {
 })
 
 const submitting = ref(false)
-const success = ref(false)
 const error = ref<string | null>(null)
+const avatarError = ref(false)
 
 async function save() {
   error.value = null
-  success.value = false
   submitting.value = true
 
   try {
@@ -43,7 +43,7 @@ async function save() {
     })
 
     authStore.user = res.data
-    success.value = true
+    toast.success("Ayarlar kaydedildi.")
   } catch (err) {
     error.value = err instanceof ApiError ? err.message : "Bir hata oluştu."
   } finally {
@@ -62,10 +62,12 @@ async function save() {
           class="inline-flex shrink-0 items-center justify-center size-12 rounded-full bg-muted text-sm font-medium text-muted-foreground overflow-hidden"
         >
           <img
-            v-if="authStore.user?.avatar_url"
+            v-if="authStore.user?.avatar_url && !avatarError"
             :src="authStore.user.avatar_url"
             :alt="authStore.user.name"
+            referrerpolicy="no-referrer"
             class="size-full object-cover"
+            @error="avatarError = true"
           />
           <span v-else>
             {{ authStore.user?.name?.[0]?.toUpperCase() }}
@@ -139,7 +141,6 @@ async function save() {
       </div>
 
       <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
-      <p v-if="success" class="text-sm text-green-600">Ayarlar kaydedildi.</p>
 
       <button
         type="submit"
