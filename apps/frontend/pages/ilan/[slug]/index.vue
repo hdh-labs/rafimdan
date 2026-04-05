@@ -9,10 +9,7 @@ const slug = computed(() => route.params.slug as string)
 const authStore = useAuthStore()
 const isOwner = computed(() => authStore.user?.id === listing.value?.seller.id)
 
-const { data: res, error } = await useFetch<DetailResp>(
-  () => `/api/listings/${slug.value}`,
-  { transform: (d: DetailResp) => JSON.parse(JSON.stringify(d)) as DetailResp },
-)
+const { data: res, error } = await useFetch<DetailResp>(() => `/api/listings/${slug.value}`)
 
 if (error.value || !res.value) {
   throw createError({ statusCode: 404, message: "İlan bulunamadı" })
@@ -108,7 +105,6 @@ useHead({
             name: sellerName.value,
           },
         }),
-      ),
     },
   ],
 })
