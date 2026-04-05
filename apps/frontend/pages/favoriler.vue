@@ -1,0 +1,87 @@
+<script setup lang="ts">
+import { Heart } from "lucide-vue-next"
+import type { ListingListItem } from "@rafimdan/shared"
+import { apiFetch } from "~/utils/api"
+
+definePageMeta({ middleware: ["auth"] })
+
+useSeoMeta({ title: "Favorilerim — Rafımdan" })
+
+const favoritesStore = useFavoritesStore()
+
+const listings = ref<ListingListItem[]>([])
+const loading = ref(true)
+
+const cardItems = computed(() =>
+  listings.value.map((item) => ({
+    ...item,
+    price: item.price ?? 0,
+    cover_photo: item.cover_photo ?? undefined,
+    district: item.district ?? undefined,
+    seller: {
+      ...item.seller,
+      avatar_url: item.seller.avatar_url ?? undefined,
+    },
+  })),
+)
+
+onMounted(async () => {
+  try {
+    await favoritesStore.fetchFavorites()
+    const ids = [...favoritesStore.ids]
+
+    if (ids.length === 0) {
+      loading.value = false
+      return
+    }
+
+    const results = await Promise.all(
+      ids.map((id) =>
+        apiFetch<{ data: ListingListItem; status: "ok" }>(`/api/listings/${id}`).catch(() => null),
+      ),
+    )
+
+    listings.value = results
+      .filter((r): r is { data: ListingListItem; status: "ok" } => r !== null)
+      .map((r) => r.data)
+  } finally {
+    loading.value = false
+  }
+})
+</script>
+
+<template>
+  <div class="max-w-5xl mx-auto px-4 py-8">
+    <div class="flex items-center gap-2 mb-6">
+      <Heart class="size-5 text-red-500 fill-red-500" />
+      <h1 class="text-xl font-bold">Favorilerim</h1>
+    </div>
+
+    <div v-if="loading" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+      <div
+        v-for="i in 4"
+        :key="i"
+        class="rounded-lg border border-border bg-muted animate-pulse aspect-[3/4]"
+      />
+    </div>
+
+    <div v-else-if="listings.length === 0" class="text-center py-20">
+      <Heart class="size-12 mx-auto mb-3 text-muted-foreground/30" />
+      <p class="text-muted-foreground">Henüz favori ilanın yok.</p>
+      <NuxtLink
+        to="/ilanlar"
+        class="inline-block mt-4 text-sm underline underline-offset-2 cursor-pointer"
+      >
+        İlanlara göz at
+      </NuxtLink>
+    </div>
+
+    <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+      <ListingCard
+        v-for="item in cardItems"
+        :key="item.id"
+        v-bind="item"
+      />
+    </div>
+  </div>
+</template>

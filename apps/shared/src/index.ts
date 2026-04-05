@@ -33,3 +33,5 @@ export {
   LISTING_PRICE_TYPES,
   LISTING_STATUSES,
 } from "./types/listing";
+
+export type { FavoriteAddInput, FavoritesResponse } from "./types/favorites";

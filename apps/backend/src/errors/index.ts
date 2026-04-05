@@ -72,7 +72,7 @@ export class SlugTakenError extends AppError {
 // 400
 export class FileTooLargeError extends AppError {
   constructor() {
-    super("File must be smaller than 5MB", 400, "FILE_TOO_LARGE");
+    super("File must be smaller than 10MB", 400, "FILE_TOO_LARGE");
     this.name = "FileTooLargeError";
   }
 }
@@ -88,6 +88,14 @@ export class TooManyPhotosError extends AppError {
   constructor() {
     super("Maximum 6 photos per listing", 400, "TOO_MANY_PHOTOS");
     this.name = "TooManyPhotosError";
+  }
+}
+
+// 409
+export class FavoriteAlreadyExistsError extends AppError {
+  constructor() {
+    super("Already in favorites", 409, "FAVORITE_ALREADY_EXISTS");
+    this.name = "FavoriteAlreadyExistsError";
   }
 }
 

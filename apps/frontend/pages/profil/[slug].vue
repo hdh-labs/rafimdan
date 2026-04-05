@@ -56,6 +56,7 @@ useSeoMeta({
           v-if="profile.avatar_url"
           :src="profile.avatar_url"
           :alt="displayName"
+          referrerpolicy="no-referrer"
           class="size-full object-cover"
         />
         <span v-else>{{ initials }}</span>

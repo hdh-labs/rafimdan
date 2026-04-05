@@ -99,6 +99,10 @@ const sellerInitials = computed(() =>
           {{ statusLabel }}
         </span>
       </div>
+
+      <div class="absolute top-2 right-2">
+        <FavoriteButton :listing-id="id" />
+      </div>
     </div>
 
     <div class="p-3 flex flex-col gap-2">
@@ -135,6 +139,7 @@ const sellerInitials = computed(() =>
             v-if="seller.avatar_url"
             :src="seller.avatar_url"
             :alt="seller.name"
+            referrerpolicy="no-referrer"
             class="size-full object-cover"
           />
           <span v-else>{{ sellerInitials }}</span>

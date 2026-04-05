@@ -23,6 +23,12 @@ const displayName = computed(
 
         <template v-if="authStore.isLoggedIn">
           <NuxtLink
+            to="/favoriler"
+            class="text-sm text-muted-foreground hover:text-foreground px-2 py-1 rounded cursor-pointer transition-colors"
+          >
+            Favoriler
+          </NuxtLink>
+          <NuxtLink
             to="/ilan-ver"
             class="text-sm bg-foreground text-background px-3 py-1.5 rounded-md cursor-pointer hover:opacity-90 transition-opacity"
           >
@@ -42,6 +48,7 @@ const displayName = computed(
                   v-if="authStore.user?.avatar_url"
                   :src="authStore.user.avatar_url"
                   :alt="displayName ?? ''"
+                  referrerpolicy="no-referrer"
                   class="size-full object-cover"
                 />
                 <span v-else>{{ (displayName ?? "?")[0]?.toUpperCase() }}</span>

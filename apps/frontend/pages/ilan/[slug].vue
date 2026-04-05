@@ -197,6 +197,7 @@ const memberSince = computed(() => {
             <span class="shrink-0 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
               {{ CONDITION_LABELS[listing.condition] }}
             </span>
+            <FavoriteButton :listing-id="listing.id" />
           </div>
 
           <p
@@ -232,6 +233,7 @@ const memberSince = computed(() => {
                 v-if="listing.seller.avatar_url"
                 :src="listing.seller.avatar_url"
                 :alt="sellerName"
+                referrerpolicy="no-referrer"
                 class="size-full object-cover"
               />
               <span v-else>{{ sellerInitials }}</span>

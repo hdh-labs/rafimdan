@@ -10,6 +10,8 @@ import auth from "./routes/auth";
 import listings from "./routes/listings";
 import categories from "./routes/categories";
 import users from "./routes/users";
+import favorites from "./routes/favorites";
+import storage from "./routes/storage";
 
 const app = new Hono<HonoEnv>();
 
@@ -30,6 +32,8 @@ app.route("/api/auth", auth);
 app.route("/api/listings", listings);
 app.route("/api/categories", categories);
 app.route("/api/users", users);
+app.route("/api/favorites", favorites);
+app.route("/api/storage", storage);
 
 // ---------------------------------------------------------------------------
 // Fallback

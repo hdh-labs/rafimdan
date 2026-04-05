@@ -23,7 +23,7 @@
 ## Dizin Yapısı
 
 ```
-rafimdan-v2/
+rafimdan/
 ├── apps/
 │   ├── backend/          @rafimdan/backend  (port 8787)
 │   │   ├── migrations/   0001_*.sql  0002_*.sql  ...
@@ -134,42 +134,66 @@ https://api.rafimdan.com/api/auth/google/callback ← production
 | 3 | ✅ Tamamlandı | Categories + Listings CRUD, R2 photo upload |
 | 4 | ✅ Tamamlandı | Frontend: auth store, layout, AppHeader, ana sayfa |
 | 5 | ✅ Tamamlandı | İlan listesi (filtreli), ilan detay, profil, WhatsApp CTA |
-| 6 | ⏳ Sıradaki | İlan ver formu, ilan düzenle, ayarlar sayfası |
-| 7 | — | SEO: şehir/kategori sayfaları, sitemap, JSON-LD |
-| 8 | — | CI/CD: GitHub Actions → CF Workers + CF Pages |
+| 6 | ✅ Tamamlandı | İlan ver formu, ilan düzenle, ayarlar sayfası |
+| 7 | ✅ Tamamlandı | SEO: şehir/kategori sayfaları, sitemap, JSON-LD |
+| 8 | ✅ Tamamlandı | CI/CD: GitHub Actions → CF Workers + CF Pages |
 
 ---
 
-## Phase 6 — Detay
+## v1.1 Roadmap
 
-**Hedef:** Auth kullanıcı ilan oluşturabiliyor, düzenleyebiliyor, ayarlarını güncelleyebiliyor.
+| Özellik | Durum | Notlar |
+|---------|-------|--------|
+| Favoriler | ⏳ Sıradaki | DB: favorites tablosu, GET/POST/DELETE /api/favorites |
+| İlan bildirimi | — | In-app: yeni ilan uyarısı (kategori/şehir bazlı) |
+| Şehir otomatik tamamlama | — | Static Türkiye şehir listesi, kombo input |
+| Admin moderasyon paneli | — | İlan onay/red, kullanıcı ban |
 
-### Yapılacaklar
+---
 
-**`pages/ilan-ver.vue`** (CSR, `middleware: ['auth']`)
-- Form: başlık, kategori (select), durum, fiyat tipi (radio), fiyat, şehir, ilçe, açıklama
-- `price_type === 'free'` → fiyat alanı disabled
-- Submit → `POST /api/listings` → slug döner
-- Sonra fotoğraf yükle → `POST /api/listings/:slug/photos` (multipart)
-- Redirect → `/ilan/:slug`
+## v1.1 — Favoriler (Sıradaki)
 
-**`pages/ilan/[slug]/duzenle.vue`** (CSR, `middleware: ['auth']`)
-- Mevcut verileri prefill
-- `PATCH /api/listings/:slug`
-- Owner değilse → 403 → ana sayfaya redirect
-- Status değiştirme: aktif/rezerve/satıldı butonları
+**Hedef:** Kullanıcı ilanları favorilerine ekleyebiliyor, listesini görebiliyor.
 
-**`pages/ayarlar.vue`** (CSR, `middleware: ['auth']`)
-- Display name, WhatsApp, şehir/ilçe
-- `PATCH /api/auth/me`
+### Backend
 
-### Fotoğraf Yükleme Flow
+**Migration:** `0005_favorites.sql`
+```sql
+CREATE TABLE favorites (
+  id         TEXT PRIMARY KEY,
+  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  listing_id TEXT NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE(user_id, listing_id)
+);
+CREATE INDEX idx_favorites_user_id    ON favorites(user_id);
+CREATE INDEX idx_favorites_listing_id ON favorites(listing_id);
 ```
-1. Listing oluştur → slug al
-2. Her fotoğraf için: POST /api/listings/:slug/photos (multipart, field: "file")
-3. Backend → R2'ye yükle → URL'i photos array'ine ekle
-4. Max 6 foto, max 5MB, jpeg/png/webp
+
+**API endpoints:**
 ```
+GET    /api/favorites           → [auth] kullanıcının favori ilanları (ListingListItem[])
+POST   /api/favorites           → [auth] { listing_id } → favori ekle
+DELETE /api/favorites/:listingId → [auth] favoriden çıkar
+GET    /api/listings/:slug      → is_favorited alanı eklenir (auth opsiyonel)
+```
+
+**shared types'a ekle:**
+```typescript
+// listing.ts
+ListingListItem.is_favorited?: boolean
+```
+
+### Frontend
+
+**`pages/favoriler.vue`** (CSR, auth required)
+- Favori ilan listesi — `ListingCard` grid
+- Boş durum mesajı
+
+**`components/FavoriteButton.vue`**
+- Kalp ikonu (Lucide: `Heart`)
+- Toggle: POST/DELETE /api/favorites
+- İlan detay ve listede göster
 
 ---
 

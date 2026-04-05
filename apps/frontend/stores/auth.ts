@@ -21,6 +21,8 @@ export const useAuthStore = defineStore("auth", () => {
         headers: { Authorization: `Bearer ${accessToken.value}` },
       })
       user.value = res.data
+      const favoritesStore = useFavoritesStore()
+      await favoritesStore.fetchFavorites()
     } catch {
       accessToken.value = null
       user.value = null
@@ -40,6 +42,8 @@ export const useAuthStore = defineStore("auth", () => {
     }
     accessToken.value = null
     user.value = null
+    const favoritesStore = useFavoritesStore()
+    favoritesStore.ids = new Set()
     await navigateTo("/")
   }
 
