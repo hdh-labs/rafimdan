@@ -21,6 +21,9 @@ enabled = true
 invocation_logs = true
 head_sampling_rate = 1
 
+[[custom_domains]]
+pattern = "api.rafimdan.com"
+
 [dev]
 port = 8787
 local_protocol = "http"
