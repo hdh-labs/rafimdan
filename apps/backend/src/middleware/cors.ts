@@ -3,7 +3,7 @@ import type { MiddlewareHandler } from "hono";
 import type { HonoEnv } from "../types/env";
 
 export const corsMiddleware: MiddlewareHandler<HonoEnv> = async (c, next) => {
-  const origin = c.env.CORS_ORIGIN || "*";
+  const origin = c.env.CORS_ORIGIN || "http://localhost:3000";
 
   const handler = cors({
     origin,
