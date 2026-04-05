@@ -282,5 +282,24 @@ export const listingRepository = {
     await db.prepare("DELETE FROM listings WHERE id = ?").bind(id).run();
   },
 
+  async getStatsByUserId(
+    db: D1Database,
+    userId: string,
+  ): Promise<{ active_count: number; sold_count: number }> {
+    const row = await db
+      .prepare(
+        `SELECT
+          SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_count,
+          SUM(CASE WHEN status = 'sold'   THEN 1 ELSE 0 END) AS sold_count
+         FROM listings WHERE user_id = ?`,
+      )
+      .bind(userId)
+      .first<{ active_count: number | null; sold_count: number | null }>();
+    return {
+      active_count: row?.active_count ?? 0,
+      sold_count: row?.sold_count ?? 0,
+    };
+  },
+
   MAX_PHOTOS,
 } as const;

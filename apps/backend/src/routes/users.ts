@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { HonoEnv } from "../types/env";
 import { userRepository } from "../repositories/user.repository";
+import { listingRepository } from "../repositories/listing.repository";
 import { listingService } from "../services/listing.service";
 import { AppError } from "../errors";
 
@@ -15,11 +16,18 @@ users.get("/:slug", async (c) => {
       return c.json({ error: "Kullanıcı bulunamadı", status: "error", code: "USER_NOT_FOUND" }, 404);
     }
 
-    const listings = await listingService.getByUser(c.env.DB, slug);
+    const [listings, stats] = await Promise.all([
+      listingService.getByUser(c.env.DB, slug),
+      listingRepository.getStatsByUserId(c.env.DB, user.id),
+    ]);
 
     return c.json({
       data: {
-        profile: userRepository.toProfile(user),
+        profile: {
+          ...userRepository.toProfile(user),
+          listing_count: stats.active_count,
+          sold_count: stats.sold_count,
+        },
         listings,
       },
       status: "ok",
