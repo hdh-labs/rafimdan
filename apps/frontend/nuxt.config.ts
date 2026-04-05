@@ -19,15 +19,10 @@ export default defineNuxtConfig({
 
   nitro: {
     preset: "cloudflare-pages",
-    devProxy: {
-      "/api/": {
-        target: "http://localhost:8787/api/",
-        changeOrigin: true,
-      },
-    },
   },
 
   runtimeConfig: {
+    backendUrl: process.env.NUXT_BACKEND_URL || "http://localhost:8787",
     public: {
       apiBase: process.env.NUXT_PUBLIC_API_BASE || "",
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || "http://localhost:3000",
