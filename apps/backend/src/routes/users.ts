@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import type { HonoEnv } from "../types/env";
 import { userRepository } from "../repositories/user.repository";
-import { listingRepository } from "../repositories/listing.repository";
 import { listingService } from "../services/listing.service";
 import { AppError } from "../errors";
 
@@ -18,7 +17,7 @@ users.get("/:slug", async (c) => {
 
     const [listings, stats] = await Promise.all([
       listingService.getByUser(c.env.DB, slug),
-      listingRepository.getStatsByUserId(c.env.DB, user.id),
+      listingService.getStatsByUserId(c.env.DB, user.id),
     ]);
 
     return c.json({
