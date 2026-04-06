@@ -144,56 +144,118 @@ https://api.rafimdan.com/api/auth/google/callback ← production
 
 | Özellik | Durum | Notlar |
 |---------|-------|--------|
-| Favoriler | ⏳ Sıradaki | DB: favorites tablosu, GET/POST/DELETE /api/favorites |
+| İlanlarım sayfası | ⏳ Sıradaki | `/ilanlarim` management hub, header dropdown link |
+| Favoriler sayısı | ⏳ Sıradaki | Core ✅ — sadece `favorites_count` alanı eksik |
+| Şehir otomatik tamamlama | ⏳ Sıradaki | Static 81 il, autocomplete component |
 | İlan bildirimi | — | In-app: yeni ilan uyarısı (kategori/şehir bazlı) |
-| Şehir otomatik tamamlama | — | Static Türkiye şehir listesi, kombo input |
 | Admin moderasyon paneli | — | İlan onay/red, kullanıcı ban |
 
 ---
 
-## v1.1 — Favoriler (Sıradaki)
+## v1.1 — İlanlarım Sayfası
 
-**Hedef:** Kullanıcı ilanları favorilerine ekleyebiliyor, listesini görebiliyor.
+**Hedef:** Kullanıcı kendi ilanlarını ayrı bir sayfada yönetebiliyor (tüm statüler, inline aksiyonlar).
 
 ### Backend
 
-**Migration:** `0005_favorites.sql`
+**Yeni endpoint:** `GET /api/listings/mine` — `[auth]` required
+
+```
+GET /api/listings/mine → kullanıcının tüm ilanları (aktif + rezerve + satıldı)
+                          response: PaginatedResponse<ListingListItem>
+                          ⚠️ Mevcut GET /api/listings sadece active döndürüyor, bu farklı
+```
+
+`listing.service.ts`'e `getMine(db, userId)` metodu ekle — `listingRepository`'den user_id filtreli, status filtresi yok.
+
+### Frontend
+
+**`pages/ilanlarim.vue`** (CSR, `middleware: ['auth']`)
+
+- Tab bar: **Tümü · Aktif · Rezerve · Satıldı** (query param: `?tab=active`)
+- Her ilan satırında:
+  - Küçük kart görünümü (yatay liste — grid değil)
+  - Durum badge (aktif/rezerve/satıldı)
+  - Aksiyonlar: **Düzenle** → `/ilan/[slug]/duzenle` | **Durum değiştir** (dropdown) | **Sil** (confirm modal)
+- Boş durum: "Henüz ilan vermedin. → İlan Ver"
+- Silme: `DELETE /api/listings/:slug` + listeden kaldır
+
+**`AppHeader.vue`** — dropdown güncelleme
+
+Mevcut sıra: Ad · --- · Favoriler · Ayarlar · --- · Çıkış
+Yeni sıra:   Ad · --- · **İlanlarım** · Favoriler · Ayarlar · --- · Çıkış
+
+---
+
+## v1.1 — Favoriler Sayısı
+
+**Hedef:** Her ilan kartında kaç kişinin favorilediği görünsün.
+Core implementasyon (routes, store, page, FavoriteButton) **zaten tamamlanmış.**
+
+### Backend
+
+`listing.service.ts` → `getAll` ve `getMine` sorgularına COUNT JOIN ekle:
+
 ```sql
-CREATE TABLE favorites (
-  id         TEXT PRIMARY KEY,
-  user_id    TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  listing_id TEXT NOT NULL REFERENCES listings(id) ON DELETE CASCADE,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  UNIQUE(user_id, listing_id)
-);
-CREATE INDEX idx_favorites_user_id    ON favorites(user_id);
-CREATE INDEX idx_favorites_listing_id ON favorites(listing_id);
+LEFT JOIN (
+  SELECT listing_id, COUNT(*) as favorites_count
+  FROM favorites
+  GROUP BY listing_id
+) fav ON fav.listing_id = l.id
 ```
 
-**API endpoints:**
-```
-GET    /api/favorites           → [auth] kullanıcının favori ilanları (ListingListItem[])
-POST   /api/favorites           → [auth] { listing_id } → favori ekle
-DELETE /api/favorites/:listingId → [auth] favoriden çıkar
-GET    /api/listings/:slug      → is_favorited alanı eklenir (auth opsiyonel)
-```
+### Shared types
 
-**shared types'a ekle:**
 ```typescript
-// listing.ts
-ListingListItem.is_favorited?: boolean
+// apps/shared/src/types/listing.ts
+export type ListingListItem = {
+  ...
+  favorites_count: number   // yeni alan, default 0
+}
 ```
 
 ### Frontend
 
-**`pages/favoriler.vue`** (CSR, auth required)
-- Favori ilan listesi — `ListingCard` grid
-- Boş durum mesajı
+**`components/ListingCard.vue`** — resim üstü sol köşeye ekle:
 
-**`components/FavoriteButton.vue`**
-- Kalp ikonu (Lucide: `Heart`)
-- Toggle: POST/DELETE /api/favorites
-- İlan detay ve listede göster
+```
+❤ 12   (Heart size-3 + count, sadece count > 0 ise göster)
+```
+
+`FavoriteButton` zaten sağ köşede — sol köşe favorites_count için uygun.
+
+**`props`'a ekle:** `favorites_count: number`
+
+---
+
+## v1.1 — Şehir Otomatik Tamamlama
+
+**Hedef:** Türkiye'nin 81 ili için yazarken öneri gösteren input componenti.
+
+### Veri
+
+**`apps/frontend/utils/cities.ts`** — static export:
+```typescript
+export const TR_CITIES: string[] = [
+  "Adana", "Adıyaman", "Afyonkarahisar", ...  // 81 il alfabetik
+]
+```
+
+### Component
+
+**`apps/frontend/components/ui/CityInput.vue`**
+- Props: `modelValue: string`, `placeholder?: string`
+- Emit: `update:modelValue`
+- Davranış: input'a yazınca `TR_CITIES.filter(c => c.toLowerCase().startsWith(query))` ile filtrele
+- Max 6 öneri göster, dropdown liste
+- Klavye: ↑↓ navigation, Enter seç, Escape kapat
+- Tam eşleşme yoksa serbest metin girişine izin ver (küçük şehirler için)
+
+### Kullanım yerleri
+
+1. `apps/frontend/pages/ilan-ver.vue` — şehir text input → `CityInput`
+2. `apps/frontend/pages/ilan/[slug]/duzenle.vue` — aynı
+3. `apps/frontend/pages/ilanlar/index.vue` — filtre şehir input → `CityInput`
 
 ---
 
