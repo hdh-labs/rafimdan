@@ -7,6 +7,7 @@ import type {
   ListingCondition,
   ListingPriceType,
   ListingStatus,
+  ListingDirection,
 } from "@rafimdan/shared"
 import { apiFetch, ApiError } from "~/utils/api"
 import { IL_NAMES, getIlceler } from "~/utils/turkey-locations"
@@ -58,6 +59,7 @@ const STATUS_OPTIONS: { value: ListingStatus; label: string }[] = [
 const form = reactive({
   title: "",
   category_id: "",
+  direction: "offer" as ListingDirection,
   condition: "good" as ListingCondition,
   price_type: "fixed" as ListingPriceType,
   price: "" as number | "",
@@ -85,6 +87,7 @@ watch(listing, (val) => {
   if (!val) return
   form.title = val.title
   form.category_id = val.category.id
+  form.direction = (val.direction as ListingDirection) ?? "offer"
   form.condition = val.condition as ListingCondition
   form.price_type = val.price_type as ListingPriceType
   form.price = val.price ?? ""
@@ -105,6 +108,10 @@ watchEffect(() => {
 watch(() => form.city, () => {
   if (!getIlceler(form.city).includes(form.district)) form.district = ""
   delete errors.city
+})
+
+watch(() => form.direction, (val) => {
+  if (val === "request") { form.price_type = "free"; form.price = "" }
 })
 
 watch(() => form.price_type, (val) => {
@@ -129,7 +136,7 @@ function validate(): boolean {
   if (!form.condition) e.condition = "Ürün durumu seçiniz."
   if (!form.city) e.city = "Şehir seçiniz."
 
-  if (form.price_type !== "free" && form.price_type !== "el_uzat") {
+  if (form.direction !== "request" && form.price_type !== "free" && form.price_type !== "el_uzat") {
     if (form.price === "" || form.price === null) e.price = "Fiyat zorunludur."
     else if (Number(form.price) <= 0) e.price = "Fiyat 0'dan büyük olmalıdır."
   }
@@ -193,8 +200,9 @@ async function save() {
     const body: Record<string, unknown> = {
       title: form.title.trim(),
       category_id: form.category_id,
+      direction: form.direction,
       condition: form.condition,
-      price_type: form.price_type,
+      price_type: form.direction === "request" ? "free" : form.price_type,
       city: form.city,
     }
     if (form.district) body.district = form.district
@@ -325,6 +333,30 @@ async function confirmDelete() {
 
       <form class="space-y-5" novalidate @submit.prevent="save">
 
+        <!-- İlan Tipi -->
+        <div class="grid grid-cols-2 gap-3">
+          <label
+            class="flex flex-col items-center gap-1.5 py-3 px-4 rounded-lg border-2 cursor-pointer transition-colors"
+            :class="form.direction === 'offer'
+              ? 'border-foreground bg-foreground text-background'
+              : 'border-border hover:bg-muted'"
+          >
+            <input v-model="form.direction" type="radio" value="offer" class="sr-only" />
+            <span class="text-sm font-semibold">Satıyorum / Veriyorum</span>
+            <span class="text-xs opacity-70">Ürün veya eşya paylaş</span>
+          </label>
+          <label
+            class="flex flex-col items-center gap-1.5 py-3 px-4 rounded-lg border-2 cursor-pointer transition-colors"
+            :class="form.direction === 'request'
+              ? 'border-amber-500 bg-amber-50 text-amber-900'
+              : 'border-border hover:bg-muted'"
+          >
+            <input v-model="form.direction" type="radio" value="request" class="sr-only" />
+            <span class="text-sm font-semibold">Destek Arıyorum</span>
+            <span class="text-xs opacity-70">Bir El At — ihtiyacını yaz</span>
+          </label>
+        </div>
+
         <!-- Başlık -->
         <div>
           <label class="block text-sm font-medium text-foreground mb-1">
@@ -388,7 +420,7 @@ async function confirmDelete() {
         </div>
 
         <!-- Fiyat Tipi -->
-        <div>
+        <div v-if="form.direction === 'offer'">
           <label class="block text-sm font-medium text-foreground mb-2">
             Fiyat Tipi <span class="text-destructive">*</span>
           </label>
@@ -408,7 +440,7 @@ async function confirmDelete() {
         </div>
 
         <!-- Fiyat -->
-        <div v-if="form.price_type !== 'free' && form.price_type !== 'el_uzat'">
+        <div v-if="form.direction === 'offer' && form.price_type !== 'free' && form.price_type !== 'el_uzat'">
           <label class="block text-sm font-medium text-foreground mb-1">
             {{ form.price_type === 'negotiable' ? 'Başlangıç Fiyatı (₺)' : 'Fiyat (₺)' }} <span class="text-destructive">*</span>
           </label>
