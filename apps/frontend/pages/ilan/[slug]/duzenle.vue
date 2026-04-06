@@ -46,7 +46,7 @@ const PRICE_TYPE_OPTIONS: { value: ListingPriceType; label: string }[] = [
   { value: "fixed", label: "Sabit" },
   { value: "negotiable", label: "Pazarlığa Açık" },
   { value: "free", label: "Ücretsiz" },
-  { value: "sadaka", label: "Sadaka" },
+  { value: "el_uzat", label: "El Uzat" },
 ]
 
 const STATUS_OPTIONS: { value: ListingStatus; label: string }[] = [
@@ -108,7 +108,7 @@ watch(() => form.city, () => {
 })
 
 watch(() => form.price_type, (val) => {
-  if (val === "free" || val === "sadaka") form.price = ""
+  if (val === "free" || val === "el_uzat") form.price = ""
   delete errors.price
 })
 
@@ -129,7 +129,7 @@ function validate(): boolean {
   if (!form.condition) e.condition = "Ürün durumu seçiniz."
   if (!form.city) e.city = "Şehir seçiniz."
 
-  if (form.price_type !== "free" && form.price_type !== "sadaka") {
+  if (form.price_type !== "free" && form.price_type !== "el_uzat") {
     if (form.price === "" || form.price === null) e.price = "Fiyat zorunludur."
     else if (Number(form.price) <= 0) e.price = "Fiyat 0'dan büyük olmalıdır."
   }
@@ -408,7 +408,7 @@ async function confirmDelete() {
         </div>
 
         <!-- Fiyat -->
-        <div v-if="form.price_type !== 'free' && form.price_type !== 'sadaka'">
+        <div v-if="form.price_type !== 'free' && form.price_type !== 'el_uzat'">
           <label class="block text-sm font-medium text-foreground mb-1">
             {{ form.price_type === 'negotiable' ? 'Başlangıç Fiyatı (₺)' : 'Fiyat (₺)' }} <span class="text-destructive">*</span>
           </label>
@@ -430,16 +430,7 @@ async function confirmDelete() {
             <label class="block text-sm font-medium text-foreground mb-1">
               Şehir <span class="text-destructive">*</span>
             </label>
-            <select
-              v-model="form.city"
-              :class="[
-                'w-full px-3 py-2 text-sm border rounded-xl bg-background focus:outline-none focus:ring-1 cursor-pointer transition-colors',
-                errors.city ? 'border-destructive focus:ring-destructive' : 'border-border focus:ring-ring',
-              ]"
-            >
-              <option value="" disabled>Seçiniz</option>
-              <option v-for="il in IL_NAMES" :key="il" :value="il">{{ il }}</option>
-            </select>
+            <CityAutocomplete v-model="form.city" :has-error="!!errors.city" />
             <p v-if="errors.city" class="mt-1 text-xs text-destructive">{{ errors.city }}</p>
           </div>
           <div>

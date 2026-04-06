@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Upload, X, ImagePlus } from "lucide-vue-next"
+import { Upload, X, ImagePlus, AlertCircle } from "lucide-vue-next"
 import type { ListingDetail, CategoryTree, ApiResponse } from "@rafimdan/shared"
 import { apiFetch, ApiError } from "~/utils/api"
 import { IL_NAMES, getIlceler } from "~/utils/turkey-locations"
@@ -14,8 +14,9 @@ const authStore = useAuthStore()
 const form = reactive({
   title: "",
   category_id: "",
+  direction: "offer" as "offer" | "request",
   condition: "" as "new" | "like_new" | "good" | "fair" | "",
-  price_type: "fixed" as "fixed" | "negotiable" | "free" | "sadaka",
+  price_type: "fixed" as "fixed" | "negotiable" | "free" | "el_uzat",
   price: "" as number | "",
   city: IL_NAMES.includes(authStore.user?.city ?? "") ? (authStore.user?.city ?? "") : "",
   district: "",
@@ -39,8 +40,12 @@ watch(() => form.title, () => { delete errors.title })
 watch(() => form.category_id, () => { delete errors.category_id })
 watch(() => form.condition, () => { delete errors.condition })
 watch(() => form.price, () => { delete errors.price })
+watch(() => form.direction, (val) => {
+  if (val === "request") { form.price_type = "free"; form.price = "" }
+})
+
 watch(() => form.price_type, (val) => {
-  if (val === "free" || val === "sadaka") form.price = ""
+  if (val === "free" || val === "el_uzat") form.price = ""
   delete errors.price
 })
 
@@ -51,7 +56,7 @@ const CONDITION_OPTIONS = [
   { value: "fair", label: "Fena Değil" },
 ] as const
 
-const priceDisabled = computed(() => form.price_type === "free" || form.price_type === "sadaka")
+const priceDisabled = computed(() => form.direction === "request" || form.price_type === "free" || form.price_type === "el_uzat")
 
 function validate(): boolean {
   const e: Record<string, string> = {}
@@ -65,7 +70,7 @@ function validate(): boolean {
   if (!form.condition) e.condition = "Ürün durumu seçiniz."
   if (!form.city) e.city = "Şehir seçiniz."
 
-  if (form.price_type !== "free" && form.price_type !== "sadaka") {
+  if (form.direction !== "request" && form.price_type !== "free" && form.price_type !== "el_uzat") {
     if (form.price === "" || form.price === null) e.price = "Fiyat zorunludur."
     else if (Number(form.price) <= 0) e.price = "Fiyat 0'dan büyük olmalıdır."
   }
@@ -117,7 +122,8 @@ async function submit() {
       title: form.title.trim(),
       category_id: form.category_id,
       condition: form.condition,
-      price_type: form.price_type,
+      price_type: form.direction === "request" ? "free" : form.price_type,
+      direction: form.direction,
       city: form.city,
     }
     if (form.district) body.district = form.district
@@ -152,7 +158,43 @@ async function submit() {
   <div class="max-w-2xl mx-auto px-4 py-8">
     <h1 class="text-xl font-bold text-foreground mb-6">İlan Ver</h1>
 
+    <NuxtLink
+      v-if="!authStore.user?.whatsapp"
+      to="/ayarlar"
+      class="flex items-start gap-2.5 mb-5 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 transition-colors cursor-pointer"
+    >
+      <AlertCircle class="size-4 shrink-0 mt-0.5" />
+      <span class="text-sm">
+        <span class="font-medium">WhatsApp numaranı ekle</span> — alıcılar sana ulaşamaz.
+        <span class="underline underline-offset-2">Ayarlar'a git →</span>
+      </span>
+    </NuxtLink>
+
     <form class="space-y-5" novalidate @submit.prevent="submit">
+
+      <!-- İlan Tipi -->
+      <div class="grid grid-cols-2 gap-3">
+        <label
+          class="flex flex-col items-center gap-1.5 py-3 px-4 rounded-lg border-2 cursor-pointer transition-colors"
+          :class="form.direction === 'offer'
+            ? 'border-foreground bg-foreground text-background'
+            : 'border-border hover:bg-muted'"
+        >
+          <input v-model="form.direction" type="radio" value="offer" class="sr-only" />
+          <span class="text-sm font-semibold">Satıyorum / Veriyorum</span>
+          <span class="text-xs opacity-70">Ürün veya eşya paylaş</span>
+        </label>
+        <label
+          class="flex flex-col items-center gap-1.5 py-3 px-4 rounded-lg border-2 cursor-pointer transition-colors"
+          :class="form.direction === 'request'
+            ? 'border-amber-500 bg-amber-50 text-amber-900'
+            : 'border-border hover:bg-muted'"
+        >
+          <input v-model="form.direction" type="radio" value="request" class="sr-only" />
+          <span class="text-sm font-semibold">Destek Arıyorum</span>
+          <span class="text-xs opacity-70">Bir El At — ihtiyacını yaz</span>
+        </label>
+      </div>
 
       <!-- Başlık -->
       <div>
@@ -163,7 +205,7 @@ async function submit() {
           v-model="form.title"
           type="text"
           maxlength="100"
-          placeholder="Ne satıyorsunuz?"
+          :placeholder="form.direction === 'request' ? 'Neye ihtiyacınız var?' : 'Ne satıyorsunuz?'"
           :class="[
             'w-full px-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 transition-colors',
             errors.title ? 'border-destructive focus:ring-destructive' : 'border-border focus:ring-ring',
@@ -223,16 +265,16 @@ async function submit() {
         <label class="block text-sm font-medium text-foreground mb-2">
           Fiyat Tipi <span class="text-destructive">*</span>
         </label>
-        <div class="flex gap-2">
+        <div v-if="form.direction === 'offer'" class="flex gap-2">
           <label
             v-for="opt in [
               { value: 'fixed', label: 'Sabit' },
               { value: 'negotiable', label: 'Pazarlığa Açık' },
               { value: 'free', label: 'Ücretsiz' },
-              { value: 'sadaka', label: 'Sadaka' },
+              { value: 'el_uzat', label: 'El Uzat' },
             ]"
             :key="opt.value"
-            class="flex items-center justify-center py-2 px-4 rounded-md border text-sm cursor-pointer transition-colors flex-1"
+            class="flex items-center justify-center py-2 px-3 rounded-md border text-sm cursor-pointer transition-colors flex-1"
             :class="form.price_type === opt.value
               ? 'border-foreground bg-foreground text-background'
               : 'border-border hover:bg-muted'"
@@ -241,10 +283,13 @@ async function submit() {
             {{ opt.label }}
           </label>
         </div>
+        <p v-else class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+          Destek ilanı ücretsizdir — fiyat girmenize gerek yok.
+        </p>
       </div>
 
       <!-- Fiyat -->
-      <div v-if="form.price_type !== 'free' && form.price_type !== 'sadaka'">
+      <div v-if="form.direction === 'offer' && form.price_type !== 'free' && form.price_type !== 'el_uzat'">
         <label class="block text-sm font-medium text-foreground mb-1">
           {{ form.price_type === 'negotiable' ? 'Başlangıç Fiyatı (₺)' : 'Fiyat (₺)' }} <span class="text-destructive">*</span>
         </label>
@@ -267,16 +312,7 @@ async function submit() {
           <label class="block text-sm font-medium text-foreground mb-1">
             Şehir <span class="text-destructive">*</span>
           </label>
-          <select
-            v-model="form.city"
-            :class="[
-              'w-full px-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 cursor-pointer transition-colors',
-              errors.city ? 'border-destructive focus:ring-destructive' : 'border-border focus:ring-ring',
-            ]"
-          >
-            <option value="" disabled>Seçiniz</option>
-            <option v-for="il in IL_NAMES" :key="il" :value="il">{{ il }}</option>
-          </select>
+          <CityAutocomplete v-model="form.city" :has-error="!!errors.city" />
           <p v-if="errors.city" class="mt-1 text-xs text-destructive">{{ errors.city }}</p>
         </div>
         <div>

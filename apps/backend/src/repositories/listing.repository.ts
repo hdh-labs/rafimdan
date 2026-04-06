@@ -23,6 +23,7 @@ type ListingRowJoined = ListingRow & {
   seller_whatsapp: string | null;
   seller_city: string | null;
   seller_created_at: string;
+  favorites_count: number;
 };
 
 function parsePhotos(raw: string): string[] {
@@ -43,6 +44,7 @@ function toListItem(row: ListingRowJoined): ListingListItem {
     price_type: row.price_type,
     condition: row.condition,
     status: row.status,
+    direction: row.direction,
     cover_photo: photos[0] ?? null,
     city: row.city,
     district: row.district,
@@ -55,7 +57,9 @@ function toListItem(row: ListingRowJoined): ListingListItem {
       avatar_url: row.seller_avatar_url,
     },
     created_at: row.created_at,
+    updated_at: row.updated_at,
     view_count: row.view_count,
+    favorites_count: row.favorites_count,
   };
 }
 
@@ -69,6 +73,7 @@ function toDetail(row: ListingRowJoined): ListingDetail {
     price_type: row.price_type,
     condition: row.condition,
     status: row.status,
+    direction: row.direction,
     city: row.city,
     district: row.district,
     category: { id: row.category_id, name: row.category_name, slug: row.category_slug },
@@ -85,7 +90,9 @@ function toDetail(row: ListingRowJoined): ListingDetail {
       created_at: row.seller_created_at,
     },
     created_at: row.created_at,
+    updated_at: row.updated_at,
     view_count: row.view_count,
+    favorites_count: row.favorites_count,
   };
 }
 
@@ -101,7 +108,8 @@ const JOIN_SQL = `
     u.avatar_url   AS seller_avatar_url,
     u.whatsapp     AS seller_whatsapp,
     u.city         AS seller_city,
-    u.created_at   AS seller_created_at
+    u.created_at   AS seller_created_at,
+    (SELECT COUNT(*) FROM favorites f WHERE f.listing_id = l.id) AS favorites_count
   FROM listings l
   JOIN categories c ON c.id = l.category_id
   JOIN users u ON u.id = l.user_id
@@ -115,8 +123,8 @@ export const listingRepository = {
     await db
       .prepare(
         `INSERT INTO listings
-          (id, user_id, title, description, category_id, condition, price_type, price, city, district, slug)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (id, user_id, title, description, category_id, condition, price_type, price, city, district, slug, direction)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         input.id,
@@ -130,6 +138,7 @@ export const listingRepository = {
         input.city,
         input.district ?? null,
         input.slug,
+        input.direction ?? "offer",
       )
       .run();
 
@@ -168,6 +177,7 @@ export const listingRepository = {
     if (params.category) { conditions.push("c.slug = ?"); bindings.push(params.category); }
     if (params.price_type) { conditions.push("l.price_type = ?"); bindings.push(params.price_type); }
     if (params.condition) { conditions.push("l.condition = ?"); bindings.push(params.condition); }
+    if (params.direction) { conditions.push("l.direction = ?"); bindings.push(params.direction); }
     if (params.q) {
       conditions.push("(l.title LIKE ? ESCAPE '\\' OR l.description LIKE ? ESCAPE '\\')");
       const escaped = params.q.replace(/[\\%_]/g, "\\$&");
@@ -183,7 +193,7 @@ export const listingRepository = {
       .first<{ total: number }>();
 
     const rows = await db
-      .prepare(`${JOIN_SQL} ${where} ORDER BY l.created_at DESC LIMIT ? OFFSET ?`)
+      .prepare(`${JOIN_SQL} ${where} ORDER BY l.updated_at DESC LIMIT ? OFFSET ?`)
       .bind(...bindings, limit, offset)
       .all<ListingRowJoined>();
 
@@ -275,6 +285,13 @@ export const listingRepository = {
   async incrementViewCount(db: D1Database, id: string): Promise<void> {
     await db
       .prepare("UPDATE listings SET view_count = view_count + 1 WHERE id = ?")
+      .bind(id)
+      .run();
+  },
+
+  async touch(db: D1Database, id: string): Promise<void> {
+    await db
+      .prepare("UPDATE listings SET updated_at = datetime('now') WHERE id = ?")
       .bind(id)
       .run();
   },

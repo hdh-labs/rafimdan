@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowRight } from "lucide-vue-next"
+import { ArrowRight, HandHeart } from "lucide-vue-next"
 import type { ListingListItem, CategoryTree, ApiResponse, PaginatedResponse } from "@rafimdan/shared"
 
 type ListingsData = ApiResponse<PaginatedResponse<ListingListItem>>
@@ -7,9 +7,11 @@ type CategoriesData = ApiResponse<CategoryTree[]>
 
 const { data: listingsRes } = await useFetch<ListingsData>("/api/listings?limit=8&page=1")
 const { data: categoriesRes } = await useFetch<CategoriesData>("/api/categories")
+const { data: communityRes } = await useFetch<ListingsData>("/api/listings?direction=request&limit=4&page=1")
 
 const listings = computed(() => listingsRes.value?.data.items ?? [])
 const categories = computed(() => categoriesRes.value?.data ?? [])
+const communityListings = computed(() => communityRes.value?.data.items ?? [])
 
 const FEATURED_CITIES = ["İstanbul", "Ankara", "İzmir", "Bursa", "Antalya", "Adana"]
 </script>
@@ -85,6 +87,47 @@ const FEATURED_CITIES = ["İstanbul", "Ankara", "İzmir", "Bursa", "Antalya", "A
             avatar_url: listing.seller.avatar_url ?? undefined,
           }"
           :created_at="listing.created_at"
+        />
+      </div>
+    </section>
+
+    <!-- Bir El At -->
+    <section v-if="communityListings.length > 0" class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <HandHeart class="size-5 text-amber-600" />
+          <h2 class="text-xl font-bold text-foreground">Bir El At</h2>
+        </div>
+        <NuxtLink
+          to="/ilanlar?direction=request"
+          class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+        >
+          Tümünü gör
+          <ArrowRight class="size-3.5" />
+        </NuxtLink>
+      </div>
+      <p class="text-sm text-muted-foreground -mt-2">Komşuların yardımına koş — ihtiyacını yaz, destek gelsin.</p>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        <ListingCard
+          v-for="item in communityListings"
+          :key="item.id"
+          :id="item.id"
+          :slug="item.slug"
+          :title="item.title"
+          :price="item.price ?? 0"
+          :price_type="item.price_type"
+          :condition="item.condition"
+          :status="item.status"
+          :direction="item.direction"
+          :cover_photo="item.cover_photo ?? undefined"
+          :city="item.city"
+          :district="item.district ?? undefined"
+          :seller="{
+            id: item.seller.id,
+            name: item.seller.display_name ?? item.seller.name,
+            avatar_url: item.seller.avatar_url ?? undefined,
+          }"
+          :created_at="item.created_at"
         />
       </div>
     </section>

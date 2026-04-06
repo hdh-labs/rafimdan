@@ -52,6 +52,20 @@ listings.post("/", authMiddleware, zValidator("json", createListingSchema), asyn
 });
 
 // ---------------------------------------------------------------------------
+// GET /mine — kullanıcının kendi ilanları
+// ---------------------------------------------------------------------------
+
+listings.get("/mine", authMiddleware, async (c) => {
+  try {
+    const { sub } = c.get("user");
+    const items = await listingService.getMine(c.env.DB, sub);
+    return c.json({ data: items, status: "ok" });
+  } catch (err) {
+    return handleError(c, err);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // GET /:slug — detay
 // ---------------------------------------------------------------------------
 
@@ -116,6 +130,21 @@ listings.delete("/:slug", authMiddleware, async (c) => {
     const { sub } = c.get("user");
     const slug = c.req.param("slug");
     await listingService.delete(c.env.DB, c.env, sub, slug);
+    return c.json({ data: null, status: "ok" });
+  } catch (err) {
+    return handleError(c, err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /:slug/refresh — updated_at'i güncelle (feed'de yukarı taşı)
+// ---------------------------------------------------------------------------
+
+listings.post("/:slug/refresh", authMiddleware, async (c) => {
+  try {
+    const { sub } = c.get("user");
+    const slug = c.req.param("slug");
+    await listingService.refresh(c.env.DB, sub, slug);
     return c.json({ data: null, status: "ok" });
   } catch (err) {
     return handleError(c, err);

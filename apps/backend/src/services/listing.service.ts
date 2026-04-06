@@ -179,6 +179,17 @@ export const listingService = {
     return { ...listing, photos };
   },
 
+  async getMine(db: D1Database, userId: string): Promise<ListingListItem[]> {
+    return listingRepository.findByUserId(db, userId);
+  },
+
+  async refresh(db: D1Database, userId: string, slug: string): Promise<void> {
+    const listing = await listingRepository.findBySlug(db, slug);
+    if (!listing) throw new ListingNotFoundError();
+    if (listing.seller.id !== userId) throw new ForbiddenError("Bu ilan size ait değil");
+    await listingRepository.touch(db, listing.id);
+  },
+
   async getByUser(db: D1Database, slug: string): Promise<ListingListItem[]> {
     const user = await userRepository.findBySlug(db, slug);
     if (!user) return [];

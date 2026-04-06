@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ImageOff, MapPin } from "lucide-vue-next"
+import { ImageOff, MapPin, Heart } from "lucide-vue-next"
 import { cn } from "~/utils/cn"
 
-type PriceType = "fixed" | "negotiable" | "free" | "sadaka"
+type PriceType = "fixed" | "negotiable" | "free" | "el_uzat"
 type ListingStatus = "active" | "reserved" | "sold"
 type Condition = "new" | "like_new" | "good" | "fair"
+type Direction = "offer" | "request"
 
 interface Seller {
   id: string
@@ -20,11 +21,13 @@ interface Props {
   price_type: PriceType
   condition: Condition
   status: ListingStatus
+  direction?: Direction
   cover_photo?: string
   city: string
   district?: string
   seller: Seller
   created_at: string
+  favorites_count?: number
 }
 
 const props = defineProps<Props>()
@@ -52,8 +55,9 @@ const statusLabel = computed(() => {
 })
 
 const priceDisplay = computed(() => {
+  if (props.direction === "request") return "Destek Arıyor"
   if (props.price_type === "free") return "Ücretsiz"
-  if (props.price_type === "sadaka") return "Allah Rızası İçin"
+  if (props.price_type === "el_uzat") return "El Uzat"
   const formatted = props.price.toLocaleString("tr-TR") + " ₺"
   if (props.price_type === "negotiable") return formatted + " · Pazarlık"
   return formatted
@@ -125,7 +129,7 @@ const sellerAvatarError = ref(false)
       <div class="flex items-center justify-between gap-2">
         <p
           class="text-sm font-bold"
-          :class="price_type === 'free' || price_type === 'sadaka' ? 'text-green-700' : 'text-foreground'"
+          :class="direction === 'request' ? 'text-amber-700' : price_type === 'free' || price_type === 'el_uzat' ? 'text-green-700' : 'text-foreground'"
         >
           {{ priceDisplay }}
         </p>
@@ -142,7 +146,14 @@ const sellerAvatarError = ref(false)
           <MapPin class="size-3 shrink-0" />
           <span class="truncate">{{ locationDisplay }}</span>
         </div>
-        <div class="flex items-center gap-1 shrink-0 ml-2">
+        <div class="flex items-center gap-2 shrink-0 ml-2">
+          <span
+            v-if="favorites_count"
+            class="flex items-center gap-0.5 text-xs text-muted-foreground"
+          >
+            <Heart class="size-3 text-rose-400" />
+            {{ favorites_count }}
+          </span>
           <span
             class="inline-flex items-center justify-center size-5 rounded-full bg-muted text-xs font-medium text-muted-foreground overflow-hidden"
           >
