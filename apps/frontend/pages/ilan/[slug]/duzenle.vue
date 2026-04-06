@@ -82,6 +82,8 @@ const showDeleteConfirm = ref(false)
 const statusChanging = ref(false)
 const deletingPhotoIndex = ref<number | null>(null)
 const submitError = ref<string | null>(null)
+const dragFromIndex = ref<number | null>(null)
+const dragOverIndex = ref<number | null>(null)
 
 watch(listing, (val) => {
   if (!val) return
@@ -177,6 +179,41 @@ onUnmounted(() => {
   previewUrls.forEach((url) => URL.revokeObjectURL(url))
   previewUrls.clear()
 })
+
+function onPhotoDragStart(i: number) {
+  dragFromIndex.value = i
+}
+
+function onPhotoDragOver(i: number) {
+  dragOverIndex.value = i
+}
+
+function onPhotoDrop(i: number) {
+  const from = dragFromIndex.value
+  if (from === null || from === i) {
+    dragFromIndex.value = null
+    dragOverIndex.value = null
+    return
+  }
+  const arr = [...existingPhotos.value]
+  const [moved] = arr.splice(from, 1)
+  arr.splice(i, 0, moved!)
+  existingPhotos.value = arr
+  dragFromIndex.value = null
+  dragOverIndex.value = null
+  savePhotoOrder()
+}
+
+async function savePhotoOrder() {
+  try {
+    await apiFetch(`/api/listings/${slug}/photos`, {
+      method: "PATCH",
+      body: JSON.stringify({ photos: existingPhotos.value }),
+    })
+  } catch {
+    // sıralama kaydedilemedi — kullanıcıya hata gösterme, local sıra doğru
+  }
+}
 
 async function deleteExistingPhoto(index: number) {
   deletingPhotoIndex.value = index
@@ -494,22 +531,37 @@ async function confirmDelete() {
 
         <!-- Fotoğraflar -->
         <div>
-          <label class="block text-sm font-medium text-foreground mb-2">
+          <label class="block text-sm font-medium text-foreground mb-1">
             Fotoğraflar
             <span class="font-normal text-muted-foreground">(max 6, jpeg/png/webp)</span>
           </label>
+          <p v-if="existingPhotos.length > 1" class="text-xs text-muted-foreground mb-2">
+            Sürükleyerek sırala — ilk fotoğraf kapak olarak gösterilir.
+          </p>
           <div class="flex flex-wrap gap-2">
             <div
               v-for="(url, i) in existingPhotos"
-              :key="`existing-${i}`"
-              class="relative size-20 rounded-xl overflow-hidden border border-border"
+              :key="`existing-${url}`"
+              draggable="true"
+              class="relative size-20 rounded-xl overflow-hidden border transition-all cursor-grab active:cursor-grabbing"
+              :class="[
+                i === 0 ? 'border-foreground ring-1 ring-foreground' : 'border-border',
+                dragOverIndex === i && dragFromIndex !== i ? 'ring-2 ring-blue-400 scale-105' : '',
+              ]"
+              @dragstart="onPhotoDragStart(i)"
+              @dragover.prevent="onPhotoDragOver(i)"
+              @drop.prevent="onPhotoDrop(i)"
+              @dragend="dragFromIndex = null; dragOverIndex = null"
             >
-              <img :src="url" alt="Mevcut fotoğraf" class="size-full object-cover" />
+              <img :src="url" alt="Mevcut fotoğraf" class="size-full object-cover pointer-events-none" />
+              <span v-if="i === 0" class="absolute bottom-0 left-0 right-0 text-center text-[10px] font-medium bg-black/50 text-white py-0.5">
+                Kapak
+              </span>
               <button
                 type="button"
                 :disabled="deletingPhotoIndex === i"
                 class="absolute top-0.5 right-0.5 size-5 rounded-full bg-black/60 flex items-center justify-center cursor-pointer disabled:opacity-50"
-                @click="deleteExistingPhoto(i)"
+                @click.stop="deleteExistingPhoto(i)"
               >
                 <Loader2 v-if="deletingPhotoIndex === i" class="size-3 text-white animate-spin" />
                 <X v-else class="size-3 text-white" />
