@@ -7,7 +7,7 @@
   },
   "packageManager": "pnpm@9.15.0",
   "scripts": {
-    "dev": "pnpm run --parallel dev:backend dev:frontend",
+    "dev": "pnpm run dev:backend & pnpm run dev:frontend",
     "dev:backend": "pnpm --filter @rafimdan/backend dev",
     "dev:frontend": "pnpm --filter @rafimdan/frontend dev",
     "typecheck": "pnpm --filter @rafimdan/backend typecheck && pnpm --filter @rafimdan/frontend typecheck",
