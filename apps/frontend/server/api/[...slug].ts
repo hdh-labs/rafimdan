@@ -1,4 +1,4 @@
-import { proxyRequest, sendRedirect, getRequestURL, getMethod } from "h3";
+import { proxyRequest, getRequestURL, getMethod } from "h3";
 
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event);
@@ -11,7 +11,12 @@ export default defineEventHandler(async (event) => {
 
     if (res.status === 302 || res.status === 301) {
       const location = res.headers.get("location");
-      if (location) return sendRedirect(event, location, res.status);
+      if (location) {
+        const headers = new Headers({ location });
+        const setCookie = res.headers.get("set-cookie");
+        if (setCookie) headers.set("set-cookie", setCookie);
+        return new Response(null, { status: res.status, headers });
+      }
     }
   }
 
