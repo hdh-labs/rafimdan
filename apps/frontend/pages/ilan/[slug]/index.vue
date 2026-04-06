@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MapPin, Eye, MessageCircle, ChevronLeft, ChevronRight, Pencil, Flag } from "lucide-vue-next"
+import { MapPin, Eye, MessageCircle, ChevronLeft, ChevronRight, Pencil, Flag, Share2, AlertCircle } from "lucide-vue-next"
 import { toast } from "vue-sonner"
 import type { ListingDetail } from "@rafimdan/shared"
 import { apiFetch, ApiError } from "~/utils/api"
@@ -36,19 +36,22 @@ function nextPhoto() {
   if (selectedIndex.value < listing.value.photos.length - 1) selectedIndex.value++
 }
 
+const isRequest = computed(() => listing.value.direction === "request")
+
 const waUrl = computed(() => {
   const phone = listing.value.seller.whatsapp
   if (!phone) return null
-  const text = encodeURIComponent(
-    `Rafımdan'da "${listing.value.title}" ilanını gördüm, hâlâ satılık mı?`,
-  )
+  const text = isRequest.value
+    ? encodeURIComponent(`Rafımdan'da "${listing.value.title}" destek ilanını gördüm, yardımcı olmak istiyorum.`)
+    : encodeURIComponent(`Rafımdan'da "${listing.value.title}" ilanını gördüm, hâlâ satılık mı?`)
   return `https://wa.me/${phone}?text=${text}`
 })
 
 const priceDisplay = computed(() => {
+  if (isRequest.value) return "Destek Arıyor"
   const { price, price_type } = listing.value
   if (price_type === "free") return "Ücretsiz"
-  if (price_type === "sadaka") return "Allah Rızası İçin"
+  if (price_type === "el_uzat") return "El Uzat"
   const formatted = (price ?? 0).toLocaleString("tr-TR") + " ₺"
   if (price_type === "negotiable") return `${formatted} · Pazarlığa açık`
   return formatted
@@ -120,6 +123,16 @@ const memberSince = computed(() => {
 const sellerAvatarError = ref(false)
 
 const reportPending = ref(false)
+
+async function share() {
+  const url = window.location.href
+  if (navigator.share) {
+    await navigator.share({ title: listing.value.title, url })
+  } else {
+    await navigator.clipboard.writeText(url)
+    toast.success("Link kopyalandı.")
+  }
+}
 
 const REPORT_REASONS = [
   { value: "spam", label: "Spam / Reklam" },
@@ -239,7 +252,7 @@ async function submitReport() {
 
           <p
             class="text-2xl font-bold"
-            :class="listing.price_type === 'free' || listing.price_type === 'sadaka' ? 'text-green-700' : 'text-foreground'"
+            :class="isRequest ? 'text-amber-700' : listing.price_type === 'free' || listing.price_type === 'el_uzat' ? 'text-green-700' : 'text-foreground'"
           >
             {{ priceDisplay }}
           </p>
@@ -294,6 +307,15 @@ async function submitReport() {
           </NuxtLink>
         </div>
 
+        <NuxtLink
+          v-if="isOwner && !listing.seller.whatsapp"
+          to="/ayarlar"
+          class="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 transition-colors cursor-pointer"
+        >
+          <AlertCircle class="size-4 shrink-0 mt-0.5" />
+          <span class="text-xs">Alıcılar sana ulaşamıyor. <span class="underline underline-offset-2 font-medium">WhatsApp ekle →</span></span>
+        </NuxtLink>
+
         <a
           v-if="waUrl"
           :href="waUrl"
@@ -302,11 +324,20 @@ async function submitReport() {
           class="flex items-center justify-center gap-2 w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 rounded-lg cursor-pointer transition-colors"
         >
           <MessageCircle class="size-5" />
-          WhatsApp'tan Yaz
+          {{ isRequest ? "Destek Ol" : "WhatsApp'tan Yaz" }}
         </a>
-        <p v-else class="text-sm text-muted-foreground text-center">
+        <p v-else-if="!isOwner" class="text-sm text-muted-foreground text-center">
           Satıcı iletişim bilgisi paylaşmamış.
         </p>
+
+        <button
+          type="button"
+          class="flex items-center justify-center gap-2 w-full border border-border py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-muted cursor-pointer transition-colors"
+          @click="share"
+        >
+          <Share2 class="size-4" />
+          İlanı Paylaş
+        </button>
 
         <SafeMeetingTips />
 
