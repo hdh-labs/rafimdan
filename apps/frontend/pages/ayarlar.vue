@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { Save } from "lucide-vue-next"
-import { toast } from "vue-sonner"
+import { Save, CheckCircle, ExternalLink, LogOut } from "lucide-vue-next"
 import type { UserProfile, ApiResponse } from "@rafimdan/shared"
 import { apiFetch, ApiError } from "~/utils/api"
 import { IL_NAMES, getIlceler } from "~/utils/turkey-locations"
@@ -23,6 +22,7 @@ watch(() => form.city, () => {
 })
 
 const submitting = ref(false)
+const saved = ref(false)
 const error = ref<string | null>(null)
 const avatarError = ref(false)
 
@@ -51,7 +51,8 @@ async function save() {
     })
 
     authStore.user = res.data
-    toast.success("Ayarlar kaydedildi.")
+    saved.value = true
+    setTimeout(() => { saved.value = false }, 2500)
   } catch (err) {
     error.value = err instanceof ApiError ? err.message : "Bir hata oluştu."
   } finally {
@@ -65,26 +66,36 @@ async function save() {
     <h1 class="text-xl font-bold text-foreground mb-6">Ayarlar</h1>
 
     <div class="mb-6 pb-6 border-b border-border">
-      <div class="flex items-center gap-3">
-        <span
-          class="inline-flex shrink-0 items-center justify-center size-12 rounded-full bg-muted text-sm font-medium text-muted-foreground overflow-hidden"
-        >
-          <img
-            v-if="authStore.user?.avatar_url && !avatarError"
-            :src="authStore.user.avatar_url"
-            :alt="authStore.user.name"
-            referrerpolicy="no-referrer"
-            class="size-full object-cover"
-            @error="avatarError = true"
-          />
-          <span v-else>
-            {{ authStore.user?.name?.[0]?.toUpperCase() }}
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <span
+            class="inline-flex shrink-0 items-center justify-center size-12 rounded-full bg-muted text-sm font-medium text-muted-foreground overflow-hidden"
+          >
+            <img
+              v-if="authStore.user?.avatar_url && !avatarError"
+              :src="authStore.user.avatar_url"
+              :alt="authStore.user.name"
+              referrerpolicy="no-referrer"
+              class="size-full object-cover"
+              @error="avatarError = true"
+            />
+            <span v-else>
+              {{ authStore.user?.name?.[0]?.toUpperCase() }}
+            </span>
           </span>
-        </span>
-        <div>
-          <p class="font-medium text-foreground text-sm">{{ authStore.user?.name }}</p>
-          <p class="text-xs text-muted-foreground">Google hesabı ile giriş yapıldı</p>
+          <div>
+            <p class="font-medium text-foreground text-sm">{{ authStore.user?.name }}</p>
+            <p class="text-xs text-muted-foreground">Google hesabı ile giriş yapıldı</p>
+          </div>
         </div>
+        <NuxtLink
+          v-if="authStore.user?.slug"
+          :to="`/profil/${authStore.user.slug}`"
+          class="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors shrink-0"
+        >
+          <ExternalLink class="size-3.5" />
+          Profilimi Görüntüle
+        </NuxtLink>
       </div>
     </div>
 
@@ -127,13 +138,7 @@ async function save() {
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium text-foreground mb-1">Şehir</label>
-          <select
-            v-model="form.city"
-            class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
-          >
-            <option value="">Seçiniz</option>
-            <option v-for="il in IL_NAMES" :key="il" :value="il">{{ il }}</option>
-          </select>
+          <CityAutocomplete v-model="form.city" />
         </div>
         <div>
           <label class="block text-sm font-medium text-foreground mb-1">İlçe</label>
@@ -152,12 +157,27 @@ async function save() {
 
       <button
         type="submit"
-        :disabled="submitting"
-        class="w-full bg-foreground text-background py-2.5 rounded-md text-sm font-medium cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+        :disabled="submitting || saved"
+        class="w-full py-2.5 rounded-md text-sm font-medium cursor-pointer transition-all flex items-center justify-center gap-2 disabled:cursor-not-allowed"
+        :class="saved
+          ? 'bg-green-600 text-white opacity-100'
+          : 'bg-foreground text-background hover:opacity-90 disabled:opacity-50'"
       >
-        <Save class="size-4" />
-        {{ submitting ? "Kaydediliyor..." : "Kaydet" }}
+        <CheckCircle v-if="saved" class="size-4" />
+        <Save v-else class="size-4" />
+        {{ submitting ? "Kaydediliyor..." : saved ? "Kaydedildi" : "Kaydet" }}
       </button>
     </form>
+
+    <div class="mt-8 pt-6 border-t border-border">
+      <button
+        type="button"
+        class="flex items-center gap-2 text-sm text-muted-foreground hover:text-red-600 cursor-pointer transition-colors"
+        @click="authStore.logout()"
+      >
+        <LogOut class="size-4" />
+        Hesaptan Çıkış Yap
+      </button>
+    </div>
   </div>
 </template>
