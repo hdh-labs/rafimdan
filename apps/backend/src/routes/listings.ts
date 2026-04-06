@@ -152,6 +152,25 @@ listings.post("/:slug/refresh", authMiddleware, async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// PATCH /:slug/photos — fotoğraf sırala
+// ---------------------------------------------------------------------------
+
+listings.patch("/:slug/photos", authMiddleware, async (c) => {
+  try {
+    const { sub } = c.get("user");
+    const slug = c.req.param("slug");
+    const body = await c.req.json<{ photos?: unknown }>();
+    if (!Array.isArray(body.photos) || !body.photos.every(p => typeof p === "string")) {
+      return c.json({ error: "photos must be string[]", status: "error", code: "INVALID_INPUT" }, 400);
+    }
+    const listing = await listingService.reorderPhotos(c.env.DB, sub, slug, body.photos);
+    return c.json({ data: listing, status: "ok" });
+  } catch (err) {
+    return handleError(c, err);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // POST /:slug/photos — fotoğraf yükle
 // ---------------------------------------------------------------------------
 

@@ -195,4 +195,23 @@ export const listingService = {
     if (!user) return [];
     return listingRepository.findByUserId(db, user.id, "active");
   },
+
+  async reorderPhotos(
+    db: D1Database,
+    userId: string,
+    slug: string,
+    photos: string[],
+  ): Promise<ListingDetail> {
+    const listing = await listingRepository.findBySlug(db, slug);
+    if (!listing) throw new ListingNotFoundError();
+    if (listing.seller.id !== userId) throw new ForbiddenError("Bu ilan size ait değil");
+
+    const validUrls = new Set(listing.photos);
+    if (!photos.every(url => validUrls.has(url))) {
+      throw new ForbiddenError("Geçersiz fotoğraf URL'i");
+    }
+
+    await listingRepository.updatePhotos(db, listing.id, photos);
+    return { ...listing, photos };
+  },
 } as const;
