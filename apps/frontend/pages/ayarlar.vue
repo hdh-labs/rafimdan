@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Save, CheckCircle, ExternalLink, LogOut } from "lucide-vue-next"
+import { Save, CheckCircle, ExternalLink, LogOut, MessageCircle } from "lucide-vue-next"
 import type { UserProfile, ApiResponse } from "@rafimdan/shared"
 import { apiFetch, ApiError } from "~/utils/api"
 import { IL_NAMES, getIlceler } from "~/utils/turkey-locations"
@@ -27,6 +27,13 @@ const error = ref<string | null>(null)
 const avatarError = ref(false)
 
 const WHATSAPP_RE = /^5\d{9}$/
+const WHATSAPP_MAX = 10
+
+function onWhatsappInput(e: Event) {
+  const raw = (e.target as HTMLInputElement).value.replace(/\D/g, "").slice(0, WHATSAPP_MAX)
+  form.whatsapp = raw
+  ;(e.target as HTMLInputElement).value = raw
+}
 
 async function save() {
   error.value = null
@@ -99,6 +106,27 @@ async function save() {
       </div>
     </div>
 
+    <!-- WhatsApp missing callout -->
+    <ClientOnly>
+      <div
+        v-if="!authStore.user?.whatsapp"
+        class="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 flex gap-3"
+      >
+        <div class="shrink-0">
+          <div class="size-9 rounded-full bg-amber-100 flex items-center justify-center">
+            <MessageCircle class="size-4.5 text-amber-600" />
+          </div>
+        </div>
+        <div class="min-w-0">
+          <p class="text-sm font-semibold text-amber-900">Alıcılar sana ulaşamıyor</p>
+          <p class="text-sm text-amber-700 mt-0.5 leading-snug">
+            WhatsApp numaranı eklemeden ilanlarına kimse mesaj atamaz.
+            Alım-satım gerçekleşemez.
+          </p>
+        </div>
+      </div>
+    </ClientOnly>
+
     <form class="space-y-4" @submit.prevent="save">
       <div>
         <label class="block text-sm font-medium text-foreground mb-1">
@@ -124,15 +152,23 @@ async function save() {
             +90
           </span>
           <input
-            v-model="form.whatsapp"
+            :value="form.whatsapp"
             type="tel"
+            inputmode="numeric"
             placeholder="5xx xxx xx xx"
+            maxlength="10"
             class="flex-1 px-3 py-2 text-sm border border-border rounded-r-md bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+            @input="onWhatsappInput"
           />
         </div>
-        <p class="text-xs text-muted-foreground mt-1">
-          İlan detayında "WhatsApp'tan Yaz" butonu görünür.
-        </p>
+        <div class="flex items-center justify-between mt-1">
+          <p class="text-xs text-muted-foreground">
+            İlan detayında "WhatsApp'tan Yaz" butonu görünür.
+          </p>
+          <span class="text-xs tabular-nums" :class="form.whatsapp.length === WHATSAPP_MAX ? 'text-green-600' : 'text-muted-foreground'">
+            {{ form.whatsapp.length }}/{{ WHATSAPP_MAX }}
+          </span>
+        </div>
       </div>
 
       <div class="grid grid-cols-2 gap-4">

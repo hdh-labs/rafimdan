@@ -32,11 +32,16 @@ onUnmounted(() => {
     <ClientOnly>
       <div
         v-if="authStore.isLoggedIn && !authStore.user?.whatsapp"
-        class="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-center gap-2 text-xs text-amber-800"
+        class="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center justify-center gap-2.5 text-sm text-amber-800"
       >
-        <AlertCircle class="size-3.5 shrink-0" />
-        <span>WhatsApp numaranı eklemeden ilanlarına alıcı ulaşamaz.</span>
-        <NuxtLink to="/ayarlar" class="font-medium underline underline-offset-2 cursor-pointer">Ekle →</NuxtLink>
+        <AlertCircle class="size-4 shrink-0" />
+        <span class="font-medium">WhatsApp numaranı eklemeden ilanlarına alıcı ulaşamaz.</span>
+        <NuxtLink
+          to="/ayarlar"
+          class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-600 text-white text-xs font-medium cursor-pointer hover:bg-amber-700 transition-colors shrink-0"
+        >
+          Hemen Ekle
+        </NuxtLink>
       </div>
     </ClientOnly>
     <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
