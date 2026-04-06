@@ -15,6 +15,17 @@ const auth = new Hono<HonoEnv>();
 // Helpers
 // ---------------------------------------------------------------------------
 
+function getCookieDomain(c: Context<HonoEnv>): string | undefined {
+  const origin = c.env.CORS_ORIGIN;
+  if (!origin) return undefined;
+  try {
+    const { hostname } = new URL(origin);
+    return hostname === "localhost" ? undefined : `.${hostname}`;
+  } catch {
+    return undefined;
+  }
+}
+
 function setRefreshCookie(c: Context<HonoEnv>, token: string): void {
   setCookie(c, "refresh_token", token, {
     httpOnly: true,
@@ -22,11 +33,12 @@ function setRefreshCookie(c: Context<HonoEnv>, token: string): void {
     sameSite: "Lax",
     path: "/api/auth",
     maxAge: REFRESH_TOKEN_MAX_AGE_SECONDS,
+    domain: getCookieDomain(c),
   });
 }
 
 function clearRefreshCookie(c: Context<HonoEnv>): void {
-  deleteCookie(c, "refresh_token", { path: "/api/auth" });
+  deleteCookie(c, "refresh_token", { path: "/api/auth", domain: getCookieDomain(c) });
 }
 
 function handleError(c: Context<HonoEnv>, err: unknown) {
@@ -37,8 +49,8 @@ function handleError(c: Context<HonoEnv>, err: unknown) {
 }
 
 function getCallbackUrl(c: Context<HonoEnv>): string {
-  const url = new URL(c.req.url);
-  return `${url.origin}/api/auth/google/callback`;
+  const frontendUrl = c.env.CORS_ORIGIN || "http://localhost:3000";
+  return `${frontendUrl}/api/auth/google/callback`;
 }
 
 // ---------------------------------------------------------------------------
