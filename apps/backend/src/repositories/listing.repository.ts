@@ -319,5 +319,37 @@ export const listingRepository = {
     };
   },
 
+  async findAllAdmin(
+    db: D1Database,
+    params: { status?: string; page?: number; limit?: number },
+  ): Promise<{ items: ListingDetail[]; total: number; page: number; limit: number }> {
+    const page = Math.max(1, params.page ?? 1);
+    const limit = Math.min(params.limit ?? 30, 100);
+    const offset = (page - 1) * limit;
+
+    const conditions: string[] = [];
+    const bindings: unknown[] = [];
+    if (params.status) { conditions.push("l.status = ?"); bindings.push(params.status); }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
+
+    const countRow = await db
+      .prepare(`SELECT COUNT(*) as total FROM listings l ${where}`)
+      .bind(...bindings)
+      .first<{ total: number }>();
+
+    const rows = await db
+      .prepare(`${JOIN_SQL} ${where} ORDER BY l.created_at DESC LIMIT ? OFFSET ?`)
+      .bind(...bindings, limit, offset)
+      .all<ListingRowJoined>();
+
+    return {
+      items: (rows.results ?? []).map(toDetail),
+      total: countRow?.total ?? 0,
+      page,
+      limit,
+    };
+  },
+
   MAX_PHOTOS,
 } as const;
