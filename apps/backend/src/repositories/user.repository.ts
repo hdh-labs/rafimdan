@@ -28,10 +28,15 @@ export const userRepository = {
     return (await userRepository.findById(db, input.id))!;
   },
 
+  async findAll(db: D1Database): Promise<User[]> {
+    const result = await db.prepare("SELECT * FROM users ORDER BY created_at DESC").all<User>();
+    return result.results ?? [];
+  },
+
   async update(
     db: D1Database,
     id: string,
-    input: Partial<Pick<User, "display_name" | "whatsapp" | "city" | "district" | "slug" | "avatar_url">>,
+    input: Partial<Pick<User, "display_name" | "whatsapp" | "city" | "district" | "slug" | "avatar_url" | "is_admin" | "is_active">>,
   ): Promise<User | null> {
     const fields: string[] = [];
     const values: unknown[] = [];
@@ -42,6 +47,8 @@ export const userRepository = {
     if (input.district !== undefined) { fields.push("district = ?"); values.push(input.district); }
     if (input.slug !== undefined) { fields.push("slug = ?"); values.push(input.slug); }
     if (input.avatar_url !== undefined) { fields.push("avatar_url = ?"); values.push(input.avatar_url); }
+    if (input.is_admin !== undefined) { fields.push("is_admin = ?"); values.push(input.is_admin); }
+    if (input.is_active !== undefined) { fields.push("is_active = ?"); values.push(input.is_active); }
 
     if (fields.length === 0) return userRepository.findById(db, id);
 
@@ -73,6 +80,8 @@ export const userRepository = {
       city: user.city,
       district: user.district,
       slug: user.slug,
+      is_active: user.is_active,
+      is_admin: user.is_admin,
       created_at: user.created_at,
     };
   },

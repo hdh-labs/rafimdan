@@ -13,6 +13,7 @@ export type User = {
   district: string | null;
   slug: string | null;
   is_active: number;
+  is_admin: number;
   created_at: string;
   updated_at: string;
 };
@@ -26,6 +27,8 @@ export type UserProfile = {
   city: string | null;
   district: string | null;
   slug: string | null;
+  is_active: number;
+  is_admin: number;
   created_at: string;
 };
 
