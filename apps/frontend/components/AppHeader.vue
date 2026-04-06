@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown } from "lucide-vue-next"
+import { ChevronDown, ClipboardList, User, Heart, Settings, LogOut, AlertCircle } from "lucide-vue-next"
 
 const authStore = useAuthStore()
 
@@ -29,6 +29,16 @@ onUnmounted(() => {
 
 <template>
   <header class="bg-white border-b border-border">
+    <ClientOnly>
+      <div
+        v-if="authStore.isLoggedIn && !authStore.user?.whatsapp"
+        class="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-center gap-2 text-xs text-amber-800"
+      >
+        <AlertCircle class="size-3.5 shrink-0" />
+        <span>WhatsApp numaranı eklemeden ilanlarına alıcı ulaşamaz.</span>
+        <NuxtLink to="/ayarlar" class="font-medium underline underline-offset-2 cursor-pointer">Ekle →</NuxtLink>
+      </div>
+    </ClientOnly>
     <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
       <NuxtLink to="/" class="font-bold text-lg tracking-tight cursor-pointer shrink-0">
         Rafımdan
@@ -41,6 +51,11 @@ onUnmounted(() => {
         >
           İlanlar
         </NuxtLink>
+
+        <ClientOnly>
+          <template #fallback>
+            <div class="size-8 rounded-full bg-muted animate-pulse shrink-0" />
+          </template>
 
         <template v-if="authStore.isLoggedIn">
           <NuxtLink
@@ -78,31 +93,43 @@ onUnmounted(() => {
               <NuxtLink
                 v-if="authStore.user?.slug"
                 :to="`/profil/${authStore.user.slug}`"
-                class="flex items-center px-3 py-2 text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
+                class="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
                 @click="closeMenu"
               >
-                {{ displayName }}
+                <User class="size-3.5 text-muted-foreground shrink-0" />
+                <span class="truncate">{{ displayName }}</span>
               </NuxtLink>
               <div class="border-t border-border my-1" />
               <NuxtLink
-                to="/favoriler"
-                class="flex items-center px-3 py-2 text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
+                to="/ilanlarim"
+                class="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
                 @click="closeMenu"
               >
+                <ClipboardList class="size-3.5 text-muted-foreground shrink-0" />
+                İlanlarım
+              </NuxtLink>
+              <NuxtLink
+                to="/favoriler"
+                class="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
+                @click="closeMenu"
+              >
+                <Heart class="size-3.5 text-muted-foreground shrink-0" />
                 Favoriler
               </NuxtLink>
               <NuxtLink
                 to="/ayarlar"
-                class="flex items-center px-3 py-2 text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
+                class="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
                 @click="closeMenu"
               >
+                <Settings class="size-3.5 text-muted-foreground shrink-0" />
                 Ayarlar
               </NuxtLink>
               <div class="border-t border-border my-1" />
               <button
-                class="flex w-full items-center px-3 py-2 text-sm text-red-600 hover:bg-muted cursor-pointer transition-colors"
+                class="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-muted cursor-pointer transition-colors"
                 @click="authStore.logout(); closeMenu()"
               >
+                <LogOut class="size-3.5 shrink-0" />
                 Çıkış Yap
               </button>
             </div>
@@ -123,6 +150,8 @@ onUnmounted(() => {
             Giriş
           </NuxtLink>
         </template>
+
+        </ClientOnly>
       </nav>
     </div>
   </header>
