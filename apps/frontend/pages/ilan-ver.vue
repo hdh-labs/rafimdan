@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Upload, X, ImagePlus, AlertCircle } from "lucide-vue-next"
+import { Upload, X, ImagePlus, MessageCircle } from "lucide-vue-next"
 import type { ListingDetail, CategoryTree, ApiResponse } from "@rafimdan/shared"
 import { apiFetch, ApiError } from "~/utils/api"
 import { IL_NAMES, getIlceler } from "~/utils/turkey-locations"
@@ -158,19 +158,28 @@ async function submit() {
   <div class="max-w-2xl mx-auto px-4 py-8">
     <h1 class="text-xl font-bold text-foreground mb-6">İlan Ver</h1>
 
-    <NuxtLink
-      v-if="!authStore.user?.whatsapp"
-      to="/ayarlar"
-      class="flex items-start gap-2.5 mb-5 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 transition-colors cursor-pointer"
-    >
-      <AlertCircle class="size-4 shrink-0 mt-0.5" />
-      <span class="text-sm">
-        <span class="font-medium">WhatsApp numaranı ekle</span> — alıcılar sana ulaşamaz.
-        <span class="underline underline-offset-2">Ayarlar'a git →</span>
-      </span>
-    </NuxtLink>
+    <ClientOnly>
+      <!-- WhatsApp Gate -->
+      <div v-if="!authStore.user?.whatsapp" class="py-8 flex flex-col items-center text-center gap-4">
+        <div class="size-16 rounded-full bg-amber-100 flex items-center justify-center">
+          <MessageCircle class="size-8 text-amber-600" />
+        </div>
+        <div class="space-y-1.5 max-w-sm">
+          <p class="text-lg font-semibold text-foreground">Önce WhatsApp numaranı ekle</p>
+          <p class="text-sm text-muted-foreground leading-relaxed">
+            Alıcılar sana WhatsApp üzerinden ulaşır. Numaran olmadan ilan veremezsin.
+          </p>
+        </div>
+        <NuxtLink
+          to="/ayarlar"
+          class="inline-flex items-center gap-2 px-5 py-2.5 bg-foreground text-background rounded-lg text-sm font-medium cursor-pointer hover:opacity-90 transition-opacity"
+        >
+          Ayarlara Git
+        </NuxtLink>
+      </div>
+    </ClientOnly>
 
-    <form class="space-y-5" novalidate @submit.prevent="submit">
+    <form v-if="authStore.user?.whatsapp" class="space-y-5" novalidate @submit.prevent="submit">
 
       <!-- İlan Tipi -->
       <div class="grid grid-cols-2 gap-3">
