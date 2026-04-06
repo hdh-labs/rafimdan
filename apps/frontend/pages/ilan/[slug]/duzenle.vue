@@ -46,6 +46,7 @@ const PRICE_TYPE_OPTIONS: { value: ListingPriceType; label: string }[] = [
   { value: "fixed", label: "Sabit" },
   { value: "negotiable", label: "Pazarlığa Açık" },
   { value: "free", label: "Ücretsiz" },
+  { value: "sadaka", label: "Sadaka" },
 ]
 
 const STATUS_OPTIONS: { value: ListingStatus; label: string }[] = [
@@ -107,7 +108,7 @@ watch(() => form.city, () => {
 })
 
 watch(() => form.price_type, (val) => {
-  if (val === "free") form.price = ""
+  if (val === "free" || val === "sadaka") form.price = ""
   delete errors.price
 })
 
@@ -128,7 +129,7 @@ function validate(): boolean {
   if (!form.condition) e.condition = "Ürün durumu seçiniz."
   if (!form.city) e.city = "Şehir seçiniz."
 
-  if (form.price_type !== "free") {
+  if (form.price_type !== "free" && form.price_type !== "sadaka") {
     if (form.price === "" || form.price === null) e.price = "Fiyat zorunludur."
     else if (Number(form.price) <= 0) e.price = "Fiyat 0'dan büyük olmalıdır."
   }
@@ -407,7 +408,7 @@ async function confirmDelete() {
         </div>
 
         <!-- Fiyat -->
-        <div v-if="form.price_type !== 'free'">
+        <div v-if="form.price_type !== 'free' && form.price_type !== 'sadaka'">
           <label class="block text-sm font-medium text-foreground mb-1">
             {{ form.price_type === 'negotiable' ? 'Başlangıç Fiyatı (₺)' : 'Fiyat (₺)' }} <span class="text-destructive">*</span>
           </label>

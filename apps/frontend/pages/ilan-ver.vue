@@ -15,7 +15,7 @@ const form = reactive({
   title: "",
   category_id: "",
   condition: "" as "new" | "like_new" | "good" | "fair" | "",
-  price_type: "fixed" as "fixed" | "negotiable" | "free",
+  price_type: "fixed" as "fixed" | "negotiable" | "free" | "sadaka",
   price: "" as number | "",
   city: IL_NAMES.includes(authStore.user?.city ?? "") ? (authStore.user?.city ?? "") : "",
   district: "",
@@ -40,7 +40,7 @@ watch(() => form.category_id, () => { delete errors.category_id })
 watch(() => form.condition, () => { delete errors.condition })
 watch(() => form.price, () => { delete errors.price })
 watch(() => form.price_type, (val) => {
-  if (val === "free") form.price = ""
+  if (val === "free" || val === "sadaka") form.price = ""
   delete errors.price
 })
 
@@ -51,7 +51,7 @@ const CONDITION_OPTIONS = [
   { value: "fair", label: "Fena Değil" },
 ] as const
 
-const priceDisabled = computed(() => form.price_type === "free")
+const priceDisabled = computed(() => form.price_type === "free" || form.price_type === "sadaka")
 
 function validate(): boolean {
   const e: Record<string, string> = {}
@@ -65,7 +65,7 @@ function validate(): boolean {
   if (!form.condition) e.condition = "Ürün durumu seçiniz."
   if (!form.city) e.city = "Şehir seçiniz."
 
-  if (form.price_type !== "free") {
+  if (form.price_type !== "free" && form.price_type !== "sadaka") {
     if (form.price === "" || form.price === null) e.price = "Fiyat zorunludur."
     else if (Number(form.price) <= 0) e.price = "Fiyat 0'dan büyük olmalıdır."
   }
@@ -229,6 +229,7 @@ async function submit() {
               { value: 'fixed', label: 'Sabit' },
               { value: 'negotiable', label: 'Pazarlığa Açık' },
               { value: 'free', label: 'Ücretsiz' },
+              { value: 'sadaka', label: 'Sadaka' },
             ]"
             :key="opt.value"
             class="flex items-center justify-center py-2 px-4 rounded-md border text-sm cursor-pointer transition-colors flex-1"
@@ -243,7 +244,7 @@ async function submit() {
       </div>
 
       <!-- Fiyat -->
-      <div v-if="form.price_type !== 'free'">
+      <div v-if="form.price_type !== 'free' && form.price_type !== 'sadaka'">
         <label class="block text-sm font-medium text-foreground mb-1">
           {{ form.price_type === 'negotiable' ? 'Başlangıç Fiyatı (₺)' : 'Fiyat (₺)' }} <span class="text-destructive">*</span>
         </label>

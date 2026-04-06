@@ -48,6 +48,7 @@ const waUrl = computed(() => {
 const priceDisplay = computed(() => {
   const { price, price_type } = listing.value
   if (price_type === "free") return "Ücretsiz"
+  if (price_type === "sadaka") return "Allah Rızası İçin"
   const formatted = (price ?? 0).toLocaleString("tr-TR") + " ₺"
   if (price_type === "negotiable") return `${formatted} · Pazarlığa açık`
   return formatted
@@ -238,7 +239,7 @@ async function submitReport() {
 
           <p
             class="text-2xl font-bold"
-            :class="listing.price_type === 'free' ? 'text-green-700' : 'text-foreground'"
+            :class="listing.price_type === 'free' || listing.price_type === 'sadaka' ? 'text-green-700' : 'text-foreground'"
           >
             {{ priceDisplay }}
           </p>
@@ -306,6 +307,8 @@ async function submitReport() {
         <p v-else class="text-sm text-muted-foreground text-center">
           Satıcı iletişim bilgisi paylaşmamış.
         </p>
+
+        <SafeMeetingTips />
 
         <button
           v-if="!isOwner"

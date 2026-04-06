@@ -2,7 +2,7 @@
 import { ImageOff, MapPin } from "lucide-vue-next"
 import { cn } from "~/utils/cn"
 
-type PriceType = "fixed" | "negotiable" | "free"
+type PriceType = "fixed" | "negotiable" | "free" | "sadaka"
 type ListingStatus = "active" | "reserved" | "sold"
 type Condition = "new" | "like_new" | "good" | "fair"
 
@@ -53,6 +53,7 @@ const statusLabel = computed(() => {
 
 const priceDisplay = computed(() => {
   if (props.price_type === "free") return "Ücretsiz"
+  if (props.price_type === "sadaka") return "Allah Rızası İçin"
   const formatted = props.price.toLocaleString("tr-TR") + " ₺"
   if (props.price_type === "negotiable") return formatted + " · Pazarlık"
   return formatted
@@ -124,7 +125,7 @@ const sellerAvatarError = ref(false)
       <div class="flex items-center justify-between gap-2">
         <p
           class="text-sm font-bold"
-          :class="price_type === 'free' ? 'text-green-700' : 'text-foreground'"
+          :class="price_type === 'free' || price_type === 'sadaka' ? 'text-green-700' : 'text-foreground'"
         >
           {{ priceDisplay }}
         </p>

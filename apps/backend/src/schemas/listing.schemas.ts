@@ -13,7 +13,7 @@ export const createListingSchema = z
     district: z.string().min(2).max(60).optional(),
   })
   .refine(
-    (data) => data.price_type === "free" || data.price !== undefined,
+    (data) => data.price_type === "free" || data.price_type === "sadaka" || data.price !== undefined,
     { message: "Fiyat zorunlu", path: ["price"] },
   );
 

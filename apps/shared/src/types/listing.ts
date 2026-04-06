@@ -1,9 +1,9 @@
 export type ListingCondition = "new" | "like_new" | "good" | "fair";
-export type ListingPriceType = "fixed" | "negotiable" | "free";
+export type ListingPriceType = "fixed" | "negotiable" | "free" | "sadaka";
 export type ListingStatus = "active" | "reserved" | "sold";
 
 export const LISTING_CONDITIONS = ["new", "like_new", "good", "fair"] as const;
-export const LISTING_PRICE_TYPES = ["fixed", "negotiable", "free"] as const;
+export const LISTING_PRICE_TYPES = ["fixed", "negotiable", "free", "sadaka"] as const;
 export const LISTING_STATUSES = ["active", "reserved", "sold"] as const;
 
 export type ListingRow = {
