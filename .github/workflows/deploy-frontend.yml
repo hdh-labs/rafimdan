@@ -37,6 +37,7 @@ jobs:
         env:
           NUXT_PUBLIC_API_BASE: https://api.rafimdan.com
           NUXT_PUBLIC_SITE_URL: https://rafimdan.com
+          NUXT_BACKEND_URL: https://api.rafimdan.com
 
       - name: Deploy to Cloudflare Pages
         run: pnpm --filter @rafimdan/frontend exec wrangler pages deploy dist --project-name=rafimdan --commit-dirty=true

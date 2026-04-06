@@ -47,6 +47,9 @@ jobs:
 
       - name: Set secrets on Worker
         run: |
+          echo "${{ secrets.JWT_SECRET }}" | pnpm exec wrangler secret put JWT_SECRET --name rafimdan-backend
+          echo "${{ secrets.GOOGLE_CLIENT_ID }}" | pnpm exec wrangler secret put GOOGLE_CLIENT_ID --name rafimdan-backend
+          echo "${{ secrets.GOOGLE_CLIENT_SECRET }}" | pnpm exec wrangler secret put GOOGLE_CLIENT_SECRET --name rafimdan-backend
           echo "${{ secrets.ADMIN_API_KEY }}" | pnpm exec wrangler secret put ADMIN_API_KEY --name rafimdan-backend
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
