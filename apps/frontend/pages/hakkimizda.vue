@@ -50,8 +50,7 @@ useSeoMeta({
     <section class="space-y-4">
       <h2 class="text-lg font-semibold text-foreground">İletişim</h2>
       <p class="text-sm text-muted-foreground leading-relaxed">
-        Görüş, öneri veya şikayetlerin için sosyal medya kanallarımızdan ulaşabilirsin.
-        İletişim bilgileri yakında eklenecektir.
+        Rafımdan henüz yerel topluluklarla büyüyen küçük bir platform. Görüş ve önerilerini ilanlar üzerinden satıcılarla doğrudan paylaşabilir, platforma dair geri bildirimlerini ilerleyen dönemde açılacak kanallardan iletebilirsin.
       </p>
     </section>
   </div>

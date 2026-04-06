@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Trash2, ShieldOff, Shield, ChevronDown, Loader2 } from "lucide-vue-next"
+import { Trash2, ShieldOff, Shield, Loader2, ExternalLink } from "lucide-vue-next"
 import { toast } from "vue-sonner"
 import type { ListingDetail, UserProfile } from "@rafimdan/shared"
 import { apiFetch } from "~/utils/api"
@@ -7,7 +7,7 @@ import { apiFetch } from "~/utils/api"
 definePageMeta({ middleware: ["auth", "admin"], ssr: false })
 useSeoMeta({ title: "Admin — Rafımdan" })
 
-type Tab = "listings" | "users"
+type Tab = "listings" | "users" | "reports"
 
 const activeTab = ref<Tab>("listings")
 
@@ -129,12 +129,50 @@ async function toggleAdmin(user: UserProfile) {
 }
 
 // ---------------------------------------------------------------------------
+// Reports
+// ---------------------------------------------------------------------------
+
+type Report = {
+  id: string
+  listing_id: string
+  listing_slug: string
+  listing_title: string
+  reporter_name: string
+  reason: string
+  created_at: string
+}
+
+const REASON_LABELS: Record<string, string> = {
+  spam: "Spam / Reklam",
+  fraud: "Dolandırıcılık",
+  inappropriate: "Uygunsuz İçerik",
+  wrong_category: "Yanlış Kategori",
+  other: "Diğer",
+}
+
+const reports = ref<Report[]>([])
+const reportsLoading = ref(false)
+
+async function fetchReports() {
+  reportsLoading.value = true
+  try {
+    const res = await apiFetch<{ data: Report[]; status: "ok" }>("/api/admin/reports")
+    reports.value = res.data
+  } catch {
+    toast.error("Raporlar yüklenemedi.")
+  } finally {
+    reportsLoading.value = false
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 
 onMounted(() => {
   fetchListings()
   fetchUsers()
+  fetchReports()
 })
 
 function switchTab(tab: Tab) {
@@ -159,7 +197,7 @@ function formatDate(d: string) {
     <!-- Tabs -->
     <div class="flex gap-1 mb-6 border-b border-border">
       <button
-        v-for="tab in ([{ key: 'listings', label: 'İlanlar' }, { key: 'users', label: 'Kullanıcılar' }] as const)"
+        v-for="tab in ([{ key: 'listings', label: 'İlanlar' }, { key: 'users', label: 'Kullanıcılar' }, { key: 'reports', label: `Raporlar ${reports.length ? '(' + reports.length + ')' : ''}` }] as const)"
         :key="tab.key"
         class="px-4 py-2 text-sm font-medium cursor-pointer transition-colors -mb-px border-b-2"
         :class="activeTab === tab.key
@@ -362,6 +400,46 @@ function formatDate(d: string) {
         </table>
         <div v-if="users.length === 0" class="py-12 text-center text-sm text-muted-foreground">
           Kullanıcı bulunamadı.
+        </div>
+      </div>
+    </div>
+
+    <!-- ------------------------------------------------------------------ -->
+    <!-- REPORTS TAB                                                         -->
+    <!-- ------------------------------------------------------------------ -->
+    <div v-if="activeTab === 'reports'">
+      <div v-if="reportsLoading" class="space-y-2">
+        <div v-for="i in 3" :key="i" class="h-16 rounded-lg bg-muted animate-pulse" />
+      </div>
+
+      <div v-else-if="reports.length === 0" class="py-12 text-center text-sm text-muted-foreground">
+        Henüz rapor yok.
+      </div>
+
+      <div v-else class="space-y-2">
+        <div
+          v-for="r in reports"
+          :key="r.id"
+          class="border border-border rounded-lg p-4"
+        >
+          <div class="flex items-start justify-between gap-4">
+            <div class="min-w-0">
+              <NuxtLink
+                :to="`/ilan/${r.listing_slug}`"
+                target="_blank"
+                class="inline-flex items-center gap-1 font-medium text-sm text-foreground hover:underline cursor-pointer"
+              >
+                {{ r.listing_title }}
+                <ExternalLink class="size-3 shrink-0" />
+              </NuxtLink>
+              <p class="text-xs text-muted-foreground mt-0.5">
+                {{ r.reporter_name }} · {{ formatDate(r.created_at) }}
+              </p>
+            </div>
+            <span class="shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
+              {{ REASON_LABELS[r.reason] ?? r.reason }}
+            </span>
+          </div>
         </div>
       </div>
     </div>

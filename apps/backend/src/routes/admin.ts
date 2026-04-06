@@ -40,15 +40,12 @@ const adminAuthMiddleware: MiddlewareHandler<HonoEnv> = async (c, next) => {
 // Reports (API key korumalı — geriye dönük uyumluluk)
 // ---------------------------------------------------------------------------
 
-admin.get("/reports", apiKeyMiddleware, async (c) => {
+admin.get("/reports", adminAuthMiddleware, async (c) => {
   try {
     const reports = await reportService.getAll(c.env.DB);
     return c.json({ data: reports, status: "ok" });
   } catch (err) {
-    if (err instanceof AppError) {
-      return c.json({ error: err.message, status: "error", code: err.code }, err.statusCode as 500);
-    }
-    throw err;
+    return handleError(c, err);
   }
 });
 

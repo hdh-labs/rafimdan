@@ -83,8 +83,7 @@ const LAST_UPDATED = "6 Nisan 2025"
     <section class="space-y-3">
       <h2 class="text-lg font-semibold text-foreground">7. İletişim</h2>
       <p class="text-sm text-muted-foreground leading-relaxed">
-        Sorularınız için sosyal medya kanallarımızdan ulaşabilirsiniz.
-        İletişim bilgileri yakında eklenecektir.
+        Rafımdan şu an yerel topluluklarla büyüyen küçük bir platformdur. Kullanım koşullarına ilişkin sorularınız için ilerleyen dönemde açılacak iletişim kanallarından bize ulaşabilirsiniz.
       </p>
     </section>
   </div>
