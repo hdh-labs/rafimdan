@@ -10,11 +10,12 @@ const { data: catsRes } = await useFetch<ApiResponse<CategoryTree[]>>("/api/cate
 const categories = computed(() => catsRes.value?.data ?? [])
 
 const authStore = useAuthStore()
+const route = useRoute()
 
 const form = reactive({
   title: "",
   category_id: "",
-  direction: "offer" as "offer" | "request",
+  direction: (route.query.direction === "request" ? "request" : "offer") as "offer" | "request",
   condition: "" as "new" | "like_new" | "good" | "fair" | "",
   price_type: "fixed" as "fixed" | "negotiable" | "free" | "el_uzat",
   price: "" as number | "",

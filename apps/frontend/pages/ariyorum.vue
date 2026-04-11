@@ -42,7 +42,7 @@ useSeoMeta({
         İhtiyacını yaz, topluluğun bir el atsın.
       </p>
       <NuxtLink
-        to="/ilan-ver"
+        to="/ilan-ver?direction=request"
         class="inline-flex items-center gap-2 border border-border bg-white text-foreground px-5 py-2 rounded-lg text-sm font-medium cursor-pointer hover:bg-muted transition-colors"
       >
         <Plus class="size-4" />
