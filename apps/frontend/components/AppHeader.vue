@@ -45,8 +45,8 @@ onUnmounted(() => {
       </div>
     </ClientOnly>
     <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
-      <NuxtLink to="/" class="font-bold text-lg tracking-tight cursor-pointer shrink-0">
-        Rafımdan
+      <NuxtLink to="/" class="cursor-pointer shrink-0">
+        <AppLogo />
       </NuxtLink>
 
       <nav class="flex items-center gap-3">

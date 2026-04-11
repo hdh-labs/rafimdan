@@ -48,6 +48,9 @@ export default defineNuxtConfig({
       viewport: "width=device-width, initial-scale=1",
       htmlAttrs: { lang: "tr" },
       title: "Rafımdan - Yerel İkinci El Pazar Yeri",
+      link: [
+        { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+      ],
       meta: [
         {
           name: "description",

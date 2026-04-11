@@ -1,18 +1,40 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: oklch(0.205 0 0);
-  --color-primary-foreground: oklch(0.985 0 0);
-  --color-secondary: oklch(0.97 0 0);
-  --color-secondary-foreground: oklch(0.205 0 0);
-  --color-muted: oklch(0.97 0 0);
-  --color-muted-foreground: oklch(0.556 0 0);
+  /*
+   * Palet: tüm nötraller brand ile aynı hue ailesinde (H≈38, terracotta)
+   * Çok düşük chroma değerleri gözle fark edilmez ama ısı hissi verir.
+   */
+
+  /* Brand */
+  --color-brand:            oklch(0.55 0.145 38);
+  --color-brand-foreground: oklch(0.99 0.006 38);
+
+  /* Arka plan & metin */
+  --color-background: oklch(0.99 0.006 38);
+  --color-foreground: oklch(0.18 0.025 38);
+
+  /* Butonlar (foreground ile aynı) */
+  --color-primary:            oklch(0.18 0.025 38);
+  --color-primary-foreground: oklch(0.99 0.006 38);
+
+  /* İkincil / soluk alanlar */
+  --color-secondary:            oklch(0.96 0.010 38);
+  --color-secondary-foreground: oklch(0.18 0.025 38);
+  --color-muted:                oklch(0.96 0.010 38);
+  --color-muted-foreground:     oklch(0.42 0.025 38);
+
+  /* Kenarlık & input */
+  --color-border: oklch(0.91 0.012 38);
+  --color-input:  oklch(0.91 0.012 38);
+
+  /* Focus ring */
+  --color-ring: oklch(0.55 0.145 38);
+
+  /* Hata */
   --color-destructive: oklch(0.577 0.245 27.325);
-  --color-border: oklch(0.922 0 0);
-  --color-input: oklch(0.922 0 0);
-  --color-ring: oklch(0.708 0 0);
-  --color-background: oklch(1 0 0);
-  --color-foreground: oklch(0.145 0 0);
+
+  /* Köşe yuvarlaklıkları */
   --radius-sm: 0.375rem;
   --radius-md: 0.5rem;
   --radius-lg: 0.75rem;
