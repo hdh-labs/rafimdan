@@ -23,9 +23,47 @@ export const useAuthStore = defineStore("auth", () => {
       user.value = res.data
       const favoritesStore = useFavoritesStore()
       await favoritesStore.fetchFavorites()
+      await redeemPendingAhaliToken()
     } catch {
       accessToken.value = null
       user.value = null
+    }
+  }
+
+  async function init() {
+    if (accessToken.value) {
+      await fetchMe()
+      return
+    }
+    try {
+      const res = await $fetch<{ data: { user: UserProfile; access_token: string }; status: "ok" }>(
+        "/api/auth/refresh",
+        { method: "POST", credentials: "include" },
+      )
+      accessToken.value = res.data.access_token
+      user.value = res.data.user
+      const favoritesStore = useFavoritesStore()
+      await favoritesStore.fetchFavorites()
+      await redeemPendingAhaliToken()
+    } catch {
+      user.value = null
+    }
+  }
+
+  async function redeemPendingAhaliToken() {
+    if (import.meta.server) return
+    const token = localStorage.getItem("ahali_invite")
+    if (!token || user.value?.is_ahali) return
+    try {
+      await $fetch("/api/ahali/join", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken.value}` },
+        body: { token },
+      })
+      localStorage.removeItem("ahali_invite")
+      if (user.value) user.value = { ...user.value, is_ahali: 1 }
+    } catch {
+      localStorage.removeItem("ahali_invite")
     }
   }
 
@@ -47,5 +85,5 @@ export const useAuthStore = defineStore("auth", () => {
     await navigateTo("/")
   }
 
-  return { user, isLoggedIn, accessToken, login, logout, fetchMe }
+  return { user, isLoggedIn, accessToken, login, logout, fetchMe, init }
 })

@@ -21,7 +21,7 @@ export const refreshTokenRepository = {
 
   async findByTokenHash(db: D1Database, hash: string): Promise<RefreshTokenRow | null> {
     return db
-      .prepare("SELECT * FROM refresh_tokens WHERE token_hash = ?")
+      .prepare("SELECT * FROM refresh_tokens WHERE token_hash = ? AND expires_at > datetime('now')")
       .bind(hash)
       .first<RefreshTokenRow>();
   },
