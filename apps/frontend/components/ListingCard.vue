@@ -10,21 +10,24 @@ type Direction = "offer" | "request"
 interface Seller {
   id: string
   name: string
-  avatar_url?: string
+  display_name?: string | null
+  slug?: string | null
+  avatar_url?: string | null
+  is_ahali?: number
 }
 
 interface Props {
   id: string
   slug: string
   title: string
-  price: number
+  price: number | null
   price_type: PriceType
   condition: Condition
   status: ListingStatus
   direction?: Direction
-  cover_photo?: string
+  cover_photo?: string | null
   city: string
-  district?: string
+  district?: string | null
   seller: Seller
   created_at: string
   favorites_count?: number
@@ -56,9 +59,9 @@ const statusLabel = computed(() => {
 
 const priceDisplay = computed(() => {
   if (props.direction === "request") return "Destek Arıyor"
-  if (props.price_type === "free") return "Ücretsiz"
+  if (props.price_type === "free") return "Askıda"
   if (props.price_type === "el_uzat") return "El Uzat"
-  const formatted = props.price.toLocaleString("tr-TR") + " ₺"
+  const formatted = (props.price ?? 0).toLocaleString("tr-TR") + " ₺"
   if (props.price_type === "negotiable") return formatted + " · Pazarlık"
   return formatted
 })
@@ -84,8 +87,9 @@ const sellerAvatarError = ref(false)
   <NuxtLink
     :to="`/ilan/${slug}`"
     :class="cn(
-      'group block rounded-xl border border-border bg-white overflow-hidden',
+      'group block rounded-xl border bg-white overflow-hidden',
       'hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer',
+      direction === 'request' ? 'border-amber-300' : 'border-border',
       isOverlaid && 'opacity-60'
     )"
   >
@@ -153,6 +157,12 @@ const sellerAvatarError = ref(false)
           >
             <Heart class="size-3 text-rose-400" />
             {{ favorites_count }}
+          </span>
+          <span
+            v-if="seller.is_ahali"
+            class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"
+          >
+            Ahali
           </span>
           <span
             class="inline-flex items-center justify-center size-5 rounded-full bg-muted text-xs font-medium text-muted-foreground overflow-hidden"

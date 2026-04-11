@@ -45,6 +45,8 @@ export const listingsQuerySchema = z.object({
   price_type: z.enum(LISTING_PRICE_TYPES).optional(),
   condition: z.enum(LISTING_CONDITIONS).optional(),
   direction: z.enum(LISTING_DIRECTIONS).optional(),
+  ahali: z.coerce.boolean().optional(),
+  sort: z.enum(["recent", "popular"]).optional(),
   q: z.string().max(100).optional(),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(50).default(20),

@@ -13,6 +13,7 @@ import users from "./routes/users";
 import favorites from "./routes/favorites";
 import storage from "./routes/storage";
 import admin from "./routes/admin";
+import ahali from "./routes/ahali";
 
 const app = new Hono<HonoEnv>();
 
@@ -36,6 +37,7 @@ app.route("/api/users", users);
 app.route("/api/favorites", favorites);
 app.route("/api/storage", storage);
 app.route("/api/admin", admin);
+app.route("/api/ahali", ahali);
 
 // ---------------------------------------------------------------------------
 // Fallback

@@ -14,6 +14,7 @@ export type User = {
   slug: string | null;
   is_active: number;
   is_admin: number;
+  is_ahali: number;
   created_at: string;
   updated_at: string;
 };
@@ -29,6 +30,7 @@ export type UserProfile = {
   slug: string | null;
   is_active: number;
   is_admin: number;
+  is_ahali: number;
   created_at: string;
 };
 

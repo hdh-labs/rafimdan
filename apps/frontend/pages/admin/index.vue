@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Trash2, ShieldOff, Shield, Loader2, ExternalLink } from "lucide-vue-next"
+import { Trash2, ShieldOff, Shield, Loader2, ExternalLink, Users } from "lucide-vue-next"
 import { toast } from "vue-sonner"
 import type { ListingDetail, UserProfile } from "@rafimdan/shared"
 import { apiFetch } from "~/utils/api"
@@ -121,6 +121,23 @@ async function toggleAdmin(user: UserProfile) {
     })
     await fetchUsers()
     toast.success(is_admin ? "Admin yetkisi verildi." : "Admin yetkisi alındı.")
+  } catch {
+    toast.error("İşlem başarısız.")
+  } finally {
+    patchingUserId.value = null
+  }
+}
+
+async function toggleAhali(user: UserProfile) {
+  const is_ahali = user.is_ahali ? 0 : 1
+  patchingUserId.value = user.id
+  try {
+    await apiFetch(`/api/admin/users/${user.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ is_ahali }),
+    })
+    await fetchUsers()
+    toast.success(is_ahali ? "Ahali rozeti verildi." : "Ahali rozeti alındı.")
   } catch {
     toast.error("İşlem başarısız.")
   } finally {
@@ -363,7 +380,13 @@ function formatDate(d: string) {
                 {{ formatDate(user.created_at) }}
               </td>
               <td class="px-3 py-2">
-                <div class="flex items-center gap-1.5">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <span
+                    v-if="user.is_ahali"
+                    class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 border-emerald-200"
+                  >
+                    Ahali
+                  </span>
                   <span
                     v-if="user.is_admin"
                     class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium bg-purple-50 text-purple-700 border-purple-200"
@@ -374,6 +397,17 @@ function formatDate(d: string) {
               </td>
               <td class="px-3 py-2">
                 <div class="flex items-center gap-1 justify-end">
+                  <button
+                    type="button"
+                    :title="user.is_ahali ? 'Ahali rozetini kaldır' : 'Ahali yap'"
+                    class="flex items-center justify-center size-7 rounded cursor-pointer transition-colors"
+                    :class="user.is_ahali
+                      ? 'text-emerald-600 hover:bg-emerald-50'
+                      : 'text-muted-foreground hover:bg-muted'"
+                    @click="toggleAhali(user)"
+                  >
+                    <Users class="size-3.5" />
+                  </button>
                   <button
                     type="button"
                     :title="user.is_admin ? 'Admin yetkisini kaldır' : 'Admin yap'"

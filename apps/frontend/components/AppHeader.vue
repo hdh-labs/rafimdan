@@ -56,6 +56,12 @@ onUnmounted(() => {
         >
           İlanlar
         </NuxtLink>
+        <NuxtLink
+          to="/ariyorum"
+          class="text-sm text-muted-foreground hover:text-foreground px-2 py-1 rounded cursor-pointer transition-colors"
+        >
+          Bir El At
+        </NuxtLink>
 
         <ClientOnly>
           <template #fallback>
