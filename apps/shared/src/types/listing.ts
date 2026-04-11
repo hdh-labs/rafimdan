@@ -51,7 +51,6 @@ export type ListingListItem = {
     display_name: string | null;
     slug: string | null;
     avatar_url: string | null;
-    is_ahali: number;
   };
   created_at: string;
   updated_at: string;
@@ -69,7 +68,6 @@ export type ListingDetail = Omit<ListingListItem, "cover_photo" | "seller" | "di
     display_name: string | null;
     slug: string | null;
     avatar_url: string | null;
-    is_ahali: number;
     whatsapp: string | null;
     city: string | null;
     created_at: string;
@@ -101,7 +99,6 @@ export type ListingsQueryParams = {
   price_type?: ListingPriceType;
   condition?: ListingCondition;
   direction?: ListingDirection;
-  ahali?: boolean;
   sort?: "recent" | "popular";
   q?: string;
   page?: number;

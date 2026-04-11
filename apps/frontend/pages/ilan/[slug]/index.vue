@@ -76,7 +76,7 @@ const CONDITION_LABELS: Record<string, string> = {
   new: "Yeni",
   like_new: "Az Kullanılmış",
   good: "İyi",
-  fair: "Fena Değil",
+  fair: "Orta",
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -294,12 +294,6 @@ async function submitReport() {
             <div class="min-w-0">
               <div class="flex items-center gap-1.5 flex-wrap">
                 <p class="font-medium text-foreground text-sm truncate">{{ sellerName }}</p>
-                <span
-                  v-if="listing.seller.is_ahali"
-                  class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"
-                >
-                  Ahali
-                </span>
               </div>
               <p v-if="listing.seller.city" class="text-xs text-muted-foreground">
                 {{ listing.seller.city }}

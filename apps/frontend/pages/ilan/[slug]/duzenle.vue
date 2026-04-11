@@ -40,7 +40,7 @@ const CONDITION_OPTIONS: { value: ListingCondition; label: string }[] = [
   { value: "new", label: "Yeni" },
   { value: "like_new", label: "Az Kullanılmış" },
   { value: "good", label: "İyi" },
-  { value: "fair", label: "Fena Değil" },
+  { value: "fair", label: "Orta" },
 ]
 
 const PRICE_TYPE_OPTIONS: { value: ListingPriceType; label: string }[] = [
@@ -460,11 +460,11 @@ async function confirmDelete() {
           <label class="block text-sm font-medium text-foreground mb-2">
             Fiyat Tipi <span class="text-destructive">*</span>
           </label>
-          <div class="flex gap-2">
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <label
               v-for="opt in PRICE_TYPE_OPTIONS"
               :key="opt.value"
-              class="flex items-center justify-center py-2 px-4 rounded-xl border text-sm cursor-pointer transition-colors flex-1"
+              class="flex items-center justify-center py-2 px-4 rounded-xl border text-sm cursor-pointer transition-colors"
               :class="form.price_type === opt.value
                 ? 'border-foreground bg-foreground text-background font-medium'
                 : 'border-border hover:bg-muted'"

@@ -54,7 +54,7 @@ const CONDITION_OPTIONS = [
   { value: "new", label: "Yeni" },
   { value: "like_new", label: "Az Kullanılmış" },
   { value: "good", label: "İyi" },
-  { value: "fair", label: "Fena Değil" },
+  { value: "fair", label: "Orta" },
 ] as const
 
 const priceDisabled = computed(() => form.direction === "request" || form.price_type === "free" || form.price_type === "el_uzat")
@@ -202,7 +202,7 @@ async function submit() {
         >
           <input v-model="form.direction" type="radio" value="request" class="sr-only" />
           <span class="text-sm font-semibold">Destek Arıyorum</span>
-          <span class="text-xs opacity-70">Bir El At — ihtiyacını yaz</span>
+          <span class="text-xs opacity-70">Destek iste — ahali yardım etsin</span>
         </label>
       </div>
 
@@ -275,7 +275,7 @@ async function submit() {
         <label class="block text-sm font-medium text-foreground mb-2">
           Fiyat Tipi <span class="text-destructive">*</span>
         </label>
-        <div v-if="form.direction === 'offer'" class="flex gap-2">
+        <div v-if="form.direction === 'offer'" class="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <label
             v-for="opt in [
               { value: 'fixed', label: 'Sabit' },
@@ -284,7 +284,7 @@ async function submit() {
               { value: 'el_uzat', label: 'El Uzat' },
             ]"
             :key="opt.value"
-            class="flex items-center justify-center py-2 px-3 rounded-md border text-sm cursor-pointer transition-colors flex-1"
+            class="flex items-center justify-center py-2 px-3 rounded-md border text-sm cursor-pointer transition-colors"
             :class="form.price_type === opt.value
               ? 'border-foreground bg-foreground text-background'
               : 'border-border hover:bg-muted'"
@@ -345,7 +345,7 @@ async function submit() {
           v-model="form.description"
           maxlength="2000"
           rows="4"
-          placeholder="Ürün hakkında detay verin..."
+          :placeholder="form.direction === 'request' ? 'İhtiyacını açıkla, topluluğun yardım edebilir...' : 'Ürün hakkında detay verin...'"
           class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring resize-none"
         />
         <p class="text-xs text-muted-foreground mt-1 text-right">

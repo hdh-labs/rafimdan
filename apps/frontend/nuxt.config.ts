@@ -7,7 +7,32 @@ export default defineNuxtConfig({
 
   css: ["~/assets/css/main.css"],
 
-  modules: ["@pinia/nuxt"],
+  modules: ["@pinia/nuxt", "@vite-pwa/nuxt"],
+
+  pwa: {
+    registerType: "autoUpdate",
+    manifest: {
+      name: "Rafımdan",
+      short_name: "Rafımdan",
+      description: "Yakınındaki ikinci el ilanlar. Kargosuz, yüz yüze.",
+      theme_color: "#C05C38",
+      background_color: "#FDF9F7",
+      display: "standalone",
+      orientation: "portrait",
+      start_url: "/",
+      icons: [
+        { src: "/icons/pwa-192x192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+        { src: "/icons/pwa-512x512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      ],
+    },
+    workbox: {
+      navigateFallback: null,
+      globPatterns: ["**/*.{js,css,html,png,svg,ico,woff2}"],
+    },
+    devOptions: {
+      enabled: false,
+    },
+  },
 
   components: [
     { path: "~/components", pathPrefix: false },
@@ -45,11 +70,12 @@ export default defineNuxtConfig({
   app: {
     head: {
       charset: "utf-8",
-      viewport: "width=device-width, initial-scale=1",
+      viewport: "width=device-width, initial-scale=1, viewport-fit=cover",
       htmlAttrs: { lang: "tr" },
       title: "Rafımdan - Yerel İkinci El Pazar Yeri",
       link: [
         { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+        { rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
       ],
       meta: [
         {

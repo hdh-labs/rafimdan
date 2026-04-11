@@ -28,7 +28,7 @@ function goToPage(p: number) {
 useSeoMeta({
   title: () => `${city.value} İkinci El İlanları — Rafımdan`,
   description: () =>
-    `${city.value}'deki ikinci el ilanlar. Kargosuz, komşunla yüz yüze alışveriş.`,
+    `${city.value}'deki ikinci el ilanlar. Kargosuz, ahali ile yüz yüze alışveriş.`,
 })
 </script>
 

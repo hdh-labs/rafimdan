@@ -20,7 +20,6 @@ type ListingRowJoined = ListingRow & {
   seller_display_name: string | null;
   seller_slug: string | null;
   seller_avatar_url: string | null;
-  seller_is_ahali: number;
   seller_whatsapp: string | null;
   seller_city: string | null;
   seller_created_at: string;
@@ -56,7 +55,6 @@ function toListItem(row: ListingRowJoined): ListingListItem {
       display_name: row.seller_display_name,
       slug: row.seller_slug,
       avatar_url: row.seller_avatar_url,
-      is_ahali: row.seller_is_ahali,
     },
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -87,7 +85,6 @@ function toDetail(row: ListingRowJoined): ListingDetail {
       display_name: row.seller_display_name,
       slug: row.seller_slug,
       avatar_url: row.seller_avatar_url,
-      is_ahali: row.seller_is_ahali,
       whatsapp: row.seller_whatsapp,
       city: row.seller_city,
       created_at: row.seller_created_at,
@@ -109,7 +106,6 @@ const JOIN_SQL = `
     u.display_name AS seller_display_name,
     u.slug  AS seller_slug,
     u.avatar_url   AS seller_avatar_url,
-    u.is_ahali     AS seller_is_ahali,
     u.whatsapp     AS seller_whatsapp,
     u.city         AS seller_city,
     u.created_at   AS seller_created_at,
@@ -182,7 +178,6 @@ export const listingRepository = {
     if (params.price_type) { conditions.push("l.price_type = ?"); bindings.push(params.price_type); }
     if (params.condition) { conditions.push("l.condition = ?"); bindings.push(params.condition); }
     if (params.direction) { conditions.push("l.direction = ?"); bindings.push(params.direction); }
-    if (params.ahali) { conditions.push("u.is_ahali = 1"); }
     if (params.q) {
       conditions.push("(l.title LIKE ? ESCAPE '\\' OR l.description LIKE ? ESCAPE '\\')");
       const escaped = params.q.replace(/[\\%_]/g, "\\$&");

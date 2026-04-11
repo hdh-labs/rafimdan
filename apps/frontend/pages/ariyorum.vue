@@ -86,12 +86,6 @@ useSeoMeta({
             </p>
             <div class="flex items-center justify-between pt-1">
               <span class="text-xs font-medium text-amber-700">Destek Arıyor</span>
-              <span
-                v-if="listing.seller.is_ahali"
-                class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"
-              >
-                Ahali
-              </span>
             </div>
           </div>
         </NuxtLink>

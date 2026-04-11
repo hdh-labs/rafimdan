@@ -92,14 +92,14 @@ const CONDITION_LABELS: Record<string, string> = {
   new: "Yeni",
   like_new: "Az Kullanılmış",
   good: "İyi",
-  fair: "Fena Değil",
+  fair: "Orta",
 }
 
 const PRICE_TYPE_LABELS: Record<string, string> = {
   fixed: "Sabit Fiyat",
   negotiable: "Pazarlığa Açık",
   free: "Ücretsiz",
-  sadaka: "Sadaka",
+  el_uzat: "El Uzat",
 }
 
 useSeoMeta({

@@ -94,11 +94,10 @@ admin.get("/users", adminAuthMiddleware, async (c) => {
 admin.patch("/users/:id", adminAuthMiddleware, async (c) => {
   try {
     const id = c.req.param("id");
-    const body = await c.req.json<{ is_active?: number; is_admin?: number; is_ahali?: number }>();
-    const allowed: { is_active?: number; is_admin?: number; is_ahali?: number } = {};
+    const body = await c.req.json<{ is_active?: number; is_admin?: number }>();
+    const allowed: { is_active?: number; is_admin?: number } = {};
     if (typeof body.is_active === "number") allowed.is_active = body.is_active;
     if (typeof body.is_admin === "number") allowed.is_admin = body.is_admin;
-    if (typeof body.is_ahali === "number") allowed.is_ahali = body.is_ahali;
     if (Object.keys(allowed).length === 0) {
       return c.json({ error: "Güncellenecek alan yok", status: "error", code: "NO_FIELDS" }, 400);
     }

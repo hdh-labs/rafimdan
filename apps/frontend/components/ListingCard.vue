@@ -13,7 +13,6 @@ interface Seller {
   display_name?: string | null
   slug?: string | null
   avatar_url?: string | null
-  is_ahali?: number
 }
 
 interface Props {
@@ -39,7 +38,7 @@ const CONDITION_LABELS: Record<Condition, string> = {
   new: "Yeni",
   like_new: "Az Kullanılmış",
   good: "İyi",
-  fair: "Fena Değil",
+  fair: "Orta",
 }
 
 const CONDITION_COLORS: Record<Condition, string> = {
@@ -156,12 +155,6 @@ const sellerAvatarError = ref(false)
           >
             <Heart class="size-3 text-rose-400" />
             {{ favorites_count }}
-          </span>
-          <span
-            v-if="seller.is_ahali"
-            class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"
-          >
-            Ahali
           </span>
           <span
             class="inline-flex items-center justify-center size-5 rounded-full bg-muted text-xs font-medium text-muted-foreground overflow-hidden"

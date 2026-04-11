@@ -105,7 +105,7 @@ const communityListings = computed(() => communityRes.value?.data.items ?? [])
           <ArrowRight class="size-3.5" />
         </NuxtLink>
       </div>
-      <p class="text-sm text-muted-foreground -mt-2">Komşuların yardımına koş — ihtiyacını yaz, destek gelsin.</p>
+      <p class="text-sm text-muted-foreground -mt-2">Ahaliden destek iste — ihtiyacını yaz, topluluk yardım etsin.</p>
       <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
         <ListingCard
           v-for="item in communityListings"

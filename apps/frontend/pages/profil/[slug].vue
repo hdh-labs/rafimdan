@@ -71,12 +71,6 @@ useSeoMeta({
         <div class="flex items-center gap-2 flex-wrap">
           <h1 class="text-xl font-bold text-foreground">{{ displayName }}</h1>
           <span
-            v-if="profile.is_ahali"
-            class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"
-          >
-            Ahali
-          </span>
-          <span
             v-if="profile.sold_count >= 5"
             class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200"
           >

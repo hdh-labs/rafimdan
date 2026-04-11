@@ -36,7 +36,7 @@ export const userRepository = {
   async update(
     db: D1Database,
     id: string,
-    input: Partial<Pick<User, "display_name" | "whatsapp" | "city" | "district" | "slug" | "avatar_url" | "is_admin" | "is_active" | "is_ahali">>,
+    input: Partial<Pick<User, "display_name" | "whatsapp" | "city" | "district" | "slug" | "avatar_url" | "is_admin" | "is_active">>,
   ): Promise<User | null> {
     const fields: string[] = [];
     const values: unknown[] = [];
@@ -49,7 +49,6 @@ export const userRepository = {
     if (input.avatar_url !== undefined) { fields.push("avatar_url = ?"); values.push(input.avatar_url); }
     if (input.is_admin !== undefined) { fields.push("is_admin = ?"); values.push(input.is_admin); }
     if (input.is_active !== undefined) { fields.push("is_active = ?"); values.push(input.is_active); }
-    if (input.is_ahali !== undefined) { fields.push("is_ahali = ?"); values.push(input.is_ahali); }
 
     if (fields.length === 0) return userRepository.findById(db, id);
 
@@ -83,7 +82,6 @@ export const userRepository = {
       slug: user.slug,
       is_active: user.is_active,
       is_admin: user.is_admin,
-      is_ahali: user.is_ahali,
       created_at: user.created_at,
     };
   },
