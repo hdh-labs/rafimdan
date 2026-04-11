@@ -13,7 +13,6 @@ const listings = computed(() => listingsRes.value?.data.items ?? [])
 const categories = computed(() => categoriesRes.value?.data ?? [])
 const communityListings = computed(() => communityRes.value?.data.items ?? [])
 
-const FEATURED_CITIES = ["İstanbul", "Ankara", "İzmir", "Bursa", "Antalya", "Adana"]
 </script>
 
 <template>
@@ -28,7 +27,7 @@ const FEATURED_CITIES = ["İstanbul", "Ankara", "İzmir", "Bursa", "Antalya", "A
         Yakınındaki ikinci el<br class="hidden sm:block" /> ilanlar
       </h1>
       <p class="text-base text-muted-foreground max-w-sm mx-auto">
-        Aynı semtte satıcıyla buluş, kargosuz al. Basit, güvenli, yerel.
+        Satıcıyla buluş, kargosuz al. Basit, yerel, güvenli.
       </p>
       <div class="flex items-center justify-center gap-3 pt-1">
         <NuxtLink
@@ -99,7 +98,7 @@ const FEATURED_CITIES = ["İstanbul", "Ankara", "İzmir", "Bursa", "Antalya", "A
           <h2 class="text-xl font-bold text-foreground">Bir El At</h2>
         </div>
         <NuxtLink
-          to="/ilanlar?direction=request"
+          to="/ariyorum"
           class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
         >
           Tümünü gör
@@ -129,21 +128,6 @@ const FEATURED_CITIES = ["İstanbul", "Ankara", "İzmir", "Bursa", "Antalya", "A
           }"
           :created_at="item.created_at"
         />
-      </div>
-    </section>
-
-    <!-- Şehre Göre -->
-    <section class="space-y-4">
-      <h2 class="text-xl font-bold text-foreground">Şehre Göre</h2>
-      <div class="flex flex-wrap gap-2">
-        <NuxtLink
-          v-for="city in FEATURED_CITIES"
-          :key="city"
-          :to="`/ilanlar?city=${city}`"
-          class="px-4 py-2 rounded-full border border-border bg-white text-sm font-medium text-foreground hover:border-foreground hover:shadow-sm cursor-pointer transition-all"
-        >
-          {{ city }}
-        </NuxtLink>
       </div>
     </section>
 

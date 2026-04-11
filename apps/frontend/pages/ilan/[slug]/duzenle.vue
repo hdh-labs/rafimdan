@@ -135,7 +135,7 @@ function validate(): boolean {
   else if (title.length > 100) e.title = "Başlık en fazla 100 karakter olabilir."
 
   if (!form.category_id) e.category_id = "Kategori seçiniz."
-  if (!form.condition) e.condition = "Ürün durumu seçiniz."
+  if (form.direction === "offer" && !form.condition) e.condition = "Ürün durumu seçiniz."
   if (!form.city) e.city = "Şehir seçiniz."
 
   if (form.direction !== "request" && form.price_type !== "free" && form.price_type !== "el_uzat") {
@@ -434,7 +434,7 @@ async function confirmDelete() {
         </div>
 
         <!-- Ürün Durumu -->
-        <div>
+        <div v-if="form.direction === 'offer'">
           <label class="block text-sm font-medium text-foreground mb-2">
             Ürün Durumu <span class="text-destructive">*</span>
           </label>

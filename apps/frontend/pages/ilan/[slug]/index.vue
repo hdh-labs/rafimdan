@@ -50,12 +50,34 @@ const waUrl = computed(() => {
 const priceDisplay = computed(() => {
   if (isRequest.value) return "Destek Arıyor"
   const { price, price_type } = listing.value
-  if (price_type === "free") return "Ücretsiz"
+  if (price_type === "free") return "Askıda"
   if (price_type === "el_uzat") return "El Uzat"
   const formatted = (price ?? 0).toLocaleString("tr-TR") + " ₺"
   if (price_type === "negotiable") return `${formatted} · Pazarlığa açık`
   return formatted
 })
+
+const isFree = computed(() => listing.value.price_type === "free")
+const canOffer = computed(() =>
+  !isRequest.value &&
+  !isOwner.value &&
+  (listing.value.price_type === "fixed" || listing.value.price_type === "negotiable") &&
+  listing.value.status === "active" &&
+  !!listing.value.seller.whatsapp
+)
+
+const showOfferInput = ref(false)
+const offerPrice = ref<number | "">("")
+
+function sendOffer() {
+  if (!offerPrice.value || !listing.value.seller.whatsapp) return
+  const text = encodeURIComponent(
+    `Rafımdan'da "${listing.value.title}" ilanını gördüm. ${offerPrice.value}₺ verir misin?`
+  )
+  window.open(`https://wa.me/${listing.value.seller.whatsapp}?text=${text}`, "_blank", "noopener,noreferrer")
+  showOfferInput.value = false
+  offerPrice.value = ""
+}
 
 const sellerName = computed(
   () => listing.value.seller.display_name ?? listing.value.seller.name,
@@ -133,6 +155,7 @@ async function share() {
     toast.success("Link kopyalandı.")
   }
 }
+
 
 const REPORT_REASONS = [
   { value: "spam", label: "Spam / Reklam" },
@@ -290,7 +313,15 @@ async function submitReport() {
               <span v-else>{{ sellerInitials }}</span>
             </span>
             <div class="min-w-0">
-              <p class="font-medium text-foreground text-sm truncate">{{ sellerName }}</p>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <p class="font-medium text-foreground text-sm truncate">{{ sellerName }}</p>
+                <span
+                  v-if="listing.seller.is_ahali"
+                  class="inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"
+                >
+                  Ahali
+                </span>
+              </div>
               <p v-if="listing.seller.city" class="text-xs text-muted-foreground">
                 {{ listing.seller.city }}
               </p>
@@ -324,11 +355,46 @@ async function submitReport() {
           class="flex items-center justify-center gap-2 w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 rounded-lg cursor-pointer transition-colors"
         >
           <MessageCircle class="size-5" />
-          {{ isRequest ? "Destek Ol" : "WhatsApp'tan Yaz" }}
+          {{ isRequest ? "Destek Ol" : isFree ? "Bir El At" : "WhatsApp'tan Yaz" }}
         </a>
         <p v-else-if="!isOwner" class="text-sm text-muted-foreground text-center">
           Satıcı iletişim bilgisi paylaşmamış.
         </p>
+
+        <div v-if="canOffer" class="space-y-2">
+          <button
+            v-if="!showOfferInput"
+            type="button"
+            class="flex items-center justify-center gap-2 w-full border border-border py-2.5 rounded-lg text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
+            @click="showOfferInput = true"
+          >
+            Fiyat Teklif Et
+          </button>
+          <div v-else class="flex gap-2">
+            <input
+              v-model.number="offerPrice"
+              type="number"
+              placeholder="Teklifiniz (₺)"
+              min="1"
+              class="flex-1 border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-foreground transition-colors"
+            />
+            <button
+              type="button"
+              :disabled="!offerPrice"
+              class="px-4 py-2 bg-foreground text-background rounded-lg text-sm font-medium cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+              @click="sendOffer"
+            >
+              Gönder
+            </button>
+            <button
+              type="button"
+              class="px-3 py-2 border border-border rounded-lg text-sm text-muted-foreground cursor-pointer hover:bg-muted transition-colors"
+              @click="showOfferInput = false; offerPrice = ''"
+            >
+              Vazgeç
+            </button>
+          </div>
+        </div>
 
         <button
           type="button"
