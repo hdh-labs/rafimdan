@@ -42,8 +42,8 @@ const waUrl = computed(() => {
   const phone = listing.value.seller.whatsapp
   if (!phone) return null
   const text = isRequest.value
-    ? encodeURIComponent(`Rafımdan'da "${listing.value.title}" destek ilanını gördüm, yardımcı olmak istiyorum.`)
-    : encodeURIComponent(`Rafımdan'da "${listing.value.title}" ilanını gördüm, hâlâ satılık mı?`)
+    ? encodeURIComponent(`"${listing.value.title}" için yardımcı olabilirim.`)
+    : encodeURIComponent(`"${listing.value.title}" ilanın hâlâ aktif mi?`)
   return `https://wa.me/${phone}?text=${text}`
 })
 
@@ -58,26 +58,6 @@ const priceDisplay = computed(() => {
 })
 
 const isFree = computed(() => listing.value.price_type === "free")
-const canOffer = computed(() =>
-  !isRequest.value &&
-  !isOwner.value &&
-  (listing.value.price_type === "fixed" || listing.value.price_type === "negotiable") &&
-  listing.value.status === "active" &&
-  !!listing.value.seller.whatsapp
-)
-
-const showOfferInput = ref(false)
-const offerPrice = ref<number | "">("")
-
-function sendOffer() {
-  if (!offerPrice.value || !listing.value.seller.whatsapp) return
-  const text = encodeURIComponent(
-    `Rafımdan'da "${listing.value.title}" ilanını gördüm. ${offerPrice.value}₺ verir misin?`
-  )
-  window.open(`https://wa.me/${listing.value.seller.whatsapp}?text=${text}`, "_blank", "noopener,noreferrer")
-  showOfferInput.value = false
-  offerPrice.value = ""
-}
 
 const sellerName = computed(
   () => listing.value.seller.display_name ?? listing.value.seller.name,
@@ -100,7 +80,6 @@ const CONDITION_LABELS: Record<string, string> = {
 }
 
 const STATUS_LABELS: Record<string, string> = {
-  reserved: "Rezerve",
   sold: "Satıldı",
 }
 
@@ -360,41 +339,6 @@ async function submitReport() {
         <p v-else-if="!isOwner" class="text-sm text-muted-foreground text-center">
           Satıcı iletişim bilgisi paylaşmamış.
         </p>
-
-        <div v-if="canOffer" class="space-y-2">
-          <button
-            v-if="!showOfferInput"
-            type="button"
-            class="flex items-center justify-center gap-2 w-full border border-border py-2.5 rounded-lg text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
-            @click="showOfferInput = true"
-          >
-            Fiyat Teklif Et
-          </button>
-          <div v-else class="flex gap-2">
-            <input
-              v-model.number="offerPrice"
-              type="number"
-              placeholder="Teklifiniz (₺)"
-              min="1"
-              class="flex-1 border border-border rounded-lg px-3 py-2 text-sm outline-none focus:border-foreground transition-colors"
-            />
-            <button
-              type="button"
-              :disabled="!offerPrice"
-              class="px-4 py-2 bg-foreground text-background rounded-lg text-sm font-medium cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-              @click="sendOffer"
-            >
-              Gönder
-            </button>
-            <button
-              type="button"
-              class="px-3 py-2 border border-border rounded-lg text-sm text-muted-foreground cursor-pointer hover:bg-muted transition-colors"
-              @click="showOfferInput = false; offerPrice = ''"
-            >
-              Vazgeç
-            </button>
-          </div>
-        </div>
 
         <button
           type="button"

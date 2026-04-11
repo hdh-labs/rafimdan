@@ -52,7 +52,6 @@ const PRICE_TYPE_OPTIONS: { value: ListingPriceType; label: string }[] = [
 
 const STATUS_OPTIONS: { value: ListingStatus; label: string }[] = [
   { value: "active", label: "Aktif" },
-  { value: "reserved", label: "Rezerve" },
   { value: "sold", label: "Satıldı" },
 ]
 

@@ -30,11 +30,10 @@ const STATUS_COLORS: Record<ListingStatus, string> = {
 const TABS: { key: Tab; label: string }[] = [
   { key: "all", label: "Tümü" },
   { key: "active", label: "Aktif" },
-  { key: "reserved", label: "Rezerve" },
   { key: "sold", label: "Satıldı" },
 ]
 
-const STATUSES: ListingStatus[] = ["active", "reserved", "sold"]
+const STATUSES: ListingStatus[] = ["active", "sold"]
 
 const filtered = computed(() => {
   if (activeTab.value === "all") return listings.value
