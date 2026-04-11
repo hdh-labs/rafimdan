@@ -3,7 +3,7 @@ import { ImageOff, MapPin, Heart } from "lucide-vue-next"
 import { cn } from "~/utils/cn"
 
 type PriceType = "fixed" | "negotiable" | "free" | "el_uzat"
-type ListingStatus = "active" | "reserved" | "sold"
+type ListingStatus = "active" | "sold"
 type Condition = "new" | "like_new" | "good" | "fair"
 type Direction = "offer" | "request"
 
@@ -49,10 +49,9 @@ const CONDITION_COLORS: Record<Condition, string> = {
   fair: "bg-gray-100 text-gray-600",
 }
 
-const isOverlaid = computed(() => props.status === "reserved" || props.status === "sold")
+const isOverlaid = computed(() => props.status === "sold")
 
 const statusLabel = computed(() => {
-  if (props.status === "reserved") return "Rezerve"
   if (props.status === "sold") return "Satıldı"
   return null
 })

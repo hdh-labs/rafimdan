@@ -17,13 +17,11 @@ const openMenuSlug = ref<string | null>(null)
 
 const STATUS_LABELS: Record<ListingStatus, string> = {
   active: "Aktif",
-  reserved: "Rezerve",
   sold: "Satıldı",
 }
 
 const STATUS_COLORS: Record<ListingStatus, string> = {
   active: "bg-green-50 text-green-700 border-green-200",
-  reserved: "bg-amber-50 text-amber-700 border-amber-200",
   sold: "bg-gray-100 text-gray-500 border-gray-200",
 }
 
@@ -253,7 +251,6 @@ async function deleteListing(slug: string, title: string) {
                     class="inline-block size-1.5 rounded-full shrink-0"
                     :class="{
                       'bg-green-500': s === 'active',
-                      'bg-amber-500': s === 'reserved',
                       'bg-gray-400': s === 'sold',
                     }"
                   />

@@ -32,13 +32,11 @@ const deletingSlug = ref<string | null>(null)
 const STATUS_OPTIONS = [
   { value: "", label: "Tümü" },
   { value: "active", label: "Aktif" },
-  { value: "reserved", label: "Rezerve" },
   { value: "sold", label: "Satıldı" },
 ]
 
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-green-50 text-green-700 border-green-200",
-  reserved: "bg-amber-50 text-amber-700 border-amber-200",
   sold: "bg-gray-100 text-gray-500 border-gray-200",
 }
 
