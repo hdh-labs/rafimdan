@@ -79,10 +79,15 @@ async function captureScreen() {
   try {
     const { default: html2canvas } = await import("html2canvas")
     const canvas = await html2canvas(document.body, {
-      useCORS: true,
+      useCORS: false,
       allowTaint: false,
       logging: false,
-      scale: window.devicePixelRatio,
+      scale: Math.min(window.devicePixelRatio, 2),
+      ignoreElements: (el) => {
+        if (el.tagName !== "IMG") return false
+        const src = (el as HTMLImageElement).src
+        return Boolean(src && !src.startsWith(window.location.origin))
+      },
     })
     canvas.toBlob((blob) => {
       if (!blob) return
