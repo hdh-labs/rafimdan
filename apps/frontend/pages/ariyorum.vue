@@ -98,10 +98,10 @@ useSeoMeta({
         <HandHeart class="size-10 text-muted-foreground/30" />
         <p class="text-sm text-muted-foreground">Henüz destek ilanı yok.</p>
         <NuxtLink
-          to="/ilan-ver"
+          to="/ilan-ver?direction=request"
           class="text-sm font-medium text-foreground underline underline-offset-4 cursor-pointer"
         >
-          İlk ilanı sen ver
+          İlk ihtiyacı sen paylaş
         </NuxtLink>
       </div>
 

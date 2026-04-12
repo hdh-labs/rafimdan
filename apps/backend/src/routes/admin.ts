@@ -5,6 +5,7 @@ import type { AdminStats } from "@rafimdan/shared";
 import { reportService } from "../services/report.service";
 import { listingRepository } from "../repositories/listing.repository";
 import { userRepository } from "../repositories/user.repository";
+import { adminLogRepository } from "../repositories/admin-log.repository";
 import { authMiddleware } from "../middleware/auth";
 import { AppError } from "../errors";
 
@@ -92,13 +93,28 @@ admin.patch("/listings/:slug/status", adminAuthMiddleware, async (c) => {
   try {
     const slug = c.req.param("slug");
     const body = await c.req.json<{ status?: string; reason?: string }>();
-    if (body.status !== "active" && body.status !== "rejected") {
+    const ALLOWED = ["active", "pending", "rejected"] as const;
+    type ModerationStatus = typeof ALLOWED[number];
+    if (!ALLOWED.includes(body.status as ModerationStatus)) {
       return c.json({ error: "Geçersiz durum", status: "error", code: "INVALID_STATUS" }, 400);
     }
+    const status = body.status as ModerationStatus;
     const listing = await listingRepository.findBySlug(c.env.DB, slug);
     if (!listing) return c.json({ error: "Bulunamadı", status: "error", code: "NOT_FOUND" }, 404);
-    const reason = body.status === "rejected" ? (body.reason ?? null) : null;
-    const updated = await listingRepository.moderate(c.env.DB, listing.id, body.status, reason);
+    const reason = status === "rejected" ? (body.reason ?? null) : null;
+    const updated = await listingRepository.moderate(c.env.DB, listing.id, status, reason);
+    const adminId = c.get("user").sub;
+    const action = status === "active" ? "listing_approve"
+      : status === "rejected" ? "listing_reject"
+      : "listing_deactivate";
+    await adminLogRepository.insert(c.env.DB, {
+      id: crypto.randomUUID(),
+      admin_id: adminId,
+      action,
+      target_type: "listing",
+      target_id: listing.id,
+      meta: { slug: listing.slug, title: listing.title, reason: reason ?? undefined },
+    });
     return c.json({ data: updated, status: "ok" });
   } catch (err) {
     return handleError(c, err);
@@ -111,6 +127,14 @@ admin.delete("/listings/:slug", adminAuthMiddleware, async (c) => {
     const listing = await listingRepository.findBySlug(c.env.DB, slug);
     if (!listing) return c.json({ error: "Bulunamadı", status: "error", code: "NOT_FOUND" }, 404);
     await listingRepository.delete(c.env.DB, listing.id);
+    await adminLogRepository.insert(c.env.DB, {
+      id: crypto.randomUUID(),
+      admin_id: c.get("user").sub,
+      action: "listing_delete",
+      target_type: "listing",
+      target_id: listing.id,
+      meta: { slug, title: listing.title },
+    });
     return c.json({ data: null, status: "ok" });
   } catch (err) {
     return handleError(c, err);
@@ -143,7 +167,39 @@ admin.patch("/users/:id", adminAuthMiddleware, async (c) => {
     }
     const updated = await userRepository.update(c.env.DB, id, allowed);
     if (!updated) return c.json({ error: "Kullanıcı bulunamadı", status: "error", code: "NOT_FOUND" }, 404);
+    const adminId = c.get("user").sub;
+    if (typeof body.is_active === "number") {
+      await adminLogRepository.insert(c.env.DB, {
+        id: crypto.randomUUID(),
+        admin_id: adminId,
+        action: body.is_active === 0 ? "user_ban" : "user_unban",
+        target_type: "user",
+        target_id: id,
+      });
+    }
+    if (typeof body.is_admin === "number") {
+      await adminLogRepository.insert(c.env.DB, {
+        id: crypto.randomUUID(),
+        admin_id: adminId,
+        action: body.is_admin === 1 ? "user_promote" : "user_demote",
+        target_type: "user",
+        target_id: id,
+      });
+    }
     return c.json({ data: userRepository.toProfile(updated), status: "ok" });
+  } catch (err) {
+    return handleError(c, err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Admin: Logs
+// ---------------------------------------------------------------------------
+
+admin.get("/logs", adminAuthMiddleware, async (c) => {
+  try {
+    const logs = await adminLogRepository.findRecent(c.env.DB, 100);
+    return c.json({ data: logs, status: "ok" });
   } catch (err) {
     return handleError(c, err);
   }

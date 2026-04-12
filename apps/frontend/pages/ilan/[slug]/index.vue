@@ -42,8 +42,8 @@ const waUrl = computed(() => {
   const phone = listing.value.seller.whatsapp
   if (!phone) return null
   const text = isRequest.value
-    ? encodeURIComponent(`"${listing.value.title}" için yardımcı olabilirim.`)
-    : encodeURIComponent(`"${listing.value.title}" ilanın hâlâ aktif mi?`)
+    ? encodeURIComponent(`Merhaba, "${listing.value.title}" ilanını gördüm, yardımcı olabilir miyim?`)
+    : encodeURIComponent(`Merhaba, "${listing.value.title}" ilanın hâlâ aktif mi?`)
   return `https://wa.me/${phone}?text=${text}`
 })
 
@@ -157,7 +157,7 @@ async function submitReport() {
       method: "POST",
       body: JSON.stringify({ reason: reportReason.value }),
     })
-    toast.success("İlan bildirildi. Teşekkürler.")
+    toast.success("Bildirimin alındı, teşekkürler.")
     showReportModal.value = false
   } catch (err) {
     toast.error(err instanceof ApiError ? err.message : "Bir hata oluştu.")
@@ -327,10 +327,10 @@ async function submitReport() {
           class="flex items-center justify-center gap-2 w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 rounded-lg cursor-pointer transition-colors"
         >
           <MessageCircle class="size-5" />
-          {{ isRequest ? "Destek Ol" : isFree ? "Bir El At" : "WhatsApp'tan Yaz" }}
+          {{ isRequest ? "Yardım Teklif Et" : isFree ? "WhatsApp'tan Yaz" : "WhatsApp'tan Yaz" }}
         </a>
         <p v-else-if="!isOwner" class="text-sm text-muted-foreground text-center">
-          Satıcı iletişim bilgisi paylaşmamış.
+          Satıcı iletişim bilgisi eklememişti.
         </p>
 
         <button

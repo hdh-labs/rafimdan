@@ -45,7 +45,7 @@ onUnmounted(() => {
         class="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center justify-center gap-2.5 text-sm text-amber-800"
       >
         <AlertCircle class="size-4 shrink-0" />
-        <span class="font-medium">WhatsApp numaranı eklemeden ilanlarına alıcı ulaşamaz.</span>
+        <span class="font-medium">WhatsApp numaran olmadan ilanlarındaki kişiler sana ulaşamaz.</span>
         <NuxtLink
           to="/ayarlar"
           class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-600 text-white text-xs font-medium cursor-pointer hover:bg-amber-700 transition-colors shrink-0"

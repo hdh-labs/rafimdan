@@ -92,7 +92,7 @@ async function save() {
           </span>
           <div>
             <p class="font-medium text-foreground text-sm">{{ authStore.user?.name }}</p>
-            <p class="text-xs text-muted-foreground">Google hesabı ile giriş yapıldı</p>
+            <p class="text-xs text-muted-foreground">Google ile giriş yapıldı</p>
           </div>
         </div>
         <NuxtLink
@@ -118,10 +118,9 @@ async function save() {
           </div>
         </div>
         <div class="min-w-0">
-          <p class="text-sm font-semibold text-amber-900">Alıcılar sana ulaşamıyor</p>
+          <p class="text-sm font-semibold text-amber-900">Sana ulaşılamıyor</p>
           <p class="text-sm text-amber-700 mt-0.5 leading-snug">
-            WhatsApp numaranı eklemeden ilanlarına kimse mesaj atamaz.
-            Alım-satım gerçekleşemez.
+            WhatsApp numaran olmadan ilanlarındaki kişiler seninle iletişime geçemez.
           </p>
         </div>
       </div>
@@ -135,11 +134,11 @@ async function save() {
         <input
           v-model="form.display_name"
           type="text"
-          placeholder="Görünmesini istediğiniz isim"
+          placeholder="İlanlarda görünecek adın"
           class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring"
         />
         <p class="text-xs text-muted-foreground mt-1">
-          Boş bırakılırsa Google adınız gösterilir.
+          Boş bırakırsan Google adın görünür.
         </p>
       </div>
 
@@ -163,7 +162,7 @@ async function save() {
         </div>
         <div class="flex items-center justify-between mt-1">
           <p class="text-xs text-muted-foreground">
-            İlan detayında "WhatsApp'tan Yaz" butonu görünür.
+            İlan sayfasında "WhatsApp'tan Yaz" butonu aktif olur.
           </p>
           <span class="text-xs tabular-nums" :class="form.whatsapp.length === WHATSAPP_MAX ? 'text-green-600' : 'text-muted-foreground'">
             {{ form.whatsapp.length }}/{{ WHATSAPP_MAX }}

@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { Trash2, ShieldOff, Shield, Loader2, ExternalLink, Check, X } from "lucide-vue-next"
+import { Trash2, ShieldOff, Shield, Loader2, ExternalLink, Check, X, RotateCcw } from "lucide-vue-next"
 import { toast } from "vue-sonner"
-import type { ListingDetail, AdminUserProfile, AdminStats } from "@rafimdan/shared"
+import type { ListingDetail, AdminUserProfile, AdminStats, AdminLog } from "@rafimdan/shared"
 import { apiFetch } from "~/utils/api"
 
 definePageMeta({ middleware: ["auth", "admin"], ssr: false })
 useSeoMeta({ title: "Admin — Rafımdan" })
 
-type Tab = "listings" | "users" | "reports"
+type Tab = "listings" | "users" | "reports" | "logs"
 
 const activeTab = ref<Tab>("listings")
 
@@ -84,13 +84,14 @@ async function fetchListings() {
 }
 
 async function deleteListing(slug: string, title: string) {
-  if (!confirm(`"${title}" ilanını silmek istiyor musunuz?`)) return
+  if (!confirm(`"${title}" silinecek. Emin misin?`)) return
   deletingSlug.value = slug
   try {
     await apiFetch(`/api/admin/listings/${slug}`, { method: "DELETE" })
     listings.value = listings.value.filter(l => l.slug !== slug)
     listingsTotal.value = Math.max(0, listingsTotal.value - 1)
     fetchStats()
+    fetchLogs()
     toast.success("İlan silindi.")
   } catch {
     toast.error("İlan silinemedi.")
@@ -99,7 +100,13 @@ async function deleteListing(slug: string, title: string) {
   }
 }
 
-async function moderateListing(slug: string, status: "active" | "rejected", reason = "") {
+const MODERATE_MSG: Record<string, string> = {
+  active:   "İlan onaylandı.",
+  pending:  "Moderasyona alındı.",
+  rejected: "İlan reddedildi.",
+}
+
+async function moderateListing(slug: string, status: "active" | "pending" | "rejected", reason = "") {
   moderatingSlug.value = slug
   try {
     await apiFetch(`/api/admin/listings/${slug}/status`, {
@@ -112,7 +119,8 @@ async function moderateListing(slug: string, status: "active" | "rejected", reas
       item.rejection_reason = status === "rejected" ? (reason || null) : null
     }
     fetchStats()
-    toast.success(status === "active" ? "İlan onaylandı." : "İlan reddedildi.")
+    fetchLogs()
+    toast.success(MODERATE_MSG[status] ?? "İşlem tamamlandı.")
   } catch {
     toast.error("İşlem başarısız.")
   } finally {
@@ -139,6 +147,16 @@ watch([listingsStatus, listingsPage], fetchListings, { immediate: false })
 const users = ref<AdminUserProfile[]>([])
 const usersLoading = ref(false)
 const patchingUserId = ref<string | null>(null)
+const userSearch = ref("")
+
+const filteredUsers = computed(() => {
+  const q = userSearch.value.trim().toLowerCase()
+  if (!q) return users.value
+  return users.value.filter(u =>
+    u.name.toLowerCase().includes(q) ||
+    (u.display_name ?? "").toLowerCase().includes(q),
+  )
+})
 
 async function fetchUsers() {
   usersLoading.value = true
@@ -161,6 +179,7 @@ async function toggleBan(user: AdminUserProfile) {
       body: JSON.stringify({ is_active }),
     })
     await fetchUsers()
+    fetchLogs()
     toast.success(is_active === 0 ? "Kullanıcı banlandı." : "Ban kaldırıldı.")
   } catch {
     toast.error("İşlem başarısız.")
@@ -178,6 +197,7 @@ async function toggleAdmin(user: AdminUserProfile) {
       body: JSON.stringify({ is_admin }),
     })
     await fetchUsers()
+    fetchLogs()
     toast.success(is_admin ? "Admin yetkisi verildi." : "Admin yetkisi alındı.")
   } catch {
     toast.error("İşlem başarısız.")
@@ -224,6 +244,25 @@ async function fetchReports() {
 }
 
 // ---------------------------------------------------------------------------
+// Logs
+// ---------------------------------------------------------------------------
+
+const logs = ref<AdminLog[]>([])
+const logsLoading = ref(false)
+
+async function fetchLogs() {
+  logsLoading.value = true
+  try {
+    const res = await apiFetch<{ data: AdminLog[]; status: "ok" }>("/api/admin/logs")
+    logs.value = res.data
+  } catch {
+    // sessiz hata
+  } finally {
+    logsLoading.value = false
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
 
@@ -232,6 +271,7 @@ onMounted(() => {
   fetchListings()
   fetchUsers()
   fetchReports()
+  fetchLogs()
 })
 
 function switchTab(tab: Tab) {
@@ -282,7 +322,7 @@ function formatDate(d: string) {
     <!-- Tabs -->
     <div class="flex gap-1 mb-6 border-b border-border">
       <button
-        v-for="tab in ([{ key: 'listings', label: 'İlanlar' }, { key: 'users', label: 'Kullanıcılar' }, { key: 'reports', label: `Raporlar ${reports.length ? '(' + reports.length + ')' : ''}` }] as const)"
+        v-for="tab in ([{ key: 'listings', label: 'İlanlar' }, { key: 'users', label: 'Kullanıcılar' }, { key: 'reports', label: `Raporlar ${reports.length ? '(' + reports.length + ')' : ''}` }, { key: 'logs', label: 'Log' }] as const)"
         :key="tab.key"
         class="px-4 py-2 text-sm font-medium cursor-pointer transition-colors -mb-px border-b-2"
         :class="activeTab === tab.key
@@ -369,6 +409,7 @@ function formatDate(d: string) {
                   class="flex items-center gap-1"
                   :class="moderatingSlug === listing.slug ? 'opacity-40 pointer-events-none' : ''"
                 >
+                  <!-- pending: onayla + reddet -->
                   <template v-if="listing.status === 'pending'">
                     <button
                       type="button"
@@ -386,6 +427,38 @@ function formatDate(d: string) {
                       @click="openRejectModal(listing.slug, listing.title)"
                     >
                       <X class="size-3.5" />
+                    </button>
+                  </template>
+                  <!-- active: moderasyona al + reddet -->
+                  <template v-else-if="listing.status === 'active'">
+                    <button
+                      type="button"
+                      title="Moderasyona Al"
+                      class="flex items-center justify-center size-7 rounded text-amber-600 hover:bg-amber-50 cursor-pointer transition-colors"
+                      @click="moderateListing(listing.slug, 'pending')"
+                    >
+                      <Loader2 v-if="moderatingSlug === listing.slug" class="size-3.5 animate-spin" />
+                      <RotateCcw v-else class="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Reddet"
+                      class="flex items-center justify-center size-7 rounded text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
+                      @click="openRejectModal(listing.slug, listing.title)"
+                    >
+                      <X class="size-3.5" />
+                    </button>
+                  </template>
+                  <!-- rejected: aktifleştir -->
+                  <template v-else-if="listing.status === 'rejected'">
+                    <button
+                      type="button"
+                      title="Aktifleştir"
+                      class="flex items-center justify-center size-7 rounded text-green-600 hover:bg-green-50 cursor-pointer transition-colors"
+                      @click="moderateListing(listing.slug, 'active')"
+                    >
+                      <Loader2 v-if="moderatingSlug === listing.slug" class="size-3.5 animate-spin" />
+                      <Check v-else class="size-3.5" />
                     </button>
                   </template>
                   <button
@@ -433,6 +506,15 @@ function formatDate(d: string) {
     <!-- USERS TAB                                                           -->
     <!-- ------------------------------------------------------------------ -->
     <div v-if="activeTab === 'users'">
+      <div class="mb-4">
+        <input
+          v-model="userSearch"
+          type="search"
+          placeholder="İsim veya kullanıcı adı ara..."
+          class="w-full sm:w-72 text-sm border border-border rounded-md px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-foreground"
+        />
+      </div>
+
       <div v-if="usersLoading" class="space-y-2">
         <div v-for="i in 5" :key="i" class="h-12 rounded-lg bg-muted animate-pulse" />
       </div>
@@ -450,7 +532,7 @@ function formatDate(d: string) {
           </thead>
           <tbody class="divide-y divide-border">
             <tr
-              v-for="user in users"
+              v-for="user in filteredUsers"
               :key="user.id"
               class="hover:bg-muted/30 transition-colors"
               :class="patchingUserId === user.id ? 'opacity-40 pointer-events-none' : ''"
@@ -464,9 +546,17 @@ function formatDate(d: string) {
                     referrerpolicy="no-referrer"
                     class="size-7 rounded-full object-cover shrink-0"
                   />
-                  <div>
+                  <NuxtLink
+                    v-if="user.slug"
+                    :to="`/profil/${user.slug}`"
+                    target="_blank"
+                    class="hover:underline"
+                  >
                     <p class="font-medium line-clamp-1">{{ user.display_name || user.name }}</p>
-                    <p v-if="user.slug" class="text-xs text-muted-foreground">@{{ user.slug }}</p>
+                    <p class="text-xs text-muted-foreground">@{{ user.slug }}</p>
+                  </NuxtLink>
+                  <div v-else>
+                    <p class="font-medium line-clamp-1">{{ user.display_name || user.name }}</p>
                   </div>
                 </div>
               </td>
@@ -518,7 +608,7 @@ function formatDate(d: string) {
             </tr>
           </tbody>
         </table>
-        <div v-if="users.length === 0" class="py-12 text-center text-sm text-muted-foreground">
+        <div v-if="filteredUsers.length === 0" class="py-12 text-center text-sm text-muted-foreground">
           Kullanıcı bulunamadı.
         </div>
       </div>
@@ -563,6 +653,13 @@ function formatDate(d: string) {
         </div>
       </div>
     </div>
+
+    <!-- ------------------------------------------------------------------ -->
+    <!-- LOGS TAB                                                             -->
+    <!-- ------------------------------------------------------------------ -->
+    <div v-if="activeTab === 'logs'">
+      <AdminLogsTab :logs="logs" :loading="logsLoading" />
+    </div>
   </div>
 
   <!-- Reject Modal -->
@@ -576,7 +673,7 @@ function formatDate(d: string) {
       <p class="text-xs text-muted-foreground mb-3 line-clamp-1">{{ rejectModal.title }}</p>
       <textarea
         v-model="rejectModal.reason"
-        placeholder="Red gerekçesi — kullanıcı görecek (isteğe bağlı)"
+        placeholder="Red gerekçesi (isteğe bağlı) — kullanıcıya gösterilecek"
         class="w-full text-sm border border-border rounded-md p-2 h-24 resize-none focus:outline-none focus:ring-1 focus:ring-foreground"
       />
       <div class="flex justify-end gap-2 mt-3">

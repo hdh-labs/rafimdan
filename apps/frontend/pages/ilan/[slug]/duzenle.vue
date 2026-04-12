@@ -395,7 +395,7 @@ async function confirmDelete() {
               : 'border-border hover:bg-muted'"
           >
             <input v-model="form.direction" type="radio" value="offer" class="sr-only" />
-            <span class="text-sm font-semibold">Satıyorum / Veriyorum</span>
+            <span class="text-sm font-semibold">Sat / Ver</span>
             <span class="text-xs opacity-70">Ürün veya eşya paylaş</span>
           </label>
           <label
@@ -406,7 +406,7 @@ async function confirmDelete() {
           >
             <input v-model="form.direction" type="radio" value="request" class="sr-only" />
             <span class="text-sm font-semibold">Destek Arıyorum</span>
-            <span class="text-xs opacity-70">Bir El At — ihtiyacını yaz</span>
+            <span class="text-xs opacity-70">İhtiyacını yaz, topluluk bir el atsın</span>
           </label>
         </div>
 
@@ -543,6 +543,7 @@ async function confirmDelete() {
             v-model="form.description"
             maxlength="2000"
             rows="4"
+            :placeholder="form.direction === 'request' ? 'Neye ihtiyacın var, ne zaman lazım, nerede buluşabilirsin...' : 'Ürün durumunu, eksiklerini, buluşma tercihin yaz... (örn: Çiğdem Mah. civarı uygun)'"
             class="w-full px-3 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-1 focus:ring-ring resize-none"
           />
           <p class="text-xs text-muted-foreground mt-1 text-right">

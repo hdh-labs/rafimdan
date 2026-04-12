@@ -39,3 +39,5 @@ export {
 } from "./types/listing";
 
 export type { FavoriteAddInput, FavoritesResponse } from "./types/favorites";
+
+export type { AdminLog, AdminLogAction } from "./types/admin";

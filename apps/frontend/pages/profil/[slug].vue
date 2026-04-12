@@ -111,7 +111,7 @@ useSeoMeta({
       <h2 class="text-base font-semibold text-foreground mb-4">Aktif İlanlar</h2>
 
       <div v-if="listings.length === 0" class="py-12 text-center">
-        <p class="text-sm text-muted-foreground">Henüz aktif ilan yok.</p>
+        <p class="text-sm text-muted-foreground">Şu an aktif ilan yok.</p>
       </div>
 
       <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">

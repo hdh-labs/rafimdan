@@ -191,7 +191,7 @@ async function submit() {
         <div class="space-y-1.5 max-w-sm">
           <p class="text-lg font-semibold text-foreground">Önce WhatsApp numaranı ekle</p>
           <p class="text-sm text-muted-foreground leading-relaxed">
-            Alıcılar sana WhatsApp üzerinden ulaşır. Numaran olmadan ilan veremezsin.
+            İlgili kişiler sana WhatsApp'tan ulaşır. Numara eklemeden ilan veremezsin.
           </p>
         </div>
         <NuxtLink
@@ -225,7 +225,7 @@ async function submit() {
         >
           <input v-model="form.direction" type="radio" value="request" class="sr-only" />
           <span class="text-sm font-semibold">Destek Arıyorum</span>
-          <span class="text-xs opacity-70">İhtiyacını paylaş, topluluk yardım etsin</span>
+          <span class="text-xs opacity-70">İhtiyacını yaz, topluluk bir el atsın</span>
         </label>
       </div>
 
@@ -238,7 +238,7 @@ async function submit() {
           v-model="form.title"
           type="text"
           maxlength="100"
-          :placeholder="form.direction === 'request' ? 'Neye ihtiyacınız var?' : 'Ne satıyorsunuz?'"
+          :placeholder="form.direction === 'request' ? 'Neye ihtiyacın var?' : 'Ne satıyorsun veya veriyorsun?'"
           :class="[
             'w-full px-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 transition-colors',
             errors.title ? 'border-destructive focus:ring-destructive' : 'border-border focus:ring-ring',
@@ -367,7 +367,7 @@ async function submit() {
           v-model="form.description"
           maxlength="2000"
           rows="4"
-          :placeholder="form.direction === 'request' ? 'İhtiyacını açıkla, topluluğun yardım edebilir...' : 'Ürün hakkında detay verin...'"
+          :placeholder="form.direction === 'request' ? 'Neye ihtiyacın var, ne zaman lazım, nerede buluşabilirsin...' : 'Ürün durumunu, eksiklerini, buluşma tercihin yaz... (örn: Çiğdem Mah. civarı uygun)'"
           class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring resize-none"
         />
         <p class="text-xs text-muted-foreground mt-1 text-right">

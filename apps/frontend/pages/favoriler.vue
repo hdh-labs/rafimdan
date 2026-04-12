@@ -55,7 +55,7 @@ onMounted(async () => {
 
     <div v-else-if="listings.length === 0" class="text-center py-20">
       <Heart class="size-12 mx-auto mb-3 text-muted-foreground/30" />
-      <p class="text-muted-foreground">Henüz favori ilanın yok.</p>
+      <p class="text-muted-foreground">Henüz favori ilan eklemedin.</p>
       <NuxtLink
         to="/ilanlar"
         class="inline-block mt-4 text-sm underline underline-offset-2 cursor-pointer"
