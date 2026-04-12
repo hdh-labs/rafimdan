@@ -8,7 +8,7 @@ const page = ref(1)
 const LIMIT = 20
 
 const { data: listingsRes, refresh } = await useFetch<ListingsData>(
-  () => `/api/listings?direction=request&limit=${LIMIT}&page=${page.value}`,
+  () => `/api/listings?direction=request,support&limit=${LIMIT}&page=${page.value}`,
 )
 
 const listings = computed(() => listingsRes.value?.data.items ?? [])
@@ -22,7 +22,7 @@ function loadMore() {
 
 useSeoMeta({
   title: "Arıyorum — Rafımdan",
-  description: "Bir el at. Yakınındaki ihtiyaç ilanları.",
+  description: "Ahaliye destek ol. İhtiyaç ve destek ilanları.",
 })
 </script>
 
@@ -36,10 +36,10 @@ useSeoMeta({
         Destek İlanları
       </div>
       <h1 class="text-3xl sm:text-4xl font-bold text-foreground tracking-tight">
-        Bir el at
+        Ahaliye Destek Ol
       </h1>
       <p class="text-sm text-muted-foreground max-w-xs mx-auto">
-        İhtiyacını yaz, topluluğun bir el atsın.
+        İlanı aç, WhatsApp'tan ulaş. Kargo yok, formalite yok.
       </p>
       <NuxtLink
         to="/ilan-ver?direction=request"
@@ -63,7 +63,10 @@ useSeoMeta({
           v-for="listing in listings"
           :key="listing.id"
           :to="`/ilan/${listing.slug}`"
-          class="group flex gap-3 rounded-xl border border-amber-200 bg-amber-50/40 p-4 hover:bg-amber-50 hover:shadow-sm transition-all duration-150 cursor-pointer"
+          :class="[
+            'group flex gap-3 rounded-xl border p-4 hover:shadow-sm transition-all duration-150 cursor-pointer',
+            listing.direction === 'support' ? 'border-green-200 bg-green-50/40 hover:bg-green-50' : 'border-amber-200 bg-amber-50/40 hover:bg-amber-50'
+          ]"
         >
           <div class="shrink-0 size-16 rounded-lg overflow-hidden bg-muted">
             <img
@@ -85,7 +88,12 @@ useSeoMeta({
               {{ listing.district ? `${listing.district}, ${listing.city}` : listing.city }}
             </p>
             <div class="flex items-center justify-between pt-1">
-              <span class="text-xs font-medium text-amber-700">Destek Arıyor</span>
+              <span
+                class="text-xs font-medium"
+                :class="listing.direction === 'support' ? 'text-green-700' : 'text-amber-700'"
+              >
+                {{ listing.direction === 'support' ? 'Destek Sunuyor' : 'Destek Arıyor' }}
+              </span>
             </div>
           </div>
         </NuxtLink>

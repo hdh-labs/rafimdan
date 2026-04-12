@@ -69,18 +69,24 @@ const form = reactive({
 
 const errors = reactive<Record<string, string>>({})
 const currentStatus = ref<ListingStatus>("active")
-const existingPhotos = ref<string[]>([])
-const newFiles = ref<File[]>([])
+const {
+  selectedFiles: newFiles,
+  existingPhotos,
+  submitting,
+  submitError,
+  totalPhotos,
+  previewUrl,
+  onFileChange,
+  removeFile: removeNewFile,
+  uploadFiles,
+} = useListingPhotos()
 
-const totalPhotos = computed(() => existingPhotos.value.length + newFiles.value.length)
 const ilceler = computed(() => getIlceler(form.city))
 
-const submitting = ref(false)
 const deleting = ref(false)
 const showDeleteConfirm = ref(false)
 const statusChanging = ref(false)
 const deletingPhotoIndex = ref<number | null>(null)
-const submitError = ref<string | null>(null)
 const dragFromIndex = ref<number | null>(null)
 const dragOverIndex = ref<number | null>(null)
 
@@ -148,46 +154,6 @@ function validate(): boolean {
   Object.assign(errors, e)
   return Object.keys(e).length === 0
 }
-
-const MAX_PHOTO_SIZE = 10 * 1024 * 1024
-
-function onFileChange(e: Event) {
-  const input = e.target as HTMLInputElement
-  if (!input.files) return
-  const incoming = Array.from(input.files)
-  const oversized = incoming.filter(f => f.size > MAX_PHOTO_SIZE)
-  if (oversized.length > 0) {
-    toast.error(`${oversized.length} dosya 10MB sınırını aşıyor, atlandı.`)
-  }
-  const valid = incoming.filter(f => f.size <= MAX_PHOTO_SIZE)
-  const remaining = 6 - totalPhotos.value
-  newFiles.value = [...newFiles.value, ...valid.slice(0, remaining)]
-  input.value = ""
-}
-
-const previewUrls = new Map<File, string>()
-
-function previewUrl(file: File): string {
-  if (!previewUrls.has(file)) {
-    previewUrls.set(file, URL.createObjectURL(file))
-  }
-  return previewUrls.get(file)!
-}
-
-function removeNewFile(i: number) {
-  const file = newFiles.value[i]
-  if (file) {
-    const url = previewUrls.get(file)
-    if (url) URL.revokeObjectURL(url)
-    previewUrls.delete(file)
-  }
-  newFiles.value = newFiles.value.filter((_, idx) => idx !== i)
-}
-
-onUnmounted(() => {
-  previewUrls.forEach((url) => URL.revokeObjectURL(url))
-  previewUrls.clear()
-})
 
 function onPhotoDragStart(i: number) {
   dragFromIndex.value = i
@@ -260,15 +226,7 @@ async function save() {
       body: JSON.stringify(body),
     })
 
-    const uploadResults = await Promise.allSettled(
-      newFiles.value.map((file) => {
-        const fd = new FormData()
-        fd.append("file", file)
-        return apiFetch(`/api/listings/${slug}/photos`, { method: "POST", body: fd })
-      }),
-    )
-
-    const failedCount = uploadResults.filter(r => r.status === "rejected").length
+    const failedCount = await uploadFiles(slug)
     if (failedCount > 0) {
       toast.error(`${failedCount} fotoğraf yüklenemedi. Tekrar ekleyebilirsin.`)
     }
@@ -525,14 +483,11 @@ async function confirmDelete() {
           </div>
           <div>
             <label class="block text-sm font-medium text-foreground mb-1">İlçe</label>
-            <select
+            <DistrictAutocomplete
               v-model="form.district"
+              :options="ilceler"
               :disabled="!form.city"
-              class="w-full px-3 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <option value="">Seçiniz</option>
-              <option v-for="ilce in ilceler" :key="ilce" :value="ilce">{{ ilce }}</option>
-            </select>
+            />
           </div>
         </div>
 

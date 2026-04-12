@@ -91,6 +91,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
       return retry.json() as Promise<T>
     }
     clearToken()
+    throw new ApiError("Oturum süresi doldu, tekrar giriş yapın.", 401, "TOKEN_EXPIRED")
   }
 
   if (!response.ok) {

@@ -128,10 +128,11 @@ async function save() {
 
     <form class="space-y-4" @submit.prevent="save">
       <div>
-        <label class="block text-sm font-medium text-foreground mb-1">
+        <label for="settings-display-name" class="block text-sm font-medium text-foreground mb-1">
           Görünen Ad
         </label>
         <input
+          id="settings-display-name"
           v-model="form.display_name"
           type="text"
           placeholder="İlanlarda görünecek adın"
@@ -143,7 +144,7 @@ async function save() {
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-foreground mb-1">
+        <label for="settings-whatsapp" class="block text-sm font-medium text-foreground mb-1">
           WhatsApp Numarası
         </label>
         <div class="flex">
@@ -151,6 +152,7 @@ async function save() {
             +90
           </span>
           <input
+            id="settings-whatsapp"
             :value="form.whatsapp"
             type="tel"
             inputmode="numeric"
@@ -172,36 +174,33 @@ async function save() {
 
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-foreground mb-1">Şehir</label>
-          <CityAutocomplete v-model="form.city" />
+          <label for="settings-city" class="block text-sm font-medium text-foreground mb-1">Şehir</label>
+          <CityAutocomplete v-model="form.city" input-id="settings-city" />
         </div>
         <div>
-          <label class="block text-sm font-medium text-foreground mb-1">İlçe</label>
-          <select
+          <label for="settings-district" class="block text-sm font-medium text-foreground mb-1">İlçe</label>
+          <DistrictAutocomplete
             v-model="form.district"
+            :options="ilceler"
+            input-id="settings-district"
             :disabled="!form.city"
-            class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <option value="">Seçiniz</option>
-            <option v-for="ilce in ilceler" :key="ilce" :value="ilce">{{ ilce }}</option>
-          </select>
+          />
         </div>
       </div>
 
       <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
 
-      <button
+      <Button
         type="submit"
+        size="lg"
+        :loading="submitting"
         :disabled="submitting || saved"
-        class="w-full py-2.5 rounded-md text-sm font-medium cursor-pointer transition-all flex items-center justify-center gap-2 disabled:cursor-not-allowed"
-        :class="saved
-          ? 'bg-green-600 text-white opacity-100'
-          : 'bg-foreground text-background hover:opacity-90 disabled:opacity-50'"
+        :class="['w-full', saved ? 'bg-green-600 text-white hover:opacity-100' : '']"
       >
         <CheckCircle v-if="saved" class="size-4" />
-        <Save v-else class="size-4" />
+        <Save v-else-if="!submitting" class="size-4" />
         {{ submitting ? "Kaydediliyor..." : saved ? "Kaydedildi" : "Kaydet" }}
-      </button>
+      </Button>
     </form>
 
     <div class="mt-8 pt-6 border-t border-border">

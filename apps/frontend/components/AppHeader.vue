@@ -55,7 +55,7 @@ onUnmounted(() => {
       </div>
     </ClientOnly>
     <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
-      <NuxtLink to="/" class="cursor-pointer shrink-0">
+      <NuxtLink to="/" class="cursor-pointer shrink-0 flex items-center">
         <AppLogo />
       </NuxtLink>
 
@@ -75,7 +75,7 @@ onUnmounted(() => {
         <template v-if="authStore.isLoggedIn">
           <NuxtLink
             to="/ilan-ver"
-            class="text-sm bg-foreground text-background px-3 py-1.5 rounded-md cursor-pointer hover:opacity-90 transition-opacity"
+            class="text-sm bg-brand text-brand-foreground px-3 py-1.5 rounded-md cursor-pointer hover:opacity-90 transition-opacity"
           >
             İlan Ver
           </NuxtLink>
@@ -171,7 +171,7 @@ onUnmounted(() => {
         <template v-else>
           <NuxtLink
             to="/ilan-ver"
-            class="text-sm bg-foreground text-background px-3 py-1.5 rounded-md cursor-pointer hover:opacity-90 transition-opacity"
+            class="text-sm bg-brand text-brand-foreground px-3 py-1.5 rounded-md cursor-pointer hover:opacity-90 transition-opacity"
           >
             İlan Ver
           </NuxtLink>

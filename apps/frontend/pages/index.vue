@@ -7,7 +7,7 @@ type CategoriesData = ApiResponse<CategoryTree[]>
 
 const { data: listingsRes } = await useFetch<ListingsData>("/api/listings?limit=8&page=1")
 const { data: categoriesRes } = await useFetch<CategoriesData>("/api/categories")
-const { data: communityRes } = await useFetch<ListingsData>("/api/listings?direction=request&limit=4&page=1")
+const { data: communityRes } = await useFetch<ListingsData>("/api/listings?direction=request,support&limit=4&page=1")
 
 const listings = computed(() => listingsRes.value?.data.items ?? [])
 const categories = computed(() => categoriesRes.value?.data ?? [])
@@ -32,7 +32,7 @@ const communityListings = computed(() => communityRes.value?.data.items ?? [])
       <div class="flex items-center justify-center gap-3 pt-1">
         <NuxtLink
           to="/ilanlar"
-          class="inline-flex items-center gap-2 bg-foreground text-background px-6 py-2.5 rounded-lg text-sm font-medium cursor-pointer hover:opacity-90 transition-opacity"
+          class="inline-flex items-center gap-2 bg-brand text-brand-foreground px-6 py-2.5 rounded-lg text-sm font-medium cursor-pointer hover:opacity-90 transition-opacity"
         >
           Tüm İlanlar
         </NuxtLink>
@@ -90,12 +90,12 @@ const communityListings = computed(() => communityRes.value?.data.items ?? [])
       </div>
     </section>
 
-    <!-- Bir El At -->
+    <!-- Ahaliye Destek Ol -->
     <section v-if="communityListings.length > 0" class="space-y-4">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
           <HandHeart class="size-5 text-amber-600" />
-          <h2 class="text-xl font-bold text-foreground">Bir El At</h2>
+          <h2 class="text-xl font-bold text-foreground">Ahaliye Destek Ol</h2>
         </div>
         <NuxtLink
           to="/ariyorum"
@@ -105,7 +105,7 @@ const communityListings = computed(() => communityRes.value?.data.items ?? [])
           <ArrowRight class="size-3.5" />
         </NuxtLink>
       </div>
-      <p class="text-sm text-muted-foreground -mt-2">Ahaliden destek iste — ihtiyacını yaz, topluluk yardım etsin.</p>
+      <p class="text-sm text-muted-foreground -mt-2">İhtiyaç ve destek ilanları — ilanı aç, WhatsApp'tan ulaş.</p>
       <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
         <ListingCard
           v-for="item in communityListings"

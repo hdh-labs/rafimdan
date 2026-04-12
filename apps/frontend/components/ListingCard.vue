@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ImageOff, MapPin, Heart } from "lucide-vue-next"
 import { cn } from "~/utils/cn"
+import { CONDITION_LABELS, CONDITION_COLORS, getInitials } from "~/utils/listing-constants"
+import type { ListingCondition, ListingPriceType, ListingStatus, ListingDirection } from "@rafimdan/shared"
 
-type PriceType = "fixed" | "negotiable" | "free"
-type ListingStatus = "active" | "sold" | "pending" | "rejected"
-type Condition = "new" | "like_new" | "good" | "fair"
-type Direction = "offer" | "request"
+type PriceType = ListingPriceType
+type Condition = ListingCondition
+type Direction = ListingDirection
 
 interface Seller {
   id: string
@@ -34,19 +35,6 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const CONDITION_LABELS: Record<Condition, string> = {
-  new: "Yeni",
-  like_new: "Az Kullanılmış",
-  good: "İyi",
-  fair: "Orta",
-}
-
-const CONDITION_COLORS: Record<Condition, string> = {
-  new: "bg-green-50 text-green-700",
-  like_new: "bg-blue-50 text-blue-700",
-  good: "bg-amber-50 text-amber-700",
-  fair: "bg-gray-100 text-gray-600",
-}
 
 const isOverlaid = computed(() => props.status === "sold")
 
@@ -57,6 +45,7 @@ const statusLabel = computed(() => {
 
 const priceDisplay = computed(() => {
   if (props.direction === "request") return "Destek Arıyor"
+  if (props.direction === "support") return "Destek Sunuyor"
   if (props.price_type === "free") return "Ücretsiz"
   const formatted = (props.price ?? 0).toLocaleString("tr-TR") + " ₺"
   if (props.price_type === "negotiable") return formatted + " · Pazarlık"
@@ -68,25 +57,17 @@ const locationDisplay = computed(() => {
   return props.city
 })
 
-const sellerInitials = computed(() =>
-  props.seller.name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join("")
-)
+const sellerInitials = computed(() => getInitials(props.seller.name))
 
 const sellerAvatarError = ref(false)
 </script>
 
 <template>
-  <NuxtLink
-    :to="`/ilan/${slug}`"
+  <div
     :class="cn(
-      'group block rounded-xl border bg-white overflow-hidden',
-      'hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 cursor-pointer',
-      direction === 'request' ? 'border-amber-300' : 'border-border',
+      'group relative rounded-xl border bg-white overflow-hidden',
+      'hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200',
+      direction === 'request' ? 'border-amber-300' : direction === 'support' ? 'border-green-300' : 'border-border',
       isOverlaid && 'opacity-60'
     )"
   >
@@ -116,7 +97,7 @@ const sellerAvatarError = ref(false)
         </span>
       </div>
 
-      <div class="absolute top-2 right-2">
+      <div class="absolute top-2 right-2 z-10">
         <FavoriteButton :listing-id="id" />
       </div>
     </div>
@@ -124,17 +105,23 @@ const sellerAvatarError = ref(false)
     <!-- Bilgiler -->
     <div class="p-3 space-y-1.5">
       <h3 class="text-sm font-semibold text-foreground line-clamp-2 leading-snug">
-        {{ title }}
+        <NuxtLink
+          :to="`/ilan/${slug}`"
+          class="after:absolute after:inset-0 after:z-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded-sm"
+        >
+          {{ title }}
+        </NuxtLink>
       </h3>
 
       <div class="flex items-center justify-between gap-2">
         <p
           class="text-sm font-bold"
-          :class="direction === 'request' ? 'text-amber-700' : price_type === 'free' ? 'text-green-700' : 'text-foreground'"
+          :class="direction === 'request' ? 'text-amber-700' : direction === 'support' ? 'text-green-700' : price_type === 'free' ? 'text-green-700' : 'text-foreground'"
         >
           {{ priceDisplay }}
         </p>
         <span
+          v-if="direction === 'offer'"
           class="shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
           :class="CONDITION_COLORS[condition]"
         >
@@ -171,5 +158,5 @@ const sellerAvatarError = ref(false)
         </div>
       </div>
     </div>
-  </NuxtLink>
+  </div>
 </template>

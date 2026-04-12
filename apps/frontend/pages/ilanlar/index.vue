@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { SlidersHorizontal, X, Search } from "lucide-vue-next"
 import type { ListingListItem, CategoryTree, PaginatedResponse } from "@rafimdan/shared"
-import { IL_NAMES, getIlceler } from "~/utils/turkey-locations"
+import { getIlceler } from "~/utils/turkey-locations"
+import { CONDITION_LABELS, PRICE_TYPE_LABELS } from "~/utils/listing-constants"
 
 type ListingsResp = { data: PaginatedResponse<ListingListItem>; status: "ok" }
 type CategoriesResp = { data: CategoryTree[]; status: "ok" }
@@ -45,18 +46,29 @@ const draft = reactive({
 
 const ilceler = computed(() => getIlceler(draft.city))
 
+let _isRouteUpdate = false
+
 watch(() => draft.city, () => {
+  if (_isRouteUpdate) return
   if (!getIlceler(draft.city).includes(draft.district)) draft.district = ""
+  applyFilters()
+})
+
+watch(() => draft.district, () => {
+  if (_isRouteUpdate) return
+  applyFilters()
 })
 
 // back/forward navigasyonunda draft'ı URL ile senkronize tut
 watch(() => route.query, (q) => {
+  _isRouteUpdate = true
   draft.city = (q.city as string) || ""
   draft.district = (q.district as string) || ""
   draft.category = (q.category as string) || ""
   draft.price_type = (q.price_type as string) || ""
   draft.condition = (q.condition as string) || ""
   draft.q = (q.q as string) || ""
+  nextTick(() => { _isRouteUpdate = false })
 })
 
 // sayfa değişince listeye scroll
@@ -88,18 +100,6 @@ const hasFilters = computed(
   () => draft.city || draft.district || draft.category || draft.price_type || draft.condition || draft.q,
 )
 
-const CONDITION_LABELS: Record<string, string> = {
-  new: "Yeni",
-  like_new: "Az Kullanılmış",
-  good: "İyi",
-  fair: "Orta",
-}
-
-const PRICE_TYPE_LABELS: Record<string, string> = {
-  fixed: "Sabit Fiyat",
-  negotiable: "Pazarlığa Açık",
-  free: "Ücretsiz",
-}
 
 useSeoMeta({
   title: "İlanlar — Rafımdan",
@@ -143,25 +143,16 @@ useSeoMeta({
 
           <div>
             <label class="text-xs font-medium text-muted-foreground mb-1 block">Şehir</label>
-            <select
-              v-model="draft.city"
-              class="w-full px-3 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
-            >
-              <option value="">Tümü</option>
-              <option v-for="il in IL_NAMES" :key="il" :value="il">{{ il }}</option>
-            </select>
+            <CityAutocomplete v-model="draft.city" />
           </div>
 
           <div>
             <label class="text-xs font-medium text-muted-foreground mb-1 block">İlçe</label>
-            <select
+            <DistrictAutocomplete
               v-model="draft.district"
+              :options="ilceler"
               :disabled="!draft.city"
-              class="w-full px-3 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <option value="">Tümü</option>
-              <option v-for="ilce in ilceler" :key="ilce" :value="ilce">{{ ilce }}</option>
-            </select>
+            />
           </div>
 
           <div>
@@ -210,12 +201,9 @@ useSeoMeta({
             </select>
           </div>
 
-          <button
-            class="w-full bg-foreground text-background text-sm py-2 rounded-md cursor-pointer hover:opacity-90 transition-opacity"
-            @click="applyFilters"
-          >
+          <Button class="w-full" @click="applyFilters">
             Uygula
-          </button>
+          </Button>
         </div>
       </aside>
 

@@ -16,7 +16,7 @@ const route = useRoute()
 const form = reactive({
   title: "",
   category_id: "",
-  direction: (route.query.direction === "request" ? "request" : "offer") as "offer" | "request",
+  direction: (route.query.direction === "request" ? "request" : route.query.direction === "support" ? "support" : "offer") as "offer" | "request" | "support",
   condition: "" as "new" | "like_new" | "good" | "fair" | "",
   price_type: "fixed" as "fixed" | "negotiable" | "free",
   price: "" as number | "",
@@ -26,15 +26,21 @@ const form = reactive({
 })
 
 const errors = reactive<Record<string, string>>({})
-const selectedFiles = ref<File[]>([])
-const submitting = ref(false)
-const submitError = ref<string | null>(null)
+const {
+  selectedFiles,
+  submitting,
+  submitError,
+  uploadedCount,
+  previewUrl,
+  onFileChange,
+  removeFile,
+  uploadFiles,
+} = useListingPhotos()
 
 const ilceler = computed(() => getIlceler(form.city))
 
 watch(() => form.city, () => {
-  const saved = authStore.user?.district ?? ""
-  form.district = getIlceler(form.city).includes(saved) ? saved : ""
+  form.district = ""
   delete errors.city
 })
 
@@ -44,13 +50,17 @@ watch(() => form.condition, () => { delete errors.condition })
 watch(() => form.price, () => { delete errors.price })
 watch(() => form.direction, (val) => {
   Object.keys(errors).forEach(k => delete errors[k])
-  if (val === "request") { form.price_type = "free"; form.price = "" }
+  if (val === "request" || val === "support") { form.price_type = "free"; form.price = "" }
   if (val === "offer" && form.price_type === "free") form.price = ""
 })
 
 watch(() => form.price_type, (val) => {
   if (val === "free") form.price = ""
   delete errors.price
+})
+
+watch(selectedFiles, (files) => {
+  if (files.length > 0) delete errors.photos
 })
 
 const CONDITION_OPTIONS = [
@@ -90,47 +100,6 @@ function validate(): boolean {
   return Object.keys(e).length === 0
 }
 
-const MAX_PHOTO_SIZE = 10 * 1024 * 1024
-
-function onFileChange(e: Event) {
-  const input = e.target as HTMLInputElement
-  if (!input.files) return
-  const incoming = Array.from(input.files)
-  const oversized = incoming.filter(f => f.size > MAX_PHOTO_SIZE)
-  if (oversized.length > 0) {
-    toast.error(`${oversized.length} dosya 10MB sınırını aşıyor, atlandı.`)
-  }
-  const valid = incoming.filter(f => f.size <= MAX_PHOTO_SIZE)
-  const remaining = 6 - selectedFiles.value.length
-  selectedFiles.value = [...selectedFiles.value, ...valid.slice(0, remaining)]
-  if (selectedFiles.value.length > 0) delete errors.photos
-  input.value = ""
-}
-
-const previewUrls = new Map<File, string>()
-
-function previewUrl(file: File): string {
-  if (!previewUrls.has(file)) {
-    previewUrls.set(file, URL.createObjectURL(file))
-  }
-  return previewUrls.get(file)!
-}
-
-function removeFile(i: number) {
-  const file = selectedFiles.value[i]
-  if (file) {
-    const url = previewUrls.get(file)
-    if (url) URL.revokeObjectURL(url)
-    previewUrls.delete(file)
-  }
-  selectedFiles.value = selectedFiles.value.filter((_, idx) => idx !== i)
-}
-
-onUnmounted(() => {
-  previewUrls.forEach((url) => URL.revokeObjectURL(url))
-  previewUrls.clear()
-})
-
 async function submit() {
   submitError.value = null
   if (!validate()) return
@@ -140,8 +109,8 @@ async function submit() {
     const body: Record<string, unknown> = {
       title: form.title.trim(),
       category_id: form.category_id,
-      condition: form.condition,
-      price_type: form.direction === "request" ? "free" : form.price_type,
+      price_type: form.direction !== "offer" ? "free" : form.price_type,
+      condition: form.direction !== "offer" ? "good" : form.condition,
       direction: form.direction,
       city: form.city,
     }
@@ -156,15 +125,7 @@ async function submit() {
 
     const { slug } = res.data
 
-    const uploadResults = await Promise.allSettled(
-      selectedFiles.value.map((file) => {
-        const fd = new FormData()
-        fd.append("file", file)
-        return apiFetch(`/api/listings/${slug}/photos`, { method: "POST", body: fd })
-      }),
-    )
-
-    const failedCount = uploadResults.filter(r => r.status === "rejected").length
+    const failedCount = await uploadFiles(slug)
     if (failedCount > 0) {
       toast.error(`${failedCount} fotoğraf yüklenemedi. İlan düzenleme sayfasından tekrar ekleyebilirsin.`)
     }
@@ -219,26 +180,51 @@ async function submit() {
         </label>
         <label
           class="flex flex-col items-center gap-1.5 py-3 px-4 rounded-lg border-2 cursor-pointer transition-colors"
-          :class="form.direction === 'request'
+          :class="form.direction !== 'offer'
             ? 'border-amber-500 bg-amber-50 text-amber-900'
             : 'border-border hover:bg-muted'"
         >
+          <input
+            type="radio"
+            class="sr-only"
+            :checked="form.direction !== 'offer'"
+            @change="form.direction === 'offer' ? form.direction = 'request' : null"
+          />
+          <span class="text-sm font-semibold">Destek</span>
+          <span class="text-xs opacity-70">İhtiyaç veya yardım teklifi</span>
+        </label>
+      </div>
+
+      <!-- Destek Alt Seçeneği -->
+      <div v-if="form.direction !== 'offer'" class="flex rounded-lg border border-amber-200 overflow-hidden">
+        <label
+          class="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm cursor-pointer transition-colors"
+          :class="form.direction === 'request' ? 'bg-amber-100 text-amber-900 font-semibold' : 'bg-white text-muted-foreground hover:bg-amber-50'"
+        >
           <input v-model="form.direction" type="radio" value="request" class="sr-only" />
-          <span class="text-sm font-semibold">Destek Arıyorum</span>
-          <span class="text-xs opacity-70">İhtiyacını yaz, topluluk bir el atsın</span>
+          Arıyorum
+        </label>
+        <div class="w-px bg-amber-200" />
+        <label
+          class="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm cursor-pointer transition-colors"
+          :class="form.direction === 'support' ? 'bg-amber-100 text-amber-900 font-semibold' : 'bg-white text-muted-foreground hover:bg-amber-50'"
+        >
+          <input v-model="form.direction" type="radio" value="support" class="sr-only" />
+          Veriyorum
         </label>
       </div>
 
       <!-- Başlık -->
       <div>
-        <label class="block text-sm font-medium text-foreground mb-1">
+        <label for="form-title" class="block text-sm font-medium text-foreground mb-1">
           Başlık <span class="text-destructive">*</span>
         </label>
         <input
+          id="form-title"
           v-model="form.title"
           type="text"
           maxlength="100"
-          :placeholder="form.direction === 'request' ? 'Neye ihtiyacın var?' : 'Ne satıyorsun veya veriyorsun?'"
+          :placeholder="form.direction === 'request' ? 'Neye ihtiyacın var?' : form.direction === 'support' ? 'Ne konusunda yardım edebilirsin?' : 'Ne satıyorsun veya veriyorsun?'"
           :class="[
             'w-full px-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 transition-colors',
             errors.title ? 'border-destructive focus:ring-destructive' : 'border-border focus:ring-ring',
@@ -249,10 +235,11 @@ async function submit() {
 
       <!-- Kategori -->
       <div>
-        <label class="block text-sm font-medium text-foreground mb-1">
+        <label for="form-category" class="block text-sm font-medium text-foreground mb-1">
           Kategori <span class="text-destructive">*</span>
         </label>
         <select
+          id="form-category"
           v-model="form.category_id"
           :class="[
             'w-full px-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 cursor-pointer transition-colors',
@@ -272,10 +259,10 @@ async function submit() {
 
       <!-- Ürün Durumu -->
       <div v-if="form.direction === 'offer'">
-        <label class="block text-sm font-medium text-foreground mb-2">
+        <span id="condition-label" class="block text-sm font-medium text-foreground mb-2">
           Ürün Durumu <span class="text-destructive">*</span>
-        </label>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        </span>
+        <div role="group" aria-labelledby="condition-label" class="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <label
             v-for="opt in CONDITION_OPTIONS"
             :key="opt.value"
@@ -294,11 +281,11 @@ async function submit() {
       </div>
 
       <!-- Fiyat Tipi -->
-      <div>
-        <label class="block text-sm font-medium text-foreground mb-2">
+      <div v-if="form.direction !== 'support'">
+        <span id="price-type-label" class="block text-sm font-medium text-foreground mb-2">
           Fiyat Tipi <span class="text-destructive">*</span>
-        </label>
-        <div class="grid grid-cols-3 gap-2">
+        </span>
+        <div role="group" aria-labelledby="price-type-label" class="grid grid-cols-3 gap-2">
           <label
             v-for="opt in form.direction === 'offer'
               ? [{ value: 'fixed', label: 'Sabit' }, { value: 'negotiable', label: 'Pazarlığa Açık' }, { value: 'free', label: 'Ücretsiz' }]
@@ -317,7 +304,7 @@ async function submit() {
 
       <!-- Fiyat -->
       <div v-if="form.price_type !== 'free'">
-        <label class="block text-sm font-medium text-foreground mb-1">
+        <label for="form-price" class="block text-sm font-medium text-foreground mb-1">
           <template v-if="form.direction === 'offer'">
             {{ form.price_type === 'negotiable' ? 'Başlangıç Fiyatı (₺)' : 'Fiyat (₺)' }} <span class="text-destructive">*</span>
           </template>
@@ -326,6 +313,7 @@ async function submit() {
           </template>
         </label>
         <input
+          id="form-price"
           v-model.number="form.price"
           type="number"
           min="1"
@@ -341,33 +329,32 @@ async function submit() {
       <!-- Şehir / İlçe -->
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-foreground mb-1">
+          <label for="form-city" class="block text-sm font-medium text-foreground mb-1">
             Şehir <span class="text-destructive">*</span>
           </label>
-          <CityAutocomplete v-model="form.city" :has-error="!!errors.city" />
+          <CityAutocomplete v-model="form.city" :has-error="!!errors.city" input-id="form-city" />
           <p v-if="errors.city" class="mt-1 text-xs text-destructive">{{ errors.city }}</p>
         </div>
         <div>
-          <label class="block text-sm font-medium text-foreground mb-1">İlçe</label>
-          <select
+          <label for="form-district" class="block text-sm font-medium text-foreground mb-1">İlçe</label>
+          <DistrictAutocomplete
             v-model="form.district"
+            :options="ilceler"
             :disabled="!form.city"
-            class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <option value="">Seçiniz</option>
-            <option v-for="ilce in ilceler" :key="ilce" :value="ilce">{{ ilce }}</option>
-          </select>
+            input-id="form-district"
+          />
         </div>
       </div>
 
       <!-- Açıklama -->
       <div>
-        <label class="block text-sm font-medium text-foreground mb-1">Açıklama</label>
+        <label for="form-description" class="block text-sm font-medium text-foreground mb-1">Açıklama</label>
         <textarea
+          id="form-description"
           v-model="form.description"
           maxlength="2000"
           rows="4"
-          :placeholder="form.direction === 'request' ? 'Neye ihtiyacın var, ne zaman lazım, nerede buluşabilirsin...' : 'Ürün durumunu, eksiklerini, buluşma tercihin yaz... (örn: Çiğdem Mah. civarı uygun)'"
+          :placeholder="form.direction === 'request' ? 'Neye ihtiyacın var, ne zaman lazım, nerede buluşabilirsin...' : form.direction === 'support' ? 'Ne kadar süre ayırabilirsin, hangi şehir, nasıl iletişime geçilsin...' : 'Ürün durumunu, eksiklerini, buluşma tercihin yaz... (örn: Çiğdem Mah. civarı uygun)'"
           class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring resize-none"
         />
         <p class="text-xs text-muted-foreground mt-1 text-right">
@@ -421,15 +408,14 @@ async function submit() {
         {{ submitError }}
       </p>
 
-      <button
-        type="submit"
-        :disabled="submitting"
-        class="w-full bg-foreground text-background py-2.5 rounded-md text-sm font-medium cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-      >
+      <Button type="submit" size="lg" :loading="submitting" class="w-full">
         <Upload v-if="!submitting" class="size-4" />
-        <span v-if="submitting">Yayınlanıyor...</span>
+        <span v-if="submitting && selectedFiles.length > 0">
+          Fotoğraflar yükleniyor {{ uploadedCount }}/{{ selectedFiles.length }}...
+        </span>
+        <span v-else-if="submitting">Yayınlanıyor...</span>
         <span v-else>Yayınla</span>
-      </button>
+      </Button>
     </form>
   </div>
 </template>

@@ -3,7 +3,7 @@
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 32 32"
-      class="size-7 shrink-0"
+      class="size-8 shrink-0"
       aria-hidden="true"
     >
       <!-- Arka plan -->
@@ -28,7 +28,10 @@
       <rect x="20" y="10.5" width="5" height="11" rx="1.5" fill="rgba(255,255,255,0.80)"/>
     </svg>
 
-    <span class="text-lg font-bold tracking-tight leading-none" style="color: oklch(0.35 0.08 38)">
+    <span
+      class="text-xl leading-none"
+      style="font-family: var(--font-display); font-weight: 700; color: oklch(0.35 0.08 38); letter-spacing: 0.02em;"
+    >
       rafımdan
     </span>
   </div>

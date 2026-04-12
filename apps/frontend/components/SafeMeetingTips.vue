@@ -8,6 +8,8 @@ const open = ref(false)
   <div class="rounded-lg border border-border text-sm">
     <button
       type="button"
+      :aria-expanded="open"
+      aria-controls="safe-meeting-tips"
       class="w-full flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-muted transition-colors rounded-lg"
       @click="open = !open"
     >
@@ -21,7 +23,7 @@ const open = ref(false)
       />
     </button>
 
-    <div v-if="open" class="px-4 pb-4 space-y-1.5 text-muted-foreground">
+    <div v-if="open" id="safe-meeting-tips" class="px-4 pb-4 space-y-1.5 text-muted-foreground">
       <p class="flex items-start gap-2">
         <span class="shrink-0 mt-0.5">·</span>
         Kalabalık, kamuya açık bir yer seçin — market önü, AVM girişi, kahve.

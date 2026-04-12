@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { MapPin, CalendarDays, MessageCircle, ShoppingBag, BadgeCheck } from "lucide-vue-next"
 import type { UserProfile, ListingListItem } from "@rafimdan/shared"
+import { getInitials } from "~/utils/listing-constants"
 
 type ProfileWithStats = UserProfile & { listing_count: number; sold_count: number }
 
@@ -27,14 +28,7 @@ const displayName = computed(
   () => profile.value.display_name ?? profile.value.name,
 )
 
-const initials = computed(() =>
-  displayName.value
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join(""),
-)
+const initials = computed(() => getInitials(displayName.value))
 
 const memberSince = computed(() => {
   const d = new Date(profile.value.created_at)

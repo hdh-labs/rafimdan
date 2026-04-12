@@ -3,6 +3,7 @@ import { ClipboardList, ImageOff, Pencil, Trash2, ChevronDown, RefreshCw, AlertC
 import { toast } from "vue-sonner"
 import type { ListingListItem, ListingStatus } from "@rafimdan/shared"
 import { apiFetch } from "~/utils/api"
+import { STATUS_LABELS, STATUS_COLORS } from "~/utils/listing-constants"
 
 definePageMeta({ middleware: ["auth"] })
 useSeoMeta({ title: "İlanlarım — Rafımdan" })
@@ -14,20 +15,8 @@ const loading = ref(true)
 const activeTab = ref<Tab>("all")
 const pendingSlug = ref<string | null>(null)
 const openMenuSlug = ref<string | null>(null)
+const deleteConfirmSlug = ref<string | null>(null)
 
-const STATUS_LABELS: Record<ListingStatus, string> = {
-  active:   "Aktif",
-  sold:     "Satıldı",
-  pending:  "İnceleniyor",
-  rejected: "Reddedildi",
-}
-
-const STATUS_COLORS: Record<ListingStatus, string> = {
-  active:   "bg-green-50 text-green-700 border-green-200",
-  sold:     "bg-gray-100 text-gray-500 border-gray-200",
-  pending:  "bg-amber-50 text-amber-700 border-amber-200",
-  rejected: "bg-red-50 text-red-700 border-red-200",
-}
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "all",      label: "Tümü" },
@@ -98,6 +87,10 @@ function daysAgo(dateStr: string): number {
   return Math.floor((Date.now() - new Date(dateStr).getTime()) / 86_400_000)
 }
 
+const filteredWithAge = computed(() =>
+  filtered.value.map((l) => ({ ...l, age: daysAgo(l.updated_at) }))
+)
+
 async function refreshListing(slug: string) {
   pendingSlug.value = slug
   try {
@@ -113,7 +106,6 @@ async function refreshListing(slug: string) {
 }
 
 async function deleteListing(slug: string, title: string) {
-  if (!confirm(`"${title}" ilanını silmek istediğinize emin misiniz?`)) return
   pendingSlug.value = slug
   try {
     await apiFetch(`/api/listings/${slug}`, { method: "DELETE" })
@@ -123,6 +115,7 @@ async function deleteListing(slug: string, title: string) {
     toast.error("İlan silinemedi, tekrar dene.")
   } finally {
     pendingSlug.value = null
+    deleteConfirmSlug.value = null
   }
 }
 </script>
@@ -191,7 +184,7 @@ async function deleteListing(slug: string, title: string) {
     <!-- Listing cards -->
     <div v-else class="space-y-3">
       <div
-        v-for="listing in filtered"
+        v-for="listing in filteredWithAge"
         :key="listing.id"
         class="flex items-center gap-3 p-3 rounded-lg border border-border bg-white transition-opacity"
         :class="pendingSlug === listing.slug ? 'opacity-50 pointer-events-none' : ''"
@@ -230,9 +223,9 @@ async function deleteListing(slug: string, title: string) {
             </span>
             <span
               class="text-xs"
-              :class="daysAgo(listing.updated_at) > 14 ? 'text-amber-600' : 'text-muted-foreground'"
+              :class="listing.age > 14 ? 'text-amber-600' : 'text-muted-foreground'"
             >
-              {{ daysAgo(listing.updated_at) === 0 ? 'Bugün' : `${daysAgo(listing.updated_at)} gün önce` }}
+              {{ listing.age === 0 ? 'Bugün' : `${listing.age} gün önce` }}
             </span>
           </div>
           <template v-if="listing.status === 'rejected'">
@@ -301,19 +294,18 @@ async function deleteListing(slug: string, title: string) {
           </div>
 
           <!-- Refresh -->
-          <button
+          <Button
             v-if="listing.status === 'active'"
             type="button"
-            :title="`${daysAgo(listing.updated_at)} gün önce yenilendi`"
-            class="flex items-center gap-1 text-xs px-2 py-1.5 rounded border cursor-pointer transition-colors"
-            :class="daysAgo(listing.updated_at) > 7
-              ? 'border-amber-300 text-amber-700 hover:bg-amber-50'
-              : 'border-border text-muted-foreground hover:bg-muted'"
+            variant="outline"
+            size="sm"
+            :title="`${listing.age} gün önce yenilendi`"
+            :class="listing.age > 7 ? 'border-amber-300 text-amber-700 hover:bg-amber-50' : ''"
             @click="refreshListing(listing.slug)"
           >
             <RefreshCw class="size-3" />
             <span class="hidden sm:inline">Yenile</span>
-          </button>
+          </Button>
 
           <!-- Edit -->
           <NuxtLink
@@ -325,14 +317,37 @@ async function deleteListing(slug: string, title: string) {
           </NuxtLink>
 
           <!-- Delete -->
-          <button
+          <template v-if="deleteConfirmSlug === listing.slug">
+            <span class="text-xs text-muted-foreground hidden sm:inline">Emin misin?</span>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              :loading="pendingSlug === listing.slug"
+              @click="deleteListing(listing.slug, listing.title)"
+            >
+              Evet
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              @click="deleteConfirmSlug = null"
+            >
+              Hayır
+            </Button>
+          </template>
+          <Button
+            v-else
             type="button"
-            class="flex items-center gap-1 text-xs text-red-600 hover:text-red-700 px-2 py-1.5 rounded border border-red-200 hover:bg-red-50 cursor-pointer transition-colors"
-            @click="deleteListing(listing.slug, listing.title)"
+            variant="outline"
+            size="sm"
+            class="text-destructive border-destructive/30 hover:bg-destructive/5"
+            @click="deleteConfirmSlug = listing.slug"
           >
             <Trash2 class="size-3" />
             <span class="hidden sm:inline">Sil</span>
-          </button>
+          </Button>
         </div>
       </div>
     </div>

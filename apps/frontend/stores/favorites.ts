@@ -1,4 +1,5 @@
 import { defineStore } from "pinia"
+import { toast } from "vue-sonner"
 import { apiFetch } from "~/utils/api"
 import type { FavoritesResponse } from "@rafimdan/shared"
 
@@ -44,9 +45,11 @@ export const useFavoritesStore = defineStore("favorites", () => {
       ids.value = new Set(ids.value)
       try {
         await apiFetch(`/api/favorites/${listingId}`, { method: "DELETE" })
+        toast.success("Favorilerden çıkarıldı")
       } catch {
         ids.value.add(listingId)
         ids.value = new Set(ids.value)
+        toast.error("Bir hata oluştu, tekrar dene")
       }
     } else {
       ids.value.add(listingId)
@@ -56,9 +59,11 @@ export const useFavoritesStore = defineStore("favorites", () => {
           method: "POST",
           body: JSON.stringify({ listing_id: listingId }),
         })
+        toast.success("Favorilere eklendi")
       } catch {
         ids.value.delete(listingId)
         ids.value = new Set(ids.value)
+        toast.error("Bir hata oluştu, tekrar dene")
       }
     }
 
