@@ -5,5 +5,6 @@
       <slot />
     </main>
     <AppFooter />
+    <FeedbackWidget />
   </div>
 </template>

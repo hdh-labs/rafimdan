@@ -10,6 +10,7 @@ export type Env = {
   GOOGLE_CLIENT_SECRET: string;
   ADMIN_API_KEY: string;
   AHALI_INVITE_TOKEN: string;
+  GITHUB_TOKEN: string;
 };
 
 export type HonoEnv = {
