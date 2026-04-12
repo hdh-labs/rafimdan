@@ -116,21 +116,29 @@ feedback.post("/", async (c) => {
       ? `[${typeLabel}] ${description.slice(0, 60)}…`
       : `[${typeLabel}] ${description}`;
 
-  const res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/issues`, {
+  const ghHeaders = {
+    Authorization: `Bearer ${c.env.GITHUB_TOKEN}`,
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "Content-Type": "application/json",
+    "User-Agent": "rafimdan-feedback-bot",
+  };
+
+  const labels = GITHUB_LABELS[type] ?? ["feedback"];
+  let res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/issues`, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${c.env.GITHUB_TOKEN}`,
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-      "Content-Type": "application/json",
-      "User-Agent": "rafimdan-feedback-bot",
-    },
-    body: JSON.stringify({
-      title: issueTitle,
-      body: issueBody,
-      labels: GITHUB_LABELS[type] ?? ["feedback"],
-    }),
+    headers: ghHeaders,
+    body: JSON.stringify({ title: issueTitle, body: issueBody, labels }),
   });
+
+  // Label'lar repoda yoksa 422 döner — label'sız tekrar dene
+  if (res.status === 422) {
+    res = await fetch(`https://api.github.com/repos/${OWNER}/${REPO}/issues`, {
+      method: "POST",
+      headers: ghHeaders,
+      body: JSON.stringify({ title: issueTitle, body: issueBody }),
+    });
+  }
 
   if (!res.ok) {
     throw new AppError("Geri bildirim gönderilemedi", 502, "GITHUB_ERROR");

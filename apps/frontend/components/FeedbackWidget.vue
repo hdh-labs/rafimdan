@@ -15,16 +15,14 @@ type FeedbackType = (typeof FEEDBACK_TYPES)[number]["value"]
 const MAX_ATTACHMENTS = 3
 const MAX_SIZE_MB = 5
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"]
 
 const open = ref(false)
 const type = ref<FeedbackType>("bug")
 const description = ref("")
 const pending = ref(false)
 const capturing = ref(false)
-const modalRef = ref<HTMLDivElement | null>(null)
-const triggerRef = ref<HTMLButtonElement | null>(null)
 const fileInputRef = ref<HTMLInputElement | null>(null)
+const descriptionRef = ref<HTMLTextAreaElement | null>(null)
 
 const attachments = ref<{ file: File; preview: string }[]>([])
 
@@ -33,9 +31,7 @@ const isListingDetail = computed(() => route.name === "ilan-slug")
 
 function openModal() {
   open.value = true
-  nextTick(() => {
-    modalRef.value?.querySelector<HTMLElement>("textarea")?.focus()
-  })
+  nextTick(() => descriptionRef.value?.focus())
 }
 
 function closeModal() {
@@ -44,7 +40,6 @@ function closeModal() {
   type.value = "bug"
   attachments.value.forEach((a) => URL.revokeObjectURL(a.preview))
   attachments.value = []
-  triggerRef.value?.focus()
 }
 
 function onKeydown(e: KeyboardEvent) {
@@ -59,23 +54,15 @@ function onFileChange(e: Event) {
 
 function addFiles(files: File[]) {
   const remaining = MAX_ATTACHMENTS - attachments.value.length
-  const valid = files.slice(0, remaining).filter((f) => {
-    if (!ALLOWED_TYPES.includes(f.type)) {
-      toast.error(`${f.name}: desteklenmeyen format`)
-      return false
-    }
-    if (f.size > MAX_SIZE_BYTES) {
-      toast.error(`${f.name}: ${MAX_SIZE_MB} MB'dan büyük olamaz`)
-      return false
-    }
-    return true
+  files.slice(0, remaining).forEach((f) => {
+    if (f.size > MAX_SIZE_BYTES) { toast.error(`${f.name}: ${MAX_SIZE_MB} MB'dan büyük olamaz`); return }
+    attachments.value.push({ file: f, preview: URL.createObjectURL(f) })
   })
-  attachments.value.push(...valid.map((f) => ({ file: f, preview: URL.createObjectURL(f) })))
 }
 
-function removeAttachment(index: number) {
-  URL.revokeObjectURL(attachments.value[index].preview)
-  attachments.value.splice(index, 1)
+function removeAttachment(i: number) {
+  URL.revokeObjectURL(attachments.value[i].preview)
+  attachments.value.splice(i, 1)
 }
 
 async function captureScreen() {
@@ -84,41 +71,27 @@ async function captureScreen() {
     toast.error(`En fazla ${MAX_ATTACHMENTS} dosya ekleyebilirsin`)
     return
   }
-
   capturing.value = true
   open.value = false
-
   await nextTick()
-  await new Promise((r) => setTimeout(r, 150)) // modal kapanma animasyonu
+  await new Promise((r) => setTimeout(r, 80))
 
-  let stream: MediaStream | null = null
   try {
-    stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false })
-    const track = stream.getVideoTracks()[0]
-    const settings = track.getSettings()
-
-    const video = document.createElement("video")
-    video.srcObject = stream
-    await video.play()
-
-    const canvas = document.createElement("canvas")
-    canvas.width = settings.width ?? video.videoWidth
-    canvas.height = settings.height ?? video.videoHeight
-    canvas.getContext("2d")!.drawImage(video, 0, 0)
-
-    track.stop()
-
+    const { default: html2canvas } = await import("html2canvas")
+    const canvas = await html2canvas(document.body, {
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      scale: window.devicePixelRatio,
+    })
     canvas.toBlob((blob) => {
       if (!blob) return
       const file = new File([blob], `screenshot-${Date.now()}.png`, { type: "image/png" })
       addFiles([file])
     }, "image/png")
-  } catch (err) {
-    if (err instanceof Error && err.name !== "NotAllowedError") {
-      toast.error("Ekran görüntüsü alınamadı.")
-    }
+  } catch {
+    toast.error("Ekran görüntüsü alınamadı.")
   } finally {
-    stream?.getTracks().forEach((t) => t.stop())
     capturing.value = false
     open.value = true
   }
@@ -140,10 +113,8 @@ async function submit() {
   try {
     const attachment_urls: string[] = []
     for (const { file } of attachments.value) {
-      const url = await uploadAttachment(file)
-      attachment_urls.push(url)
+      attachment_urls.push(await uploadAttachment(file))
     }
-
     await apiFetch("/api/feedback", {
       method: "POST",
       body: JSON.stringify({
@@ -166,7 +137,6 @@ async function submit() {
 <template>
   <!-- Trigger -->
   <button
-    ref="triggerRef"
     type="button"
     aria-label="Geri bildirim gönder"
     :aria-expanded="open"
@@ -190,25 +160,30 @@ async function submit() {
     @change="onFileChange"
   />
 
-  <!-- Modal -->
+  <!-- Panel -->
   <Teleport to="body">
-    <div
-      v-if="open"
-      class="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40"
-      @click.self="closeModal"
-      @keydown="onKeydown"
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="opacity-0 translate-y-4 sm:translate-y-0 sm:translate-x-4"
+      enter-to-class="opacity-100 translate-y-0 sm:translate-x-0"
+      leave-active-class="transition duration-150 ease-in"
+      leave-from-class="opacity-100 translate-y-0 sm:translate-x-0"
+      leave-to-class="opacity-0 translate-y-4 sm:translate-y-0 sm:translate-x-4"
     >
       <div
-        ref="modalRef"
+        v-if="open"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="feedback-modal-title"
-        class="w-full sm:max-w-md bg-background rounded-t-2xl sm:rounded-xl border border-border shadow-xl"
+        aria-labelledby="feedback-panel-title"
+        class="fixed z-50 w-full sm:w-96 bg-background border border-border shadow-2xl
+               bottom-0 left-0 right-0 rounded-t-2xl
+               sm:bottom-20 sm:right-4 sm:left-auto sm:rounded-xl"
+        @keydown="onKeydown"
       >
         <!-- Header -->
         <div class="flex items-center justify-between px-5 pt-5 pb-4 border-b border-border">
           <div>
-            <h2 id="feedback-modal-title" class="text-sm font-semibold text-foreground">
+            <h2 id="feedback-panel-title" class="text-sm font-semibold text-foreground">
               Feedback Gönder
             </h2>
             <p class="text-xs text-muted-foreground mt-0.5">
@@ -227,50 +202,37 @@ async function submit() {
 
         <!-- Body -->
         <div class="px-5 py-4 space-y-4">
-          <!-- Type -->
           <div>
-            <label for="feedback-type" class="block text-xs font-medium text-muted-foreground mb-1">
-              Tür
-            </label>
+            <label for="feedback-type" class="block text-xs font-medium text-muted-foreground mb-1">Tür</label>
             <select
               id="feedback-type"
               v-model="type"
               class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
             >
-              <option v-for="opt in FEEDBACK_TYPES" :key="opt.value" :value="opt.value">
-                {{ opt.label }}
-              </option>
+              <option v-for="opt in FEEDBACK_TYPES" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
             </select>
           </div>
 
-          <!-- Description -->
           <div>
-            <label for="feedback-description" class="block text-xs font-medium text-muted-foreground mb-1">
-              Açıklama
-            </label>
+            <label for="feedback-description" class="block text-xs font-medium text-muted-foreground mb-1">Açıklama</label>
             <textarea
               id="feedback-description"
+              ref="descriptionRef"
               v-model="description"
               rows="3"
               maxlength="2000"
               placeholder="Ne gördün, ne olmasını bekliyordun, ne oldu..."
               class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background resize-none focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
             />
-            <p class="text-right text-xs text-muted-foreground mt-0.5 tabular-nums">
-              {{ description.length }}/2000
-            </p>
+            <p class="text-right text-xs text-muted-foreground mt-0.5 tabular-nums">{{ description.length }}/2000</p>
           </div>
 
           <!-- Attachments -->
           <div>
             <div class="flex items-center justify-between mb-2">
               <span class="text-xs font-medium text-muted-foreground">Ekler</span>
-              <span class="text-xs text-muted-foreground">
-                {{ attachments.length }}/{{ MAX_ATTACHMENTS }} · max {{ MAX_SIZE_MB }} MB
-              </span>
+              <span class="text-xs text-muted-foreground">{{ attachments.length }}/{{ MAX_ATTACHMENTS }} · max {{ MAX_SIZE_MB }} MB</span>
             </div>
-
-            <!-- Previews -->
             <div v-if="attachments.length > 0" class="flex gap-2 mb-2 flex-wrap">
               <div
                 v-for="(att, i) in attachments"
@@ -287,8 +249,6 @@ async function submit() {
                 </button>
               </div>
             </div>
-
-            <!-- Buttons -->
             <div v-if="attachments.length < MAX_ATTACHMENTS" class="flex gap-2">
               <button
                 type="button"
@@ -330,6 +290,6 @@ async function submit() {
           </Button>
         </div>
       </div>
-    </div>
+    </Transition>
   </Teleport>
 </template>
