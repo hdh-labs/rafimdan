@@ -195,7 +195,7 @@ async function save() {
         size="lg"
         :loading="submitting"
         :disabled="submitting || saved"
-        :class="['w-full', saved ? 'bg-green-600 text-white hover:opacity-100' : '']"
+        :class="`w-full ${saved ? 'bg-green-600 text-white hover:opacity-100' : ''}`"
       >
         <CheckCircle v-if="saved" class="size-4" />
         <Save v-else-if="!submitting" class="size-4" />
