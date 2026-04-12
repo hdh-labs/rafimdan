@@ -141,7 +141,12 @@ feedback.post("/", async (c) => {
   }
 
   if (!res.ok) {
-    throw new AppError("Geri bildirim gönderilemedi", 502, "GITHUB_ERROR");
+    const ghError = await res.json<{ message?: string }>().catch(() => ({}));
+    throw new AppError(
+      `GitHub ${res.status}: ${ghError.message ?? "bilinmeyen hata"}`,
+      502,
+      "GITHUB_ERROR",
+    );
   }
 
   const issue = await res.json<{ number: number; html_url: string }>();
