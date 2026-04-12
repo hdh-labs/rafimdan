@@ -179,7 +179,16 @@ export const listingRepository = {
     if (params.category) { conditions.push("c.slug = ?"); bindings.push(params.category); }
     if (params.price_type) { conditions.push("l.price_type = ?"); bindings.push(params.price_type); }
     if (params.condition) { conditions.push("l.condition = ?"); bindings.push(params.condition); }
-    if (params.direction) { conditions.push("l.direction = ?"); bindings.push(params.direction); }
+    if (params.direction) {
+      if (Array.isArray(params.direction)) {
+        const placeholders = params.direction.map(() => "?").join(",");
+        conditions.push(`l.direction IN (${placeholders})`);
+        bindings.push(...params.direction);
+      } else {
+        conditions.push("l.direction = ?");
+        bindings.push(params.direction);
+      }
+    }
     if (params.q) {
       conditions.push("(l.title LIKE ? ESCAPE '\\' OR l.description LIKE ? ESCAPE '\\')");
       const escaped = params.q.replace(/[\\%_]/g, "\\$&");

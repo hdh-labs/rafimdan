@@ -1,12 +1,12 @@
 export type ListingCondition = "new" | "like_new" | "good" | "fair";
 export type ListingPriceType = "fixed" | "negotiable" | "free";
 export type ListingStatus = "active" | "sold" | "pending" | "rejected";
-export type ListingDirection = "offer" | "request";
+export type ListingDirection = "offer" | "request" | "support";
 
 export const LISTING_CONDITIONS = ["new", "like_new", "good", "fair"] as const;
 export const LISTING_PRICE_TYPES = ["fixed", "negotiable", "free"] as const;
 export const LISTING_STATUSES = ["active", "sold", "pending", "rejected"] as const;
-export const LISTING_DIRECTIONS = ["offer", "request"] as const;
+export const LISTING_DIRECTIONS = ["offer", "request", "support"] as const;
 
 export type ListingRow = {
   id: string;
@@ -100,7 +100,7 @@ export type ListingsQueryParams = {
   category?: string;
   price_type?: ListingPriceType;
   condition?: ListingCondition;
-  direction?: ListingDirection;
+  direction?: ListingDirection | ListingDirection[];
   sort?: "recent" | "popular";
   q?: string;
   page?: number;

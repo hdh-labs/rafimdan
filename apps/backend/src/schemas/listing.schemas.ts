@@ -16,6 +16,7 @@ export const createListingSchema = z
   .refine(
     (data) =>
       data.direction === "request" ||
+      data.direction === "support" ||
       data.price_type === "free" ||
       data.price !== undefined,
     { message: "Fiyat zorunlu", path: ["price"] },
@@ -48,7 +49,11 @@ export const listingsQuerySchema = z.object({
   category: z.string().optional(),
   price_type: z.enum(LISTING_PRICE_TYPES).optional(),
   condition: z.enum(LISTING_CONDITIONS).optional(),
-  direction: z.enum(LISTING_DIRECTIONS).optional(),
+  direction: z.string().optional().transform((v) => {
+    if (!v) return undefined;
+    if (v.includes(",")) return v.split(",") as import("@rafimdan/shared").ListingDirection[];
+    return v as import("@rafimdan/shared").ListingDirection;
+  }),
   sort: z.enum(["recent", "popular"]).optional(),
   q: z.string().max(100).optional(),
   page: z.coerce.number().int().positive().default(1),
