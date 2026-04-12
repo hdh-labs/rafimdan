@@ -22,11 +22,53 @@ const GITHUB_LABELS: Record<string, string[]> = {
 const OWNER = "hdh-labs";
 const REPO = "rafimdan";
 
+const MAX_ATTACHMENT_SIZE = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+
+// ---------------------------------------------------------------------------
+// POST /attachments — görsel yükle, R2'ye kaydet, public URL döndür
+// ---------------------------------------------------------------------------
+
+feedback.post("/attachments", async (c) => {
+  const contentType = c.req.header("content-type") ?? "";
+  if (!contentType.includes("multipart/form-data")) {
+    throw new AppError("Content-Type multipart/form-data olmalı", 400, "INVALID_CONTENT_TYPE");
+  }
+
+  const formData = await c.req.formData();
+  const file = formData.get("file") as File | null;
+
+  if (!file) throw new AppError("Dosya gerekli", 400, "MISSING_FILE");
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    throw new AppError("Sadece görsel dosyaları kabul edilir", 400, "INVALID_FILE_TYPE");
+  }
+  if (file.size > MAX_ATTACHMENT_SIZE) {
+    throw new AppError("Dosya 5 MB'dan büyük olamaz", 400, "FILE_TOO_LARGE");
+  }
+
+  const ext = file.type.split("/")[1] ?? "jpg";
+  const key = `feedback/${crypto.randomUUID()}.${ext}`;
+
+  await c.env.STORAGE.put(key, file.stream(), {
+    httpMetadata: { contentType: file.type },
+  });
+
+  const baseUrl = c.env.STORAGE_PUBLIC_URL ?? "";
+  const url = `${baseUrl}/${key}`;
+
+  return c.json({ data: { url }, status: "ok" }, 201);
+});
+
+// ---------------------------------------------------------------------------
+// POST / — feedback gönder, GitHub issue aç
+// ---------------------------------------------------------------------------
+
 feedback.post("/", async (c) => {
   const body = await c.req.json<{
     type?: string;
     description?: string;
     page_url?: string;
+    attachment_urls?: string[];
   }>();
 
   const type = body.type ?? "other";
@@ -42,26 +84,27 @@ feedback.post("/", async (c) => {
     throw new AppError("Geçersiz tür", 400, "VALIDATION_ERROR");
   }
 
-  // Opsiyonel: login olmuşsa kullanıcı bilgisini al
+  // Login olmuşsa kullanıcı bilgisini al
   let senderInfo = "Anonim";
   try {
     await authMiddleware(c, async () => {});
     const user = c.get("user");
     if (user?.sub) senderInfo = `Kullanıcı ID: \`${user.sub}\``;
   } catch {
-    // login değil — anonim bırak
+    // anonim — devam
   }
 
   const typeLabel = FEEDBACK_TYPES[type] ?? type;
-  const pageInfo = body.page_url ? `**Sayfa:** ${body.page_url}` : "";
+  const attachments = (body.attachment_urls ?? []).slice(0, 3);
+  const attachmentsMd = attachments.map((url, i) => `![Ekran görüntüsü ${i + 1}](${url})`).join("\n");
 
   const issueBody = [
     `## ${typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1)} Bildirimi`,
     "",
     description,
-    "",
+    attachmentsMd ? `\n${attachmentsMd}` : "",
     "---",
-    pageInfo,
+    body.page_url ? `**Sayfa:** ${body.page_url}` : "",
     `**Gönderen:** ${senderInfo}`,
     `**Tarih:** ${new Date().toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" })}`,
   ]
