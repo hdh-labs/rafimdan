@@ -1,4 +1,4 @@
-import type { User, UserProfile, CreateUserInput } from "@rafimdan/shared";
+import type { User, UserProfile, AdminUserProfile, CreateUserInput } from "@rafimdan/shared";
 
 export const userRepository = {
   async findById(db: D1Database, id: string): Promise<User | null> {
@@ -30,6 +30,19 @@ export const userRepository = {
 
   async findAll(db: D1Database): Promise<User[]> {
     const result = await db.prepare("SELECT * FROM users ORDER BY created_at DESC").all<User>();
+    return result.results ?? [];
+  },
+
+  async findAllWithStats(db: D1Database): Promise<Array<User & { listing_count: number }>> {
+    const result = await db
+      .prepare(
+        `SELECT u.*, COALESCE(COUNT(l.id), 0) as listing_count
+         FROM users u
+         LEFT JOIN listings l ON l.user_id = u.id
+         GROUP BY u.id
+         ORDER BY u.created_at DESC`,
+      )
+      .all<User & { listing_count: number }>();
     return result.results ?? [];
   },
 
@@ -83,6 +96,23 @@ export const userRepository = {
       is_active: user.is_active,
       is_admin: user.is_admin,
       created_at: user.created_at,
+    };
+  },
+
+  toAdminProfile(user: User & { listing_count: number }): AdminUserProfile {
+    return {
+      id: user.id,
+      name: user.name,
+      display_name: user.display_name,
+      avatar_url: user.avatar_url,
+      whatsapp: user.whatsapp,
+      city: user.city,
+      district: user.district,
+      slug: user.slug,
+      is_active: user.is_active,
+      is_admin: user.is_admin,
+      created_at: user.created_at,
+      listing_count: user.listing_count,
     };
   },
 } as const;

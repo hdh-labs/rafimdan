@@ -50,8 +50,7 @@ const waUrl = computed(() => {
 const priceDisplay = computed(() => {
   if (isRequest.value) return "Destek Arıyor"
   const { price, price_type } = listing.value
-  if (price_type === "free") return "Askıda"
-  if (price_type === "el_uzat") return "El Uzat"
+  if (price_type === "free") return "Ücretsiz"
   const formatted = (price ?? 0).toLocaleString("tr-TR") + " ₺"
   if (price_type === "negotiable") return `${formatted} · Pazarlığa açık`
   return formatted
@@ -254,7 +253,7 @@ async function submitReport() {
 
           <p
             class="text-2xl font-bold"
-            :class="isRequest ? 'text-amber-700' : listing.price_type === 'free' || listing.price_type === 'el_uzat' ? 'text-green-700' : 'text-foreground'"
+            :class="isRequest ? 'text-amber-700' : listing.price_type === 'free' ? 'text-green-700' : 'text-foreground'"
           >
             {{ priceDisplay }}
           </p>

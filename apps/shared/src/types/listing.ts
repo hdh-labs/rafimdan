@@ -1,11 +1,11 @@
 export type ListingCondition = "new" | "like_new" | "good" | "fair";
-export type ListingPriceType = "fixed" | "negotiable" | "free" | "el_uzat";
-export type ListingStatus = "active" | "sold";
+export type ListingPriceType = "fixed" | "negotiable" | "free";
+export type ListingStatus = "active" | "sold" | "pending" | "rejected";
 export type ListingDirection = "offer" | "request";
 
 export const LISTING_CONDITIONS = ["new", "like_new", "good", "fair"] as const;
-export const LISTING_PRICE_TYPES = ["fixed", "negotiable", "free", "el_uzat"] as const;
-export const LISTING_STATUSES = ["active", "sold"] as const;
+export const LISTING_PRICE_TYPES = ["fixed", "negotiable", "free"] as const;
+export const LISTING_STATUSES = ["active", "sold", "pending", "rejected"] as const;
 export const LISTING_DIRECTIONS = ["offer", "request"] as const;
 
 export type ListingRow = {
@@ -22,6 +22,7 @@ export type ListingRow = {
   photos: string;
   status: ListingStatus;
   direction: ListingDirection;
+  rejection_reason: string | null;
   slug: string;
   view_count: number;
   created_at: string;
@@ -37,6 +38,7 @@ export type ListingListItem = {
   condition: ListingCondition;
   status: ListingStatus;
   direction: ListingDirection;
+  rejection_reason: string | null;
   cover_photo: string | null;
   city: string;
   district: string | null;

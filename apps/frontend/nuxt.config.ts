@@ -65,6 +65,8 @@ export default defineNuxtConfig({
     "/ayarlar": { ssr: false },
     "/ilan-ver": { ssr: false },
     "/ilan/*/duzenle": { ssr: false },
+    "/admin/**": { ssr: false },
+    "/admin": { ssr: false },
   },
 
   app: {

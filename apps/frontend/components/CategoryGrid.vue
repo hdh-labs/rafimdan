@@ -10,6 +10,7 @@ import {
   Smile,
   Brain,
   Dumbbell,
+  Moon,
 } from "lucide-vue-next"
 import type { CategoryTree } from "@rafimdan/shared"
 import type { Component } from "vue"
@@ -26,6 +27,7 @@ const SLUG_ICONS: Record<string, Component> = {
   "teknik-bilim": FlaskConical,
   "cocuk-kitaplari": Smile,
   "kisisel-gelisim": Brain,
+  islami: Moon,
   diger: Package,
 }
 
@@ -39,6 +41,7 @@ const SLUG_COLORS: Record<string, { bg: string; icon: string }> = {
   "teknik-bilim":  { bg: "bg-purple-50",  icon: "text-purple-600" },
   "cocuk-kitaplari": { bg: "bg-yellow-50", icon: "text-yellow-600" },
   "kisisel-gelisim": { bg: "bg-teal-50",  icon: "text-teal-600" },
+  islami:            { bg: "bg-emerald-50", icon: "text-emerald-600" },
   diger:           { bg: "bg-gray-100",   icon: "text-gray-500" },
 }
 

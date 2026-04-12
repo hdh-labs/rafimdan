@@ -2,8 +2,8 @@
 import { ImageOff, MapPin, Heart } from "lucide-vue-next"
 import { cn } from "~/utils/cn"
 
-type PriceType = "fixed" | "negotiable" | "free" | "el_uzat"
-type ListingStatus = "active" | "sold"
+type PriceType = "fixed" | "negotiable" | "free"
+type ListingStatus = "active" | "sold" | "pending" | "rejected"
 type Condition = "new" | "like_new" | "good" | "fair"
 type Direction = "offer" | "request"
 
@@ -57,8 +57,7 @@ const statusLabel = computed(() => {
 
 const priceDisplay = computed(() => {
   if (props.direction === "request") return "Destek Arıyor"
-  if (props.price_type === "free") return "Askıda"
-  if (props.price_type === "el_uzat") return "El Uzat"
+  if (props.price_type === "free") return "Ücretsiz"
   const formatted = (props.price ?? 0).toLocaleString("tr-TR") + " ₺"
   if (props.price_type === "negotiable") return formatted + " · Pazarlık"
   return formatted
@@ -131,7 +130,7 @@ const sellerAvatarError = ref(false)
       <div class="flex items-center justify-between gap-2">
         <p
           class="text-sm font-bold"
-          :class="direction === 'request' ? 'text-amber-700' : price_type === 'free' || price_type === 'el_uzat' ? 'text-green-700' : 'text-foreground'"
+          :class="direction === 'request' ? 'text-amber-700' : price_type === 'free' ? 'text-green-700' : 'text-foreground'"
         >
           {{ priceDisplay }}
         </p>

@@ -45,6 +45,7 @@ function toListItem(row: ListingRowJoined): ListingListItem {
     condition: row.condition,
     status: row.status,
     direction: row.direction,
+    rejection_reason: row.rejection_reason ?? null,
     cover_photo: photos[0] ?? null,
     city: row.city,
     district: row.district,
@@ -74,6 +75,7 @@ function toDetail(row: ListingRowJoined): ListingDetail {
     condition: row.condition,
     status: row.status,
     direction: row.direction,
+    rejection_reason: row.rejection_reason ?? null,
     city: row.city,
     district: row.district,
     category: { id: row.category_id, name: row.category_name, slug: row.category_slug },
@@ -272,6 +274,21 @@ export const listingRepository = {
     await db
       .prepare("UPDATE listings SET status = ?, updated_at = datetime('now') WHERE id = ?")
       .bind(status, id)
+      .run();
+    return listingRepository.findById(db, id);
+  },
+
+  async moderate(
+    db: D1Database,
+    id: string,
+    status: "active" | "pending" | "rejected",
+    rejectionReason: string | null,
+  ): Promise<ListingDetail | null> {
+    await db
+      .prepare(
+        "UPDATE listings SET status = ?, rejection_reason = ?, updated_at = datetime('now') WHERE id = ?",
+      )
+      .bind(status, rejectionReason, id)
       .run();
     return listingRepository.findById(db, id);
   },

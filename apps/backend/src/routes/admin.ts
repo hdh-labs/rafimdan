@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { MiddlewareHandler } from "hono";
 import type { HonoEnv } from "../types/env";
+import type { AdminStats } from "@rafimdan/shared";
 import { reportService } from "../services/report.service";
 import { listingRepository } from "../repositories/listing.repository";
 import { userRepository } from "../repositories/user.repository";
@@ -37,7 +38,29 @@ const adminAuthMiddleware: MiddlewareHandler<HonoEnv> = async (c, next) => {
 };
 
 // ---------------------------------------------------------------------------
-// Reports (API key korumalı — geriye dönük uyumluluk)
+// Stats
+// ---------------------------------------------------------------------------
+
+admin.get("/stats", adminAuthMiddleware, async (c) => {
+  try {
+    const row = await c.env.DB.prepare(
+      `SELECT
+        (SELECT COUNT(*) FROM users)                               AS total_users,
+        (SELECT COUNT(*) FROM listings)                            AS total_listings,
+        (SELECT COUNT(*) FROM listings WHERE status = 'active')    AS active_listings,
+        (SELECT COUNT(*) FROM listings WHERE status = 'sold')      AS sold_listings,
+        (SELECT COUNT(*) FROM listings WHERE status = 'pending')   AS pending_listings,
+        (SELECT COUNT(*) FROM listings WHERE status = 'rejected')  AS rejected_listings,
+        (SELECT COUNT(*) FROM reports)                             AS total_reports`,
+    ).first<AdminStats>();
+    return c.json({ data: row, status: "ok" });
+  } catch (err) {
+    return handleError(c, err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Reports
 // ---------------------------------------------------------------------------
 
 admin.get("/reports", adminAuthMiddleware, async (c) => {
@@ -65,6 +88,23 @@ admin.get("/listings", adminAuthMiddleware, async (c) => {
   }
 });
 
+admin.patch("/listings/:slug/status", adminAuthMiddleware, async (c) => {
+  try {
+    const slug = c.req.param("slug");
+    const body = await c.req.json<{ status?: string; reason?: string }>();
+    if (body.status !== "active" && body.status !== "rejected") {
+      return c.json({ error: "Geçersiz durum", status: "error", code: "INVALID_STATUS" }, 400);
+    }
+    const listing = await listingRepository.findBySlug(c.env.DB, slug);
+    if (!listing) return c.json({ error: "Bulunamadı", status: "error", code: "NOT_FOUND" }, 404);
+    const reason = body.status === "rejected" ? (body.reason ?? null) : null;
+    const updated = await listingRepository.moderate(c.env.DB, listing.id, body.status, reason);
+    return c.json({ data: updated, status: "ok" });
+  } catch (err) {
+    return handleError(c, err);
+  }
+});
+
 admin.delete("/listings/:slug", adminAuthMiddleware, async (c) => {
   try {
     const slug = c.req.param("slug");
@@ -83,8 +123,8 @@ admin.delete("/listings/:slug", adminAuthMiddleware, async (c) => {
 
 admin.get("/users", adminAuthMiddleware, async (c) => {
   try {
-    const users = await userRepository.findAll(c.env.DB);
-    const profiles = users.map(u => userRepository.toProfile(u));
+    const users = await userRepository.findAllWithStats(c.env.DB);
+    const profiles = users.map(u => userRepository.toAdminProfile(u));
     return c.json({ data: profiles, status: "ok" });
   } catch (err) {
     return handleError(c, err);

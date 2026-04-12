@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ChevronDown, ClipboardList, User, Heart, Settings, LogOut, AlertCircle } from "lucide-vue-next"
+import { ChevronDown, ClipboardList, User, Heart, Settings, LogOut, AlertCircle, ShieldCheck } from "lucide-vue-next"
+import type { AdminStats } from "@rafimdan/shared"
+import { apiFetch } from "~/utils/api"
 
 const authStore = useAuthStore()
 
@@ -13,13 +15,21 @@ const initials = computed(
 
 const menuOpen = ref(false)
 const avatarError = ref(false)
+const pendingCount = ref(0)
 
 function closeMenu() {
   menuOpen.value = false
 }
 
-onMounted(() => {
+onMounted(async () => {
   document.addEventListener("click", closeMenu)
+  if (!authStore.user?.is_admin) return
+  try {
+    const res = await apiFetch<{ data: AdminStats; status: "ok" }>("/api/admin/stats")
+    pendingCount.value = res.data.pending_listings
+  } catch {
+    // ignore
+  }
 })
 
 onUnmounted(() => {
@@ -129,6 +139,23 @@ onUnmounted(() => {
                 <Settings class="size-3.5 text-muted-foreground shrink-0" />
                 Ayarlar
               </NuxtLink>
+              <template v-if="authStore.user?.is_admin">
+                <div class="border-t border-border my-1" />
+                <NuxtLink
+                  to="/admin"
+                  class="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
+                  @click="closeMenu"
+                >
+                  <ShieldCheck class="size-3.5 text-muted-foreground shrink-0" />
+                  <span class="flex-1">Yönetim</span>
+                  <span
+                    v-if="pendingCount > 0"
+                    class="inline-flex items-center rounded-full bg-amber-100 text-amber-700 text-xs px-1.5 py-0.5 font-medium"
+                  >
+                    {{ pendingCount }}
+                  </span>
+                </NuxtLink>
+              </template>
               <div class="border-t border-border my-1" />
               <button
                 class="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-muted cursor-pointer transition-colors"

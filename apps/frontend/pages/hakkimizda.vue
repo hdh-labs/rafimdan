@@ -45,6 +45,10 @@ useSeoMeta({
           <span>Ürünü teslim et, parayı al. Kargo yok, komisyon yok.</span>
         </li>
       </ol>
+      <p class="text-sm text-muted-foreground leading-relaxed">
+        Rafımdan bu süreçte yalnızca ilan panosu görevi görür. Ödeme, tahsilat veya
+        aracılık hizmeti sunmaz; taraflar arasındaki anlaşma ve buluşma tamamen sana aittir.
+      </p>
     </section>
 
     <section class="space-y-4">

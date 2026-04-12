@@ -17,7 +17,6 @@ export const createListingSchema = z
     (data) =>
       data.direction === "request" ||
       data.price_type === "free" ||
-      data.price_type === "el_uzat" ||
       data.price !== undefined,
     { message: "Fiyat zorunlu", path: ["price"] },
   );
@@ -35,7 +34,12 @@ export const updateListingSchema = z.object({
 });
 
 export const listingStatusSchema = z.object({
-  status: z.enum(LISTING_STATUSES),
+  status: z.enum(["active", "sold"] as const),
+});
+
+export const adminModerateSchema = z.object({
+  status: z.enum(["active", "rejected"] as const),
+  reason: z.string().max(500).optional(),
 });
 
 export const listingsQuerySchema = z.object({

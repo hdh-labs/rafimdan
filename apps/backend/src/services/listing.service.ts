@@ -67,6 +67,7 @@ export const listingService = {
   async getBySlug(db: D1Database, slug: string): Promise<ListingDetail> {
     const listing = await listingRepository.findBySlug(db, slug);
     if (!listing) throw new ListingNotFoundError();
+    if (listing.status === "pending" || listing.status === "rejected") throw new ListingNotFoundError();
     await listingRepository.incrementViewCount(db, listing.id);
     return { ...listing, view_count: listing.view_count + 1 };
   },
@@ -86,7 +87,11 @@ export const listingService = {
       if (!category) throw new CategoryNotFoundError();
     }
 
+    const wasRejected = listing.status === "rejected";
     const updated = await listingRepository.update(db, listing.id, input);
+    if (wasRejected) {
+      return (await listingRepository.moderate(db, listing.id, "pending", null))!;
+    }
     return updated!;
   },
 
@@ -187,6 +192,7 @@ export const listingService = {
     const listing = await listingRepository.findBySlug(db, slug);
     if (!listing) throw new ListingNotFoundError();
     if (listing.seller.id !== userId) throw new ForbiddenError("Bu ilan size ait değil");
+    if (listing.status !== "active") throw new ForbiddenError("Sadece aktif ilanlar yenilenebilir");
     await listingRepository.touch(db, listing.id);
   },
 

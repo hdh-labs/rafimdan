@@ -29,11 +29,7 @@ export const useAuthStore = defineStore("auth", () => {
     }
   }
 
-  async function init() {
-    if (accessToken.value) {
-      await fetchMe()
-      return
-    }
+  async function tryRefresh() {
     try {
       const res = await $fetch<{ data: { user: UserProfile; access_token: string }; status: "ok" }>(
         "/api/auth/refresh",
@@ -46,6 +42,17 @@ export const useAuthStore = defineStore("auth", () => {
     } catch {
       user.value = null
     }
+  }
+
+  async function init() {
+    if (accessToken.value) {
+      await fetchMe()
+      if (user.value) return
+      // fetchMe başarısız (token expire olmuş olabilir), refresh dene
+      await tryRefresh()
+      return
+    }
+    await tryRefresh()
   }
 
   async function login(token: string) {

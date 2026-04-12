@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { Trash2, ShieldOff, Shield, Loader2, ExternalLink } from "lucide-vue-next"
+import { Trash2, ShieldOff, Shield, Loader2, ExternalLink, Check, X } from "lucide-vue-next"
 import { toast } from "vue-sonner"
-import type { ListingDetail, UserProfile } from "@rafimdan/shared"
+import type { ListingDetail, AdminUserProfile, AdminStats } from "@rafimdan/shared"
 import { apiFetch } from "~/utils/api"
 
 definePageMeta({ middleware: ["auth", "admin"], ssr: false })
@@ -10,6 +10,21 @@ useSeoMeta({ title: "Admin — Rafımdan" })
 type Tab = "listings" | "users" | "reports"
 
 const activeTab = ref<Tab>("listings")
+
+// ---------------------------------------------------------------------------
+// Stats
+// ---------------------------------------------------------------------------
+
+const stats = ref<AdminStats | null>(null)
+
+async function fetchStats() {
+  try {
+    const res = await apiFetch<{ data: AdminStats; status: "ok" }>("/api/admin/stats")
+    stats.value = res.data
+  } catch {
+    // sessiz hata — stats kritik değil
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Listings
@@ -25,19 +40,32 @@ type AdminListingsResponse = {
 const listings = ref<ListingDetail[]>([])
 const listingsTotal = ref(0)
 const listingsPage = ref(1)
-const listingsStatus = ref<string>("")
+const listingsStatus = ref<string>("pending")
 const listingsLoading = ref(false)
 const deletingSlug = ref<string | null>(null)
+const moderatingSlug = ref<string | null>(null)
+const rejectModal = ref({ open: false, slug: "", title: "", reason: "" })
 
 const STATUS_OPTIONS = [
   { value: "", label: "Tümü" },
+  { value: "pending", label: "Bekleyen" },
   { value: "active", label: "Aktif" },
+  { value: "rejected", label: "Reddedilen" },
   { value: "sold", label: "Satıldı" },
 ]
 
 const STATUS_COLORS: Record<string, string> = {
-  active: "bg-green-50 text-green-700 border-green-200",
-  sold: "bg-gray-100 text-gray-500 border-gray-200",
+  active:   "bg-green-50 text-green-700 border-green-200",
+  sold:     "bg-gray-100 text-gray-500 border-gray-200",
+  pending:  "bg-amber-50 text-amber-700 border-amber-200",
+  rejected: "bg-red-50 text-red-700 border-red-200",
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  active:   "Aktif",
+  sold:     "Satıldı",
+  pending:  "Bekliyor",
+  rejected: "Reddedildi",
 }
 
 async function fetchListings() {
@@ -62,6 +90,7 @@ async function deleteListing(slug: string, title: string) {
     await apiFetch(`/api/admin/listings/${slug}`, { method: "DELETE" })
     listings.value = listings.value.filter(l => l.slug !== slug)
     listingsTotal.value = Math.max(0, listingsTotal.value - 1)
+    fetchStats()
     toast.success("İlan silindi.")
   } catch {
     toast.error("İlan silinemedi.")
@@ -70,20 +99,51 @@ async function deleteListing(slug: string, title: string) {
   }
 }
 
+async function moderateListing(slug: string, status: "active" | "rejected", reason = "") {
+  moderatingSlug.value = slug
+  try {
+    await apiFetch(`/api/admin/listings/${slug}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, reason: reason || undefined }),
+    })
+    const item = listings.value.find(l => l.slug === slug)
+    if (item) {
+      item.status = status
+      item.rejection_reason = status === "rejected" ? (reason || null) : null
+    }
+    fetchStats()
+    toast.success(status === "active" ? "İlan onaylandı." : "İlan reddedildi.")
+  } catch {
+    toast.error("İşlem başarısız.")
+  } finally {
+    moderatingSlug.value = null
+  }
+}
+
+function openRejectModal(slug: string, title: string) {
+  rejectModal.value = { open: true, slug, title, reason: "" }
+}
+
+async function confirmReject() {
+  const { slug, reason } = rejectModal.value
+  rejectModal.value.open = false
+  await moderateListing(slug, "rejected", reason)
+}
+
 watch([listingsStatus, listingsPage], fetchListings, { immediate: false })
 
 // ---------------------------------------------------------------------------
 // Users
 // ---------------------------------------------------------------------------
 
-const users = ref<UserProfile[]>([])
+const users = ref<AdminUserProfile[]>([])
 const usersLoading = ref(false)
 const patchingUserId = ref<string | null>(null)
 
 async function fetchUsers() {
   usersLoading.value = true
   try {
-    const res = await apiFetch<{ data: UserProfile[]; status: "ok" }>("/api/admin/users")
+    const res = await apiFetch<{ data: AdminUserProfile[]; status: "ok" }>("/api/admin/users")
     users.value = res.data
   } catch {
     toast.error("Kullanıcılar yüklenemedi.")
@@ -92,7 +152,7 @@ async function fetchUsers() {
   }
 }
 
-async function toggleBan(user: UserProfile) {
+async function toggleBan(user: AdminUserProfile) {
   const is_active = user.is_active === 0 ? 1 : 0
   patchingUserId.value = user.id
   try {
@@ -109,7 +169,7 @@ async function toggleBan(user: UserProfile) {
   }
 }
 
-async function toggleAdmin(user: UserProfile) {
+async function toggleAdmin(user: AdminUserProfile) {
   const is_admin = user.is_admin ? 0 : 1
   patchingUserId.value = user.id
   try {
@@ -168,6 +228,7 @@ async function fetchReports() {
 // ---------------------------------------------------------------------------
 
 onMounted(() => {
+  fetchStats()
   fetchListings()
   fetchUsers()
   fetchReports()
@@ -187,9 +248,35 @@ function formatDate(d: string) {
     <div class="flex items-center gap-2 mb-6">
       <Shield class="size-5 text-foreground" />
       <h1 class="text-xl font-bold">Admin Paneli</h1>
-      <span class="ml-auto text-xs text-muted-foreground">
-        {{ listingsTotal }} ilan · {{ users.length }} kullanıcı
-      </span>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+      <div class="border border-border rounded-lg p-3">
+        <p class="text-xs text-muted-foreground">Kullanıcılar</p>
+        <p class="text-2xl font-bold mt-0.5">{{ stats?.total_users ?? '—' }}</p>
+      </div>
+      <div
+        class="rounded-lg p-3 border"
+        :class="(stats?.pending_listings ?? 0) > 0
+          ? 'border-amber-300 bg-amber-50'
+          : 'border-border'"
+      >
+        <p class="text-xs" :class="(stats?.pending_listings ?? 0) > 0 ? 'text-amber-700' : 'text-muted-foreground'">Bekleyen</p>
+        <p class="text-2xl font-bold mt-0.5" :class="(stats?.pending_listings ?? 0) > 0 ? 'text-amber-700' : ''">{{ stats?.pending_listings ?? '—' }}</p>
+      </div>
+      <div class="border border-border rounded-lg p-3">
+        <p class="text-xs text-muted-foreground">Aktif İlanlar</p>
+        <p class="text-2xl font-bold mt-0.5">{{ stats?.active_listings ?? '—' }}</p>
+      </div>
+      <div class="border border-border rounded-lg p-3">
+        <p class="text-xs text-muted-foreground">Satılan İlanlar</p>
+        <p class="text-2xl font-bold mt-0.5">{{ stats?.sold_listings ?? '—' }}</p>
+      </div>
+      <div class="border border-border rounded-lg p-3">
+        <p class="text-xs text-muted-foreground">Raporlar</p>
+        <p class="text-2xl font-bold mt-0.5">{{ stats?.total_reports ?? '—' }}</p>
+      </div>
     </div>
 
     <!-- Tabs -->
@@ -271,21 +358,46 @@ function formatDate(d: string) {
                   class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium"
                   :class="STATUS_COLORS[listing.status] ?? 'bg-muted text-muted-foreground border-border'"
                 >
-                  {{ listing.status }}
+                  {{ STATUS_LABELS[listing.status] ?? listing.status }}
                 </span>
               </td>
               <td class="px-3 py-2 hidden md:table-cell text-xs text-muted-foreground">
                 {{ formatDate(listing.created_at) }}
               </td>
               <td class="px-3 py-2">
-                <button
-                  type="button"
-                  class="flex items-center justify-center size-7 rounded text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
-                  @click="deleteListing(listing.slug, listing.title)"
+                <div
+                  class="flex items-center gap-1"
+                  :class="moderatingSlug === listing.slug ? 'opacity-40 pointer-events-none' : ''"
                 >
-                  <Loader2 v-if="deletingSlug === listing.slug" class="size-3.5 animate-spin" />
-                  <Trash2 v-else class="size-3.5" />
-                </button>
+                  <template v-if="listing.status === 'pending'">
+                    <button
+                      type="button"
+                      title="Onayla"
+                      class="flex items-center justify-center size-7 rounded text-green-600 hover:bg-green-50 cursor-pointer transition-colors"
+                      @click="moderateListing(listing.slug, 'active')"
+                    >
+                      <Loader2 v-if="moderatingSlug === listing.slug" class="size-3.5 animate-spin" />
+                      <Check v-else class="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Reddet"
+                      class="flex items-center justify-center size-7 rounded text-amber-600 hover:bg-amber-50 cursor-pointer transition-colors"
+                      @click="openRejectModal(listing.slug, listing.title)"
+                    >
+                      <X class="size-3.5" />
+                    </button>
+                  </template>
+                  <button
+                    type="button"
+                    title="Sil"
+                    class="flex items-center justify-center size-7 rounded text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
+                    @click="deleteListing(listing.slug, listing.title)"
+                  >
+                    <Loader2 v-if="deletingSlug === listing.slug" class="size-3.5 animate-spin" />
+                    <Trash2 v-else class="size-3.5" />
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
@@ -330,6 +442,7 @@ function formatDate(d: string) {
           <thead class="bg-muted/50 border-b border-border">
             <tr>
               <th class="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Kullanıcı</th>
+              <th class="text-left px-3 py-2 text-xs font-medium text-muted-foreground hidden sm:table-cell">İlan</th>
               <th class="text-left px-3 py-2 text-xs font-medium text-muted-foreground hidden md:table-cell">Kayıt</th>
               <th class="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Durum</th>
               <th class="w-28" />
@@ -357,11 +470,20 @@ function formatDate(d: string) {
                   </div>
                 </div>
               </td>
+              <td class="px-3 py-2 hidden sm:table-cell text-sm tabular-nums">
+                {{ user.listing_count }}
+              </td>
               <td class="px-3 py-2 hidden md:table-cell text-xs text-muted-foreground">
                 {{ formatDate(user.created_at) }}
               </td>
               <td class="px-3 py-2">
                 <div class="flex items-center gap-1.5 flex-wrap">
+                  <span
+                    v-if="!user.is_active"
+                    class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium bg-red-50 text-red-700 border-red-200"
+                  >
+                    Banlı
+                  </span>
                   <span
                     v-if="user.is_admin"
                     class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium bg-purple-50 text-purple-700 border-purple-200"
@@ -439,6 +561,39 @@ function formatDate(d: string) {
             </span>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reject Modal -->
+  <div
+    v-if="rejectModal.open"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+    @click.self="rejectModal.open = false"
+  >
+    <div class="bg-white rounded-lg shadow-xl p-5 w-full max-w-sm mx-4">
+      <h3 class="text-sm font-semibold mb-1">İlanı Reddet</h3>
+      <p class="text-xs text-muted-foreground mb-3 line-clamp-1">{{ rejectModal.title }}</p>
+      <textarea
+        v-model="rejectModal.reason"
+        placeholder="Red gerekçesi — kullanıcı görecek (isteğe bağlı)"
+        class="w-full text-sm border border-border rounded-md p-2 h-24 resize-none focus:outline-none focus:ring-1 focus:ring-foreground"
+      />
+      <div class="flex justify-end gap-2 mt-3">
+        <button
+          type="button"
+          class="px-3 py-1.5 text-sm border border-border rounded cursor-pointer hover:bg-muted transition-colors"
+          @click="rejectModal.open = false"
+        >
+          İptal
+        </button>
+        <button
+          type="button"
+          class="px-3 py-1.5 text-sm bg-red-600 text-white rounded cursor-pointer hover:bg-red-700 transition-colors"
+          @click="confirmReject"
+        >
+          Reddet
+        </button>
       </div>
     </div>
   </div>

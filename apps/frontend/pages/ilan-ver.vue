@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Upload, X, ImagePlus, MessageCircle } from "lucide-vue-next"
+import { toast } from "vue-sonner"
 import type { ListingDetail, CategoryTree, ApiResponse } from "@rafimdan/shared"
 import { apiFetch, ApiError } from "~/utils/api"
 import { IL_NAMES, getIlceler } from "~/utils/turkey-locations"
@@ -17,7 +18,7 @@ const form = reactive({
   category_id: "",
   direction: (route.query.direction === "request" ? "request" : "offer") as "offer" | "request",
   condition: "" as "new" | "like_new" | "good" | "fair" | "",
-  price_type: "fixed" as "fixed" | "negotiable" | "free" | "el_uzat",
+  price_type: "fixed" as "fixed" | "negotiable" | "free",
   price: "" as number | "",
   city: IL_NAMES.includes(authStore.user?.city ?? "") ? (authStore.user?.city ?? "") : "",
   district: "",
@@ -42,11 +43,13 @@ watch(() => form.category_id, () => { delete errors.category_id })
 watch(() => form.condition, () => { delete errors.condition })
 watch(() => form.price, () => { delete errors.price })
 watch(() => form.direction, (val) => {
+  Object.keys(errors).forEach(k => delete errors[k])
   if (val === "request") { form.price_type = "free"; form.price = "" }
+  if (val === "offer" && form.price_type === "free") form.price = ""
 })
 
 watch(() => form.price_type, (val) => {
-  if (val === "free" || val === "el_uzat") form.price = ""
+  if (val === "free") form.price = ""
   delete errors.price
 })
 
@@ -57,7 +60,7 @@ const CONDITION_OPTIONS = [
   { value: "fair", label: "Orta" },
 ] as const
 
-const priceDisabled = computed(() => form.direction === "request" || form.price_type === "free" || form.price_type === "el_uzat")
+const priceDisabled = computed(() => form.price_type === "free")
 
 function validate(): boolean {
   const e: Record<string, string> = {}
@@ -71,21 +74,36 @@ function validate(): boolean {
   if (form.direction === "offer" && !form.condition) e.condition = "Ürün durumu seçiniz."
   if (!form.city) e.city = "Şehir seçiniz."
 
-  if (form.direction !== "request" && form.price_type !== "free" && form.price_type !== "el_uzat") {
+  if (form.price_type !== "free" && form.price !== "") {
+    if (Number(form.price) <= 0) e.price = "Fiyat 0'dan büyük olmalıdır."
+  }
+  if (form.direction === "offer" && form.price_type !== "free") {
     if (form.price === "" || form.price === null) e.price = "Fiyat zorunludur."
-    else if (Number(form.price) <= 0) e.price = "Fiyat 0'dan büyük olmalıdır."
   }
 
+  if (form.direction === "offer" && selectedFiles.value.length === 0) {
+    e.photos = "En az 1 fotoğraf zorunludur."
+  }
+
+  Object.keys(errors).forEach(k => delete errors[k])
   Object.assign(errors, e)
   return Object.keys(e).length === 0
 }
+
+const MAX_PHOTO_SIZE = 10 * 1024 * 1024
 
 function onFileChange(e: Event) {
   const input = e.target as HTMLInputElement
   if (!input.files) return
   const incoming = Array.from(input.files)
+  const oversized = incoming.filter(f => f.size > MAX_PHOTO_SIZE)
+  if (oversized.length > 0) {
+    toast.error(`${oversized.length} dosya 10MB sınırını aşıyor, atlandı.`)
+  }
+  const valid = incoming.filter(f => f.size <= MAX_PHOTO_SIZE)
   const remaining = 6 - selectedFiles.value.length
-  selectedFiles.value = [...selectedFiles.value, ...incoming.slice(0, remaining)]
+  selectedFiles.value = [...selectedFiles.value, ...valid.slice(0, remaining)]
+  if (selectedFiles.value.length > 0) delete errors.photos
   input.value = ""
 }
 
@@ -138,13 +156,18 @@ async function submit() {
 
     const { slug } = res.data
 
-    await Promise.allSettled(
+    const uploadResults = await Promise.allSettled(
       selectedFiles.value.map((file) => {
         const fd = new FormData()
         fd.append("file", file)
         return apiFetch(`/api/listings/${slug}/photos`, { method: "POST", body: fd })
       }),
     )
+
+    const failedCount = uploadResults.filter(r => r.status === "rejected").length
+    if (failedCount > 0) {
+      toast.error(`${failedCount} fotoğraf yüklenemedi. İlan düzenleme sayfasından tekrar ekleyebilirsin.`)
+    }
 
     await navigateTo(`/ilan/${slug}`)
   } catch (err) {
@@ -191,7 +214,7 @@ async function submit() {
             : 'border-border hover:bg-muted'"
         >
           <input v-model="form.direction" type="radio" value="offer" class="sr-only" />
-          <span class="text-sm font-semibold">Satıyorum / Veriyorum</span>
+          <span class="text-sm font-semibold">Sat / Ver</span>
           <span class="text-xs opacity-70">Ürün veya eşya paylaş</span>
         </label>
         <label
@@ -202,7 +225,7 @@ async function submit() {
         >
           <input v-model="form.direction" type="radio" value="request" class="sr-only" />
           <span class="text-sm font-semibold">Destek Arıyorum</span>
-          <span class="text-xs opacity-70">Destek iste — ahali yardım etsin</span>
+          <span class="text-xs opacity-70">İhtiyacını paylaş, topluluk yardım etsin</span>
         </label>
       </div>
 
@@ -275,14 +298,11 @@ async function submit() {
         <label class="block text-sm font-medium text-foreground mb-2">
           Fiyat Tipi <span class="text-destructive">*</span>
         </label>
-        <div v-if="form.direction === 'offer'" class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div class="grid grid-cols-3 gap-2">
           <label
-            v-for="opt in [
-              { value: 'fixed', label: 'Sabit' },
-              { value: 'negotiable', label: 'Pazarlığa Açık' },
-              { value: 'free', label: 'Ücretsiz' },
-              { value: 'el_uzat', label: 'El Uzat' },
-            ]"
+            v-for="opt in form.direction === 'offer'
+              ? [{ value: 'fixed', label: 'Sabit' }, { value: 'negotiable', label: 'Pazarlığa Açık' }, { value: 'free', label: 'Ücretsiz' }]
+              : [{ value: 'fixed', label: 'Ücretli' }, { value: 'negotiable', label: 'Pazarlığa Açık' }, { value: 'free', label: 'Ücretsiz' }]"
             :key="opt.value"
             class="flex items-center justify-center py-2 px-3 rounded-md border text-sm cursor-pointer transition-colors"
             :class="form.price_type === opt.value
@@ -293,15 +313,17 @@ async function submit() {
             {{ opt.label }}
           </label>
         </div>
-        <p v-else class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
-          Destek ilanı ücretsizdir — fiyat girmenize gerek yok.
-        </p>
       </div>
 
       <!-- Fiyat -->
-      <div v-if="form.direction === 'offer' && form.price_type !== 'free' && form.price_type !== 'el_uzat'">
+      <div v-if="form.price_type !== 'free'">
         <label class="block text-sm font-medium text-foreground mb-1">
-          {{ form.price_type === 'negotiable' ? 'Başlangıç Fiyatı (₺)' : 'Fiyat (₺)' }} <span class="text-destructive">*</span>
+          <template v-if="form.direction === 'offer'">
+            {{ form.price_type === 'negotiable' ? 'Başlangıç Fiyatı (₺)' : 'Fiyat (₺)' }} <span class="text-destructive">*</span>
+          </template>
+          <template v-else>
+            Bütçen (₺) <span class="text-muted-foreground font-normal">(opsiyonel)</span>
+          </template>
         </label>
         <input
           v-model.number="form.price"
@@ -357,6 +379,7 @@ async function submit() {
       <div>
         <label class="block text-sm font-medium text-foreground mb-2">
           Fotoğraflar
+          <span v-if="form.direction === 'offer'" class="text-destructive">*</span>
           <span class="font-normal text-muted-foreground">(max 6, jpeg/png/webp)</span>
         </label>
         <div class="flex flex-wrap gap-2">
@@ -390,6 +413,7 @@ async function submit() {
             />
           </label>
         </div>
+        <p v-if="errors.photos" class="mt-1 text-xs text-destructive">{{ errors.photos }}</p>
       </div>
 
       <!-- Submit error -->

@@ -99,7 +99,6 @@ const PRICE_TYPE_LABELS: Record<string, string> = {
   fixed: "Sabit Fiyat",
   negotiable: "Pazarlığa Açık",
   free: "Ücretsiz",
-  el_uzat: "El Uzat",
 }
 
 useSeoMeta({

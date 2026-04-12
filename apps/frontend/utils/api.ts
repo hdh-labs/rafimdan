@@ -71,6 +71,10 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   })
 
   if (response.status === 401 && !NO_RETRY_PATHS.includes(path)) {
+    if (isFormData) {
+      clearToken()
+      throw new ApiError("Oturum süresi doldu, tekrar giriş yapın.", 401, "TOKEN_EXPIRED")
+    }
     const newToken = await tryRefreshToken()
     if (newToken) {
       const retry = await fetch(url, {

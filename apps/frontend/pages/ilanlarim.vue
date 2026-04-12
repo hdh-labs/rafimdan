@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ClipboardList, ImageOff, Pencil, Trash2, ChevronDown, RefreshCw } from "lucide-vue-next"
+import { ClipboardList, ImageOff, Pencil, Trash2, ChevronDown, RefreshCw, AlertCircle } from "lucide-vue-next"
 import { toast } from "vue-sonner"
 import type { ListingListItem, ListingStatus } from "@rafimdan/shared"
 import { apiFetch } from "~/utils/api"
@@ -16,22 +16,31 @@ const pendingSlug = ref<string | null>(null)
 const openMenuSlug = ref<string | null>(null)
 
 const STATUS_LABELS: Record<ListingStatus, string> = {
-  active: "Aktif",
-  sold: "Satıldı",
+  active:   "Aktif",
+  sold:     "Satıldı",
+  pending:  "İnceleniyor",
+  rejected: "Reddedildi",
 }
 
 const STATUS_COLORS: Record<ListingStatus, string> = {
-  active: "bg-green-50 text-green-700 border-green-200",
-  sold: "bg-gray-100 text-gray-500 border-gray-200",
+  active:   "bg-green-50 text-green-700 border-green-200",
+  sold:     "bg-gray-100 text-gray-500 border-gray-200",
+  pending:  "bg-amber-50 text-amber-700 border-amber-200",
+  rejected: "bg-red-50 text-red-700 border-red-200",
 }
 
 const TABS: { key: Tab; label: string }[] = [
-  { key: "all", label: "Tümü" },
-  { key: "active", label: "Aktif" },
-  { key: "sold", label: "Satıldı" },
+  { key: "all",      label: "Tümü" },
+  { key: "active",   label: "Aktif" },
+  { key: "pending",  label: "Bekliyor" },
+  { key: "rejected", label: "Reddedildi" },
+  { key: "sold",     label: "Satıldı" },
 ]
 
 const STATUSES: ListingStatus[] = ["active", "sold"]
+
+const rejectedCount = computed(() => listings.value.filter(l => l.status === "rejected").length)
+const pendingCount = computed(() => listings.value.filter(l => l.status === "pending").length)
 
 const filtered = computed(() => {
   if (activeTab.value === "all") return listings.value
@@ -125,6 +134,22 @@ async function deleteListing(slug: string, title: string) {
       <h1 class="text-xl font-bold">İlanlarım</h1>
     </div>
 
+    <!-- Banners -->
+    <div
+      v-if="rejectedCount > 0 && !loading"
+      class="mb-4 flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700"
+    >
+      <AlertCircle class="size-4 shrink-0 mt-0.5" />
+      <span>{{ rejectedCount }} ilanınız reddedildi. Gerekçeyi okuyup düzenleyebilirsiniz.</span>
+    </div>
+    <div
+      v-else-if="pendingCount > 0 && !loading"
+      class="mb-4 flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-700"
+    >
+      <AlertCircle class="size-4 shrink-0 mt-0.5" />
+      <span>{{ pendingCount }} ilanınız inceleniyor.</span>
+    </div>
+
     <!-- Tabs -->
     <div class="flex gap-1 mb-6 border-b border-border overflow-x-auto">
       <button
@@ -210,13 +235,28 @@ async function deleteListing(slug: string, title: string) {
               {{ daysAgo(listing.updated_at) === 0 ? 'Bugün' : `${daysAgo(listing.updated_at)} gün önce` }}
             </span>
           </div>
+          <template v-if="listing.status === 'rejected'">
+            <p class="text-xs text-red-600 mt-1">
+              <span class="font-medium">Gerekçe:</span>
+              {{ listing.rejection_reason ?? 'Belirtilmemiş' }}
+            </p>
+            <NuxtLink
+              :to="`/ilan/${listing.slug}/duzenle`"
+              class="text-xs text-foreground underline mt-0.5 inline-block"
+            >
+              Düzenle ve tekrar gönder
+            </NuxtLink>
+          </template>
+          <p v-if="listing.status === 'pending'" class="text-xs text-amber-600 mt-1">
+            Yönetici onayı bekleniyor.
+          </p>
         </div>
 
         <!-- Actions -->
         <div class="shrink-0 flex items-center gap-1.5" @click.stop>
 
-          <!-- Status dropdown -->
-          <div class="relative">
+          <!-- Status dropdown (only for active/sold) -->
+          <div v-if="listing.status === 'active' || listing.status === 'sold'" class="relative">
             <button
               type="button"
               class="flex items-center gap-1 text-xs border border-border rounded px-2 py-1.5 bg-white cursor-pointer hover:bg-muted transition-colors"

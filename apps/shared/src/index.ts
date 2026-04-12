@@ -4,6 +4,8 @@ export type {
   OAuthProvider,
   User,
   UserProfile,
+  AdminUserProfile,
+  AdminStats,
   PublicProfile,
   AccessTokenPayload,
   RefreshTokenPayload,

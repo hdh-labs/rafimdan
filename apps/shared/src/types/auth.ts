@@ -77,3 +77,17 @@ export type CreateRefreshTokenInput = {
   token_hash: string;
   expires_at: string;
 };
+
+export type AdminUserProfile = UserProfile & {
+  listing_count: number;
+};
+
+export type AdminStats = {
+  total_users: number;
+  total_listings: number;
+  active_listings: number;
+  sold_listings: number;
+  pending_listings: number;
+  rejected_listings: number;
+  total_reports: number;
+};

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Save, Trash2, ImagePlus, X, Loader2 } from "lucide-vue-next"
+import { toast } from "vue-sonner"
 import type {
   ListingDetail,
   CategoryTree,
@@ -47,7 +48,6 @@ const PRICE_TYPE_OPTIONS: { value: ListingPriceType; label: string }[] = [
   { value: "fixed", label: "Sabit" },
   { value: "negotiable", label: "Pazarlığa Açık" },
   { value: "free", label: "Ücretsiz" },
-  { value: "el_uzat", label: "El Uzat" },
 ]
 
 const STATUS_OPTIONS: { value: ListingStatus; label: string }[] = [
@@ -113,10 +113,11 @@ watch(() => form.city, () => {
 
 watch(() => form.direction, (val) => {
   if (val === "request") { form.price_type = "free"; form.price = "" }
+  if (val === "offer" && form.price_type === "free") form.price = ""
 })
 
 watch(() => form.price_type, (val) => {
-  if (val === "free" || val === "el_uzat") form.price = ""
+  if (val === "free") form.price = ""
   delete errors.price
 })
 
@@ -137,21 +138,30 @@ function validate(): boolean {
   if (form.direction === "offer" && !form.condition) e.condition = "Ürün durumu seçiniz."
   if (!form.city) e.city = "Şehir seçiniz."
 
-  if (form.direction !== "request" && form.price_type !== "free" && form.price_type !== "el_uzat") {
+  if (form.price_type !== "free" && form.price !== "") {
+    if (Number(form.price) <= 0) e.price = "Fiyat 0'dan büyük olmalıdır."
+  }
+  if (form.direction === "offer" && form.price_type !== "free") {
     if (form.price === "" || form.price === null) e.price = "Fiyat zorunludur."
-    else if (Number(form.price) <= 0) e.price = "Fiyat 0'dan büyük olmalıdır."
   }
 
   Object.assign(errors, e)
   return Object.keys(e).length === 0
 }
 
+const MAX_PHOTO_SIZE = 10 * 1024 * 1024
+
 function onFileChange(e: Event) {
   const input = e.target as HTMLInputElement
   if (!input.files) return
   const incoming = Array.from(input.files)
+  const oversized = incoming.filter(f => f.size > MAX_PHOTO_SIZE)
+  if (oversized.length > 0) {
+    toast.error(`${oversized.length} dosya 10MB sınırını aşıyor, atlandı.`)
+  }
+  const valid = incoming.filter(f => f.size <= MAX_PHOTO_SIZE)
   const remaining = 6 - totalPhotos.value
-  newFiles.value = [...newFiles.value, ...incoming.slice(0, remaining)]
+  newFiles.value = [...newFiles.value, ...valid.slice(0, remaining)]
   input.value = ""
 }
 
@@ -250,10 +260,17 @@ async function save() {
       body: JSON.stringify(body),
     })
 
-    for (const file of newFiles.value) {
-      const fd = new FormData()
-      fd.append("file", file)
-      await apiFetch(`/api/listings/${slug}/photos`, { method: "POST", body: fd })
+    const uploadResults = await Promise.allSettled(
+      newFiles.value.map((file) => {
+        const fd = new FormData()
+        fd.append("file", file)
+        return apiFetch(`/api/listings/${slug}/photos`, { method: "POST", body: fd })
+      }),
+    )
+
+    const failedCount = uploadResults.filter(r => r.status === "rejected").length
+    if (failedCount > 0) {
+      toast.error(`${failedCount} fotoğraf yüklenemedi. Tekrar ekleyebilirsin.`)
     }
 
     await navigateTo(`/ilan/${slug}`)
@@ -476,9 +493,14 @@ async function confirmDelete() {
         </div>
 
         <!-- Fiyat -->
-        <div v-if="form.direction === 'offer' && form.price_type !== 'free' && form.price_type !== 'el_uzat'">
+        <div v-if="form.price_type !== 'free'">
           <label class="block text-sm font-medium text-foreground mb-1">
-            {{ form.price_type === 'negotiable' ? 'Başlangıç Fiyatı (₺)' : 'Fiyat (₺)' }} <span class="text-destructive">*</span>
+            <template v-if="form.direction === 'offer'">
+              {{ form.price_type === 'negotiable' ? 'Başlangıç Fiyatı (₺)' : 'Fiyat (₺)' }} <span class="text-destructive">*</span>
+            </template>
+            <template v-else>
+              Bütçen (₺) <span class="text-muted-foreground font-normal">(opsiyonel)</span>
+            </template>
           </label>
           <input
             v-model.number="form.price"
