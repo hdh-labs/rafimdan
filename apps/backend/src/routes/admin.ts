@@ -66,8 +66,25 @@ admin.get("/stats", adminAuthMiddleware, async (c) => {
 
 admin.get("/reports", adminAuthMiddleware, async (c) => {
   try {
-    const reports = await reportService.getAll(c.env.DB);
+    const statusFilter = (c.req.query("status") ?? "all") as "open" | "resolved" | "dismissed" | "all";
+    const reports = await reportService.getAll(c.env.DB, statusFilter);
     return c.json({ data: reports, status: "ok" });
+  } catch (err) {
+    return handleError(c, err);
+  }
+});
+
+admin.patch("/reports/:id", adminAuthMiddleware, async (c) => {
+  try {
+    const id = c.req.param("id");
+    const body = await c.req.json<{ status?: string }>();
+    const ALLOWED = ["resolved", "dismissed"] as const;
+    type ResolveStatus = typeof ALLOWED[number];
+    if (!ALLOWED.includes(body.status as ResolveStatus)) {
+      return c.json({ error: "Geçersiz durum", status: "error", code: "INVALID_STATUS" }, 400);
+    }
+    await reportService.resolve(c.env.DB, id, body.status as ResolveStatus);
+    return c.json({ data: null, status: "ok" });
   } catch (err) {
     return handleError(c, err);
   }
@@ -113,7 +130,13 @@ admin.patch("/listings/:slug/status", adminAuthMiddleware, async (c) => {
       action,
       target_type: "listing",
       target_id: listing.id,
-      meta: { slug: listing.slug, title: listing.title, reason: reason ?? undefined },
+      meta: {
+        slug: listing.slug,
+        title: listing.title,
+        from_status: listing.status,
+        to_status: status,
+        reason: reason ?? undefined,
+      },
     });
     return c.json({ data: updated, status: "ok" });
   } catch (err) {
@@ -175,6 +198,7 @@ admin.patch("/users/:id", adminAuthMiddleware, async (c) => {
         action: body.is_active === 0 ? "user_ban" : "user_unban",
         target_type: "user",
         target_id: id,
+        meta: { name: updated.name },
       });
     }
     if (typeof body.is_admin === "number") {
@@ -184,6 +208,7 @@ admin.patch("/users/:id", adminAuthMiddleware, async (c) => {
         action: body.is_admin === 1 ? "user_promote" : "user_demote",
         target_type: "user",
         target_id: id,
+        meta: { name: updated.name },
       });
     }
     return c.json({ data: userRepository.toProfile(updated), status: "ok" });
@@ -198,8 +223,10 @@ admin.patch("/users/:id", adminAuthMiddleware, async (c) => {
 
 admin.get("/logs", adminAuthMiddleware, async (c) => {
   try {
-    const logs = await adminLogRepository.findRecent(c.env.DB, 100);
-    return c.json({ data: logs, status: "ok" });
+    const limit = Math.min(Number(c.req.query("limit") ?? 50), 100);
+    const offset = Number(c.req.query("offset") ?? 0);
+    const { logs, total } = await adminLogRepository.findRecent(c.env.DB, limit, offset);
+    return c.json({ data: { logs, total, limit, offset }, status: "ok" });
   } catch (err) {
     return handleError(c, err);
   }

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { Trash2, ShieldOff, Shield, Loader2, ExternalLink, Check, X, RotateCcw } from "lucide-vue-next"
 import { toast } from "vue-sonner"
-import type { ListingDetail, AdminUserProfile, AdminStats, AdminLog } from "@rafimdan/shared"
+import type { ListingDetail, AdminUserProfile, AdminStats, AdminLog, Report, ReportStatus } from "@rafimdan/shared"
 import { apiFetch } from "~/utils/api"
+import { STATUS_LABELS, STATUS_COLORS } from "~/utils/listing-constants"
 
 definePageMeta({ middleware: ["auth", "admin"], ssr: false })
 useSeoMeta({ title: "Admin — Rafımdan" })
@@ -54,19 +55,6 @@ const STATUS_OPTIONS = [
   { value: "sold", label: "Satıldı" },
 ]
 
-const STATUS_COLORS: Record<string, string> = {
-  active:   "bg-green-50 text-green-700 border-green-200",
-  sold:     "bg-gray-100 text-gray-500 border-gray-200",
-  pending:  "bg-amber-50 text-amber-700 border-amber-200",
-  rejected: "bg-red-50 text-red-700 border-red-200",
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  active:   "Aktif",
-  sold:     "Satıldı",
-  pending:  "Bekliyor",
-  rejected: "Reddedildi",
-}
 
 async function fetchListings() {
   listingsLoading.value = true
@@ -128,13 +116,41 @@ async function moderateListing(slug: string, status: "active" | "pending" | "rej
   }
 }
 
-function openRejectModal(slug: string, title: string) {
+const rejectModalRef = ref<HTMLDivElement | null>(null)
+const rejectTriggerRef = ref<HTMLElement | null>(null)
+
+function openRejectModal(slug: string, title: string, trigger?: HTMLElement) {
+  rejectTriggerRef.value = trigger ?? null
   rejectModal.value = { open: true, slug, title, reason: "" }
+  nextTick(() => {
+    rejectModalRef.value?.querySelector<HTMLElement>("textarea")?.focus()
+  })
+}
+
+function closeRejectModal() {
+  rejectModal.value.open = false
+  rejectTriggerRef.value?.focus()
+}
+
+function onRejectKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape") { closeRejectModal(); return }
+  if (e.key !== "Tab" || !rejectModalRef.value) return
+  const focusable = Array.from(
+    rejectModalRef.value.querySelectorAll<HTMLElement>("button, textarea"),
+  ).filter((el) => !el.hasAttribute("disabled"))
+  if (focusable.length === 0) return
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault(); last.focus()
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault(); first.focus()
+  }
 }
 
 async function confirmReject() {
   const { slug, reason } = rejectModal.value
-  rejectModal.value.open = false
+  closeRejectModal()
   await moderateListing(slug, "rejected", reason)
 }
 
@@ -210,16 +226,6 @@ async function toggleAdmin(user: AdminUserProfile) {
 // Reports
 // ---------------------------------------------------------------------------
 
-type Report = {
-  id: string
-  listing_id: string
-  listing_slug: string
-  listing_title: string
-  reporter_name: string
-  reason: string
-  created_at: string
-}
-
 const REASON_LABELS: Record<string, string> = {
   spam: "Spam / Reklam",
   fraud: "Dolandırıcılık",
@@ -228,13 +234,29 @@ const REASON_LABELS: Record<string, string> = {
   other: "Diğer",
 }
 
+const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
+  open: "Açık",
+  resolved: "Çözüldü",
+  dismissed: "Reddedildi",
+}
+
+const REPORT_STATUS_COLORS: Record<ReportStatus, string> = {
+  open: "bg-amber-50 text-amber-700 border-amber-200",
+  resolved: "bg-green-50 text-green-700 border-green-200",
+  dismissed: "bg-gray-100 text-gray-500 border-gray-200",
+}
+
 const reports = ref<Report[]>([])
 const reportsLoading = ref(false)
+const reportsStatusFilter = ref<ReportStatus | "all">("open")
+const resolvingReportId = ref<string | null>(null)
 
 async function fetchReports() {
   reportsLoading.value = true
   try {
-    const res = await apiFetch<{ data: Report[]; status: "ok" }>("/api/admin/reports")
+    const res = await apiFetch<{ data: Report[]; status: "ok" }>(
+      `/api/admin/reports?status=${reportsStatusFilter.value}`,
+    )
     reports.value = res.data
   } catch {
     toast.error("Raporlar yüklenemedi.")
@@ -243,24 +265,56 @@ async function fetchReports() {
   }
 }
 
+async function resolveReport(id: string, status: "resolved" | "dismissed") {
+  resolvingReportId.value = id
+  try {
+    await apiFetch(`/api/admin/reports/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    })
+    reports.value = reports.value.filter((r) => r.id !== id)
+    toast.success(status === "resolved" ? "Rapor çözüldü olarak işaretlendi." : "Rapor reddedildi.")
+  } catch {
+    toast.error("İşlem başarısız.")
+  } finally {
+    resolvingReportId.value = null
+  }
+}
+
+watch(reportsStatusFilter, () => fetchReports())
+
 // ---------------------------------------------------------------------------
 // Logs
 // ---------------------------------------------------------------------------
 
 const logs = ref<AdminLog[]>([])
 const logsLoading = ref(false)
+const logsTotal = ref(0)
+const logsOffset = ref(0)
+const LOGS_PAGE_SIZE = 50
 
-async function fetchLogs() {
+async function fetchLogs(append = false) {
   logsLoading.value = true
   try {
-    const res = await apiFetch<{ data: AdminLog[]; status: "ok" }>("/api/admin/logs")
-    logs.value = res.data
+    const res = await apiFetch<{
+      data: { logs: AdminLog[]; total: number; limit: number; offset: number }
+      status: "ok"
+    }>(`/api/admin/logs?limit=${LOGS_PAGE_SIZE}&offset=${logsOffset.value}`)
+    logs.value = append ? [...logs.value, ...res.data.logs] : res.data.logs
+    logsTotal.value = res.data.total
   } catch {
     // sessiz hata
   } finally {
     logsLoading.value = false
   }
 }
+
+async function loadMoreLogs() {
+  logsOffset.value += LOGS_PAGE_SIZE
+  await fetchLogs(true)
+}
+
+const hasMoreLogs = computed(() => logs.value.length < logsTotal.value)
 
 // ---------------------------------------------------------------------------
 // Init
@@ -424,7 +478,7 @@ function formatDate(d: string) {
                       type="button"
                       title="Reddet"
                       class="flex items-center justify-center size-7 rounded text-amber-600 hover:bg-amber-50 cursor-pointer transition-colors"
-                      @click="openRejectModal(listing.slug, listing.title)"
+                      @click="openRejectModal(listing.slug, listing.title, $event.currentTarget as HTMLElement)"
                     >
                       <X class="size-3.5" />
                     </button>
@@ -444,7 +498,7 @@ function formatDate(d: string) {
                       type="button"
                       title="Reddet"
                       class="flex items-center justify-center size-7 rounded text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
-                      @click="openRejectModal(listing.slug, listing.title)"
+                      @click="openRejectModal(listing.slug, listing.title, $event.currentTarget as HTMLElement)"
                     >
                       <X class="size-3.5" />
                     </button>
@@ -618,12 +672,33 @@ function formatDate(d: string) {
     <!-- REPORTS TAB                                                         -->
     <!-- ------------------------------------------------------------------ -->
     <div v-if="activeTab === 'reports'">
+      <!-- Status filter -->
+      <div class="flex gap-1 mb-4 border-b border-border overflow-x-auto">
+        <button
+          v-for="opt in ([
+            { key: 'open', label: 'Açık' },
+            { key: 'resolved', label: 'Çözüldü' },
+            { key: 'dismissed', label: 'Reddedildi' },
+            { key: 'all', label: 'Tümü' },
+          ] as const)"
+          :key="opt.key"
+          type="button"
+          class="px-3 py-2 text-sm font-medium cursor-pointer transition-colors -mb-px border-b-2 whitespace-nowrap"
+          :class="reportsStatusFilter === opt.key
+            ? 'border-foreground text-foreground'
+            : 'border-transparent text-muted-foreground hover:text-foreground'"
+          @click="reportsStatusFilter = opt.key"
+        >
+          {{ opt.label }}
+        </button>
+      </div>
+
       <div v-if="reportsLoading" class="space-y-2">
-        <div v-for="i in 3" :key="i" class="h-16 rounded-lg bg-muted animate-pulse" />
+        <div v-for="i in 3" :key="i" class="h-20 rounded-lg bg-muted animate-pulse" />
       </div>
 
       <div v-else-if="reports.length === 0" class="py-12 text-center text-sm text-muted-foreground">
-        Henüz rapor yok.
+        Bu kategoride rapor yok.
       </div>
 
       <div v-else class="space-y-2">
@@ -633,22 +708,51 @@ function formatDate(d: string) {
           class="border border-border rounded-lg p-4"
         >
           <div class="flex items-start justify-between gap-4">
-            <div class="min-w-0">
-              <NuxtLink
-                :to="`/ilan/${r.listing_slug}`"
-                target="_blank"
-                class="inline-flex items-center gap-1 font-medium text-sm text-foreground hover:underline cursor-pointer"
-              >
-                {{ r.listing_title }}
-                <ExternalLink class="size-3 shrink-0" />
-              </NuxtLink>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <NuxtLink
+                  :to="`/ilan/${r.listing_slug}`"
+                  target="_blank"
+                  class="inline-flex items-center gap-1 font-medium text-sm text-foreground hover:underline cursor-pointer"
+                >
+                  {{ r.listing_title }}
+                  <ExternalLink class="size-3 shrink-0" />
+                </NuxtLink>
+                <span
+                  class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium"
+                  :class="REPORT_STATUS_COLORS[r.status]"
+                >
+                  {{ REPORT_STATUS_LABELS[r.status] }}
+                </span>
+              </div>
               <p class="text-xs text-muted-foreground mt-0.5">
                 {{ r.reporter_name }} · {{ formatDate(r.created_at) }}
+                · <span class="font-medium">{{ REASON_LABELS[r.reason] ?? r.reason }}</span>
+              </p>
+              <p v-if="r.description" class="text-xs text-foreground mt-1 bg-muted/50 rounded px-2 py-1">
+                {{ r.description }}
               </p>
             </div>
-            <span class="shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
-              {{ REASON_LABELS[r.reason] ?? r.reason }}
-            </span>
+            <div v-if="r.status === 'open'" class="shrink-0 flex items-center gap-1.5">
+              <button
+                type="button"
+                :disabled="resolvingReportId === r.id"
+                class="flex items-center gap-1 text-xs px-2 py-1.5 rounded border border-green-300 text-green-700 hover:bg-green-50 cursor-pointer transition-colors disabled:opacity-50"
+                @click="resolveReport(r.id, 'resolved')"
+              >
+                <Check class="size-3" />
+                Çözüldü
+              </button>
+              <button
+                type="button"
+                :disabled="resolvingReportId === r.id"
+                class="flex items-center gap-1 text-xs px-2 py-1.5 rounded border border-border text-muted-foreground hover:bg-muted cursor-pointer transition-colors disabled:opacity-50"
+                @click="resolveReport(r.id, 'dismissed')"
+              >
+                <X class="size-3" />
+                Reddet
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -659,39 +763,60 @@ function formatDate(d: string) {
     <!-- ------------------------------------------------------------------ -->
     <div v-if="activeTab === 'logs'">
       <AdminLogsTab :logs="logs" :loading="logsLoading" />
+      <div v-if="!logsLoading && hasMoreLogs" class="mt-4 text-center">
+        <button
+          type="button"
+          class="text-sm text-muted-foreground hover:text-foreground border border-border rounded-md px-4 py-2 cursor-pointer hover:bg-muted transition-colors"
+          @click="loadMoreLogs"
+        >
+          Daha fazla göster ({{ logsTotal - logs.length }} kaldı)
+        </button>
+      </div>
+      <p v-if="!logsLoading && logs.length > 0" class="mt-3 text-xs text-center text-muted-foreground">
+        {{ logs.length }} / {{ logsTotal }} log gösteriliyor
+      </p>
     </div>
   </div>
 
   <!-- Reject Modal -->
-  <div
-    v-if="rejectModal.open"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-    @click.self="rejectModal.open = false"
-  >
-    <div class="bg-white rounded-lg shadow-xl p-5 w-full max-w-sm mx-4">
-      <h3 class="text-sm font-semibold mb-1">İlanı Reddet</h3>
-      <p class="text-xs text-muted-foreground mb-3 line-clamp-1">{{ rejectModal.title }}</p>
-      <textarea
-        v-model="rejectModal.reason"
-        placeholder="Red gerekçesi (isteğe bağlı) — kullanıcıya gösterilecek"
-        class="w-full text-sm border border-border rounded-md p-2 h-24 resize-none focus:outline-none focus:ring-1 focus:ring-foreground"
-      />
-      <div class="flex justify-end gap-2 mt-3">
-        <button
-          type="button"
-          class="px-3 py-1.5 text-sm border border-border rounded cursor-pointer hover:bg-muted transition-colors"
-          @click="rejectModal.open = false"
-        >
-          İptal
-        </button>
-        <button
-          type="button"
-          class="px-3 py-1.5 text-sm bg-red-600 text-white rounded cursor-pointer hover:bg-red-700 transition-colors"
-          @click="confirmReject"
-        >
-          Reddet
-        </button>
+  <Teleport to="body">
+    <div
+      v-if="rejectModal.open"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      @click.self="closeRejectModal"
+      @keydown="onRejectKeydown"
+    >
+      <div
+        ref="rejectModalRef"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reject-modal-title"
+        class="bg-white rounded-lg shadow-xl p-5 w-full max-w-sm mx-4"
+      >
+        <h3 id="reject-modal-title" class="text-sm font-semibold mb-1">İlanı Reddet</h3>
+        <p class="text-xs text-muted-foreground mb-3 line-clamp-1">{{ rejectModal.title }}</p>
+        <textarea
+          v-model="rejectModal.reason"
+          placeholder="Red gerekçesi (isteğe bağlı) — kullanıcıya gösterilecek"
+          class="w-full text-sm border border-border rounded-md p-2 h-24 resize-none focus:outline-none focus:ring-1 focus:ring-foreground"
+        />
+        <div class="flex justify-end gap-2 mt-3">
+          <button
+            type="button"
+            class="px-3 py-1.5 text-sm border border-border rounded cursor-pointer hover:bg-muted transition-colors"
+            @click="closeRejectModal"
+          >
+            İptal
+          </button>
+          <button
+            type="button"
+            class="px-3 py-1.5 text-sm bg-red-600 text-white rounded cursor-pointer hover:bg-red-700 transition-colors"
+            @click="confirmReject"
+          >
+            Reddet
+          </button>
+        </div>
       </div>
     </div>
-  </div>
+  </Teleport>
 </template>

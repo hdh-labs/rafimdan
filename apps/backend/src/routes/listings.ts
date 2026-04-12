@@ -228,9 +228,9 @@ listings.post("/:slug/report", authMiddleware, async (c) => {
   try {
     const { sub } = c.get("user");
     const slug = c.req.param("slug");
-    const body = await c.req.json<{ reason?: string }>();
+    const body = await c.req.json<{ reason?: string; description?: string }>();
     const reason = body?.reason ?? "other";
-    await reportService.report(c.env.DB, sub, slug, reason);
+    await reportService.report(c.env.DB, sub, slug, reason, body?.description ?? null);
     return c.json({ data: null, status: "ok" }, 201);
   } catch (err) {
     return handleError(c, err);

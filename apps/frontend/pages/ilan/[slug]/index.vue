@@ -3,6 +3,7 @@ import { MapPin, Eye, MessageCircle, ChevronLeft, ChevronRight, Pencil, Flag, Sh
 import { toast } from "vue-sonner"
 import type { ListingDetail } from "@rafimdan/shared"
 import { apiFetch, ApiError } from "~/utils/api"
+import { CONDITION_LABELS, STATUS_LABELS, getInitials } from "~/utils/listing-constants"
 
 type DetailResp = { data: ListingDetail; status: "ok" }
 
@@ -62,25 +63,8 @@ const sellerName = computed(
   () => listing.value.seller.display_name ?? listing.value.seller.name,
 )
 
-const sellerInitials = computed(() =>
-  sellerName.value
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase() ?? "")
-    .join(""),
-)
+const sellerInitials = computed(() => getInitials(sellerName.value))
 
-const CONDITION_LABELS: Record<string, string> = {
-  new: "Yeni",
-  like_new: "Az Kullanılmış",
-  good: "İyi",
-  fair: "Orta",
-}
-
-const STATUS_LABELS: Record<string, string> = {
-  sold: "Satıldı",
-}
 
 const config = useRuntimeConfig()
 const siteUrl = (config.public.siteUrl as string) || "https://rafimdan.com"
@@ -125,6 +109,7 @@ const sellerAvatarError = ref(false)
 const reportPending = ref(false)
 
 async function share() {
+  if (!import.meta.client) return
   const url = window.location.href
   if (navigator.share) {
     await navigator.share({ title: listing.value.title, url })
@@ -144,7 +129,42 @@ const REPORT_REASONS = [
 ] as const
 
 const showReportModal = ref(false)
-const reportReason = ref<string>("other")
+const reportReason = ref<string>("spam")
+const reportDescription = ref("")
+const reportModalRef = ref<HTMLDivElement | null>(null)
+const reportTriggerRef = ref<HTMLButtonElement | null>(null)
+
+function openReportModal() {
+  reportReason.value = "spam"
+  reportDescription.value = ""
+  showReportModal.value = true
+  nextTick(() => {
+    reportModalRef.value?.querySelector<HTMLElement>("[data-autofocus]")?.focus()
+  })
+}
+
+function closeReportModal() {
+  showReportModal.value = false
+  reportTriggerRef.value?.focus()
+}
+
+function onReportKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape") { closeReportModal(); return }
+  if (e.key !== "Tab" || !reportModalRef.value) return
+  const focusable = Array.from(
+    reportModalRef.value.querySelectorAll<HTMLElement>(
+      'button, input, [tabindex]:not([tabindex="-1"])',
+    ),
+  ).filter((el) => !el.hasAttribute("disabled"))
+  if (focusable.length === 0) return
+  const first = focusable[0]
+  const last = focusable[focusable.length - 1]
+  if (e.shiftKey && document.activeElement === first) {
+    e.preventDefault(); last.focus()
+  } else if (!e.shiftKey && document.activeElement === last) {
+    e.preventDefault(); first.focus()
+  }
+}
 
 async function submitReport() {
   if (!authStore.isLoggedIn) {
@@ -155,7 +175,10 @@ async function submitReport() {
   try {
     await apiFetch(`/api/listings/${slug.value}/report`, {
       method: "POST",
-      body: JSON.stringify({ reason: reportReason.value }),
+      body: JSON.stringify({
+        reason: reportReason.value,
+        description: reportDescription.value.trim() || null,
+      }),
     })
     toast.success("Bildirimin alındı, teşekkürler.")
     showReportModal.value = false
@@ -168,7 +191,7 @@ async function submitReport() {
 </script>
 
 <template>
-  <div class="max-w-5xl mx-auto px-4 py-8">
+  <div class="max-w-5xl mx-auto px-4 py-8 pb-28 md:pb-8">
     <div class="flex items-center justify-between mb-6">
       <NuxtLink
         to="/ilanlar"
@@ -327,7 +350,7 @@ async function submitReport() {
           class="flex items-center justify-center gap-2 w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 rounded-lg cursor-pointer transition-colors"
         >
           <MessageCircle class="size-5" />
-          {{ isRequest ? "Yardım Teklif Et" : isFree ? "WhatsApp'tan Yaz" : "WhatsApp'tan Yaz" }}
+          {{ isRequest ? "Yardım Teklif Et" : "WhatsApp'tan Yaz" }}
         </a>
         <p v-else-if="!isOwner" class="text-sm text-muted-foreground text-center">
           Satıcı iletişim bilgisi eklememişti.
@@ -346,9 +369,12 @@ async function submitReport() {
 
         <button
           v-if="!isOwner"
+          ref="reportTriggerRef"
           type="button"
           class="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors cursor-pointer w-full justify-center pt-1"
-          @click="showReportModal = true"
+          :aria-expanded="showReportModal"
+          aria-haspopup="dialog"
+          @click="openReportModal"
         >
           <Flag class="size-3" />
           İlanı Bildir
@@ -357,16 +383,42 @@ async function submitReport() {
     </div>
   </div>
 
+  <!-- Mobil sticky CTA -->
+  <Teleport to="body">
+    <div
+      v-if="waUrl && !isOwner"
+      class="md:hidden fixed bottom-0 inset-x-0 z-40 bg-background border-t border-border px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+    >
+      <a
+        :href="waUrl"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="flex items-center justify-center gap-2 w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 rounded-lg cursor-pointer transition-colors"
+      >
+        <MessageCircle class="size-5" />
+        {{ isRequest ? "Yardım Teklif Et" : "WhatsApp'tan Yaz" }}
+      </a>
+    </div>
+  </Teleport>
+
   <!-- Bildir Modal -->
   <Teleport to="body">
     <div
       v-if="showReportModal"
       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40"
-      @click.self="showReportModal = false"
+      @click.self="closeReportModal"
+      @keydown="onReportKeydown"
     >
-      <div class="w-full max-w-sm bg-background rounded-lg border border-border shadow-lg p-5 space-y-4">
-        <h2 class="text-sm font-semibold text-foreground">İlanı Bildir</h2>
-        <div class="space-y-2">
+      <div
+        ref="reportModalRef"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="report-modal-title"
+        class="w-full max-w-sm bg-background rounded-lg border border-border shadow-lg p-5 space-y-4"
+      >
+        <h2 id="report-modal-title" class="text-sm font-semibold text-foreground">İlanı Bildir</h2>
+        <fieldset class="space-y-2 border-0 p-0 m-0">
+          <legend class="sr-only">Bildirim nedeni</legend>
           <label
             v-for="opt in REPORT_REASONS"
             :key="opt.value"
@@ -377,15 +429,33 @@ async function submitReport() {
               type="radio"
               :value="opt.value"
               class="accent-foreground cursor-pointer"
+              :data-autofocus="opt.value === 'spam' ? true : undefined"
             />
             {{ opt.label }}
           </label>
+        </fieldset>
+        <div>
+          <label for="report-description" class="block text-xs font-medium text-muted-foreground mb-1">
+            Açıklama
+            <span class="font-normal">(isteğe bağlı)</span>
+          </label>
+          <textarea
+            id="report-description"
+            v-model="reportDescription"
+            rows="3"
+            maxlength="500"
+            placeholder="Daha fazla bilgi vermek istersen buraya yaz..."
+            class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background resize-none focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
+          />
+          <p class="text-right text-xs text-muted-foreground mt-0.5 tabular-nums">
+            {{ reportDescription.length }}/500
+          </p>
         </div>
         <div class="flex gap-2 pt-1">
           <button
             type="button"
             class="flex-1 py-2 text-sm border border-border rounded-md hover:bg-muted cursor-pointer transition-colors"
-            @click="showReportModal = false"
+            @click="closeReportModal"
           >
             Vazgeç
           </button>

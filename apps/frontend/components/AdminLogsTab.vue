@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import type { AdminLog } from "@rafimdan/shared"
 
-defineProps<{ logs: AdminLog[]; loading: boolean }>()
+const props = defineProps<{ logs: AdminLog[]; loading: boolean }>()
+
+const logsWithMeta = computed(() =>
+  props.logs.map((log) => ({ ...log, meta_parsed: parseMeta(log.meta) as MetaParsed | null })),
+)
 
 const ACTION_LABELS: Record<string, string> = {
   listing_approve:    "İlan Onaylandı",
@@ -32,9 +36,18 @@ function formatDate(iso: string) {
   })
 }
 
-function parseMeta(raw: string | null): Record<string, string> | null {
+type MetaParsed = {
+  title?: string
+  slug?: string
+  from_status?: string
+  to_status?: string
+  reason?: string
+  name?: string
+}
+
+function parseMeta(raw: string | null): MetaParsed | null {
   if (!raw) return null
-  try { return JSON.parse(raw) as Record<string, string> } catch { return null }
+  try { return JSON.parse(raw) as MetaParsed } catch { return null }
 }
 </script>
 
@@ -56,7 +69,7 @@ function parseMeta(raw: string | null): Record<string, string> | null {
         </thead>
         <tbody class="divide-y divide-border">
           <tr
-            v-for="log in logs"
+            v-for="log in logsWithMeta"
             :key="log.id"
             class="hover:bg-muted/30 transition-colors"
           >
@@ -73,10 +86,28 @@ function parseMeta(raw: string | null): Record<string, string> | null {
               </span>
             </td>
             <td class="px-3 py-2 hidden md:table-cell text-xs text-muted-foreground">
-              <span v-if="parseMeta(log.meta)?.title" class="truncate max-w-[200px] block">
-                {{ parseMeta(log.meta)?.title }}
-              </span>
-              <span v-else class="font-mono">{{ log.target_id }}</span>
+              <template v-if="log.target_type === 'listing'">
+                <span class="truncate max-w-[200px] block">
+                  {{ log.meta_parsed?.title ?? log.target_id }}
+                </span>
+                <span
+                  v-if="log.meta_parsed?.from_status && log.meta_parsed?.to_status"
+                  class="text-muted-foreground/70"
+                >
+                  {{ log.meta_parsed.from_status }} → {{ log.meta_parsed.to_status }}
+                </span>
+                <span
+                  v-if="log.meta_parsed?.reason"
+                  class="block italic text-muted-foreground/70 truncate max-w-[200px]"
+                >
+                  "{{ log.meta_parsed.reason }}"
+                </span>
+              </template>
+              <template v-else>
+                <span class="truncate max-w-[200px] block">
+                  {{ log.meta_parsed?.name ?? log.target_id }}
+                </span>
+              </template>
             </td>
           </tr>
         </tbody>

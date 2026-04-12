@@ -1,5 +1,5 @@
 import type { D1Database } from "@cloudflare/workers-types";
-import { reportRepository } from "../repositories/report.repository";
+import { reportRepository, type ReportStatus } from "../repositories/report.repository";
 import { listingRepository } from "../repositories/listing.repository";
 import { AppError, ListingNotFoundError } from "../errors";
 
@@ -15,6 +15,7 @@ async function report(
   reporterId: string,
   slug: string,
   reason: string,
+  description?: string | null,
 ): Promise<void> {
   if (!isValidReason(reason)) {
     throw new AppError("Geçersiz bildirim sebebi", 400, "INVALID_REASON");
@@ -32,11 +33,22 @@ async function report(
     throw new AppError("Bu ilanı zaten bildirdiniz", 409, "ALREADY_REPORTED");
   }
 
-  await reportRepository.create(db, listing.id, reporterId, reason);
+  await reportRepository.create(db, listing.id, reporterId, reason, description);
 }
 
-async function getAll(db: D1Database) {
-  return reportRepository.findAll(db);
+async function getAll(db: D1Database, statusFilter?: ReportStatus | "all") {
+  return reportRepository.findAll(db, statusFilter);
 }
 
-export const reportService = { report, getAll };
+async function resolve(
+  db: D1Database,
+  reportId: string,
+  status: ReportStatus,
+): Promise<void> {
+  if (status === "open") {
+    throw new AppError("Geçersiz durum", 400, "INVALID_STATUS");
+  }
+  await reportRepository.updateStatus(db, reportId, status);
+}
+
+export const reportService = { report, getAll, resolve };
