@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { Search, X } from "lucide-vue-next"
-import { ILLER } from "~/utils/turkey-locations"
 
 const props = defineProps<{
   modelValue: string
-  hasError?: boolean
+  options: string[]
+  disabled?: boolean
   inputId?: string
 }>()
 
@@ -18,18 +18,26 @@ const activeIndex = ref(-1)
 const rootRef = ref<HTMLDivElement | null>(null)
 
 const filtered = computed(() => {
-  if (!query.value.trim()) return ILLER.slice(0, 8)
+  if (!query.value.trim()) return props.options
   const q = query.value.toLocaleLowerCase("tr")
-  return ILLER.filter((il) => il.name.toLocaleLowerCase("tr").startsWith(q)).slice(0, 8)
+  return props.options.filter((d) => d.toLocaleLowerCase("tr").startsWith(q))
 })
+
+const activeDescendant = computed(() =>
+  open.value && activeIndex.value >= 0 ? `district-option-${activeIndex.value}` : undefined,
+)
 
 watch(() => props.modelValue, (val) => {
   if (val !== query.value) query.value = val
 })
 
-const activeDescendant = computed(() =>
-  open.value && activeIndex.value >= 0 ? `city-option-${activeIndex.value}` : undefined,
-)
+watch(() => props.options, () => {
+  if (query.value && !props.options.includes(query.value)) {
+    query.value = ""
+    emit("update:modelValue", "")
+  }
+  activeIndex.value = -1
+})
 
 function select(name: string) {
   query.value = name
@@ -41,12 +49,12 @@ function select(name: string) {
 function onInput() {
   open.value = true
   activeIndex.value = -1
-  const exact = ILLER.find((il) => il.name === query.value)
+  const exact = props.options.find((d) => d === query.value)
   emit("update:modelValue", exact ? query.value : "")
 }
 
 function onFocus() {
-  open.value = true
+  if (!props.disabled) open.value = true
 }
 
 function onBlur() {
@@ -67,6 +75,7 @@ function clear() {
 }
 
 function onKeydown(e: KeyboardEvent) {
+  if (props.disabled) return
   if (!open.value || filtered.value.length === 0) return
   if (e.key === "ArrowDown") {
     e.preventDefault()
@@ -76,7 +85,7 @@ function onKeydown(e: KeyboardEvent) {
     activeIndex.value = (activeIndex.value - 1 + filtered.value.length) % filtered.value.length
   } else if (e.key === "Enter" && activeIndex.value >= 0) {
     e.preventDefault()
-    select(filtered.value[activeIndex.value].name)
+    select(filtered.value[activeIndex.value])
   } else if (e.key === "Escape") {
     open.value = false
     activeIndex.value = -1
@@ -95,13 +104,15 @@ function onKeydown(e: KeyboardEvent) {
         role="combobox"
         autocomplete="off"
         aria-autocomplete="list"
-        :aria-expanded="open && filtered.length > 0"
-        aria-controls="city-autocomplete-list"
+        :aria-expanded="open && filtered.length > 0 && !disabled"
+        aria-controls="district-autocomplete-list"
         :aria-activedescendant="activeDescendant"
-        placeholder="Şehir ara..."
+        :placeholder="disabled ? 'Önce şehir seçin' : 'İlçe ara...'"
+        :disabled="disabled"
         :class="[
           'w-full pl-8 pr-7 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 transition-colors',
-          hasError ? 'border-destructive focus:ring-destructive' : 'border-border focus:ring-ring',
+          'border-border focus:ring-ring',
+          disabled ? 'opacity-40 cursor-not-allowed' : 'cursor-text',
         ]"
         @input="query = ($event.target as HTMLInputElement).value; onInput()"
         @focus="onFocus"
@@ -109,7 +120,7 @@ function onKeydown(e: KeyboardEvent) {
         @keydown="onKeydown"
       />
       <button
-        v-if="query"
+        v-if="query && !disabled"
         type="button"
         tabindex="-1"
         class="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground"
@@ -128,23 +139,26 @@ function onKeydown(e: KeyboardEvent) {
       leave-to-class="opacity-0 translate-y-1"
     >
       <ul
-        v-if="open && filtered.length > 0"
-        id="city-autocomplete-list"
+        v-if="open && filtered.length > 0 && !disabled"
+        id="district-autocomplete-list"
         role="listbox"
-        aria-label="Şehirler"
+        aria-label="İlçeler"
         class="absolute z-30 w-full mt-1 rounded-md border border-border bg-white shadow-lg max-h-52 overflow-y-auto py-1"
       >
         <li
-          v-for="(il, i) in filtered"
-          :id="`city-option-${i}`"
-          :key="il.name"
+          v-for="(district, i) in filtered"
+          :id="`district-option-${i}`"
+          :key="district"
           role="option"
-          :aria-selected="il.name === modelValue"
+          :aria-selected="district === modelValue"
           class="px-3 py-1.5 text-sm cursor-pointer hover:bg-muted transition-colors"
-          :class="il.name === modelValue ? 'font-semibold text-foreground bg-muted' : 'text-foreground'"
-          @mousedown.prevent="select(il.name)"
+          :class="[
+            district === modelValue ? 'font-semibold text-foreground bg-muted' : 'text-foreground',
+            i === activeIndex ? 'bg-muted' : '',
+          ]"
+          @mousedown.prevent="select(district)"
         >
-          {{ il.name }}
+          {{ district }}
         </li>
       </ul>
     </Transition>
