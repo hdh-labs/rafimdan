@@ -37,38 +37,39 @@ export const useFavoritesStore = defineStore("favorites", () => {
 
     if (pending.value.has(listingId)) return
 
-    pending.value = new Set([...pending.value, listingId])
     const wasFavorited = ids.value.has(listingId)
+    pending.value = new Set([...pending.value, listingId])
 
     if (wasFavorited) {
       ids.value.delete(listingId)
-      ids.value = new Set(ids.value)
-      try {
-        await apiFetch(`/api/favorites/${listingId}`, { method: "DELETE" })
-        toast.success("Favorilerden çıkarıldı")
-      } catch {
-        ids.value.add(listingId)
-        ids.value = new Set(ids.value)
-        toast.error("Bir hata oluştu, tekrar dene")
-      }
     } else {
       ids.value.add(listingId)
-      ids.value = new Set(ids.value)
-      try {
+    }
+    ids.value = new Set(ids.value)
+
+    try {
+      if (wasFavorited) {
+        await apiFetch(`/api/favorites/${listingId}`, { method: "DELETE" })
+        toast.success("Favorilerden çıkarıldı")
+      } else {
         await apiFetch("/api/favorites", {
           method: "POST",
           body: JSON.stringify({ listing_id: listingId }),
         })
         toast.success("Favorilere eklendi")
-      } catch {
-        ids.value.delete(listingId)
-        ids.value = new Set(ids.value)
-        toast.error("Bir hata oluştu, tekrar dene")
       }
+    } catch {
+      if (wasFavorited) {
+        ids.value.add(listingId)
+      } else {
+        ids.value.delete(listingId)
+      }
+      ids.value = new Set(ids.value)
+      toast.error("Bir hata oluştu, tekrar dene")
+    } finally {
+      pending.value.delete(listingId)
+      pending.value = new Set(pending.value)
     }
-
-    pending.value.delete(listingId)
-    pending.value = new Set(pending.value)
   }
 
   return { ids, isFavorited, isPending, fetchFavorites, toggle }

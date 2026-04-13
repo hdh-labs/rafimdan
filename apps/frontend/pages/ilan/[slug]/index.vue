@@ -48,20 +48,33 @@ function nextPhoto() {
 }
 
 const isRequest = computed(() => listing.value.direction === "request")
+const isSupport = computed(() => listing.value.direction === "support")
 
 const waUrl = computed(() => {
   const phone = listing.value.seller.whatsapp
   if (!phone) return null
   const digits = phone.replace(/\D/g, "")
   const waPhone = digits.startsWith("90") ? digits : `90${digits}`
-  const text = isRequest.value
-    ? encodeURIComponent(`Merhaba, "${listing.value.title}" ilanını gördüm, yardımcı olabilir miyim?`)
-    : encodeURIComponent(`Merhaba, "${listing.value.title}" ilanın hâlâ aktif mi?`)
+  let text: string
+  if (isRequest.value) {
+    text = encodeURIComponent(`Merhaba, "${listing.value.title}" ilanını gördüm, yardımcı olabilir miyim?`)
+  } else if (isSupport.value) {
+    text = encodeURIComponent(`Merhaba, "${listing.value.title}" destek ilanınla ilgileniyorum.`)
+  } else {
+    text = encodeURIComponent(`Merhaba, "${listing.value.title}" ilanın hâlâ aktif mi?`)
+  }
   return `https://wa.me/${waPhone}?text=${text}`
+})
+
+const waButtonText = computed(() => {
+  if (isRequest.value) return "Yardım Teklif Et"
+  if (isSupport.value) return "Destek Hakkında Yaz"
+  return "WhatsApp'tan Yaz"
 })
 
 const priceDisplay = computed(() => {
   if (isRequest.value) return "Destek Arıyor"
+  if (isSupport.value) return "Destek Sunuyor"
   const { price, price_type } = listing.value
   if (price_type === "free") return "Ücretsiz"
   const formatted = (price ?? 0).toLocaleString("tr-TR") + " ₺"
@@ -410,7 +423,7 @@ async function submitReport() {
           class="flex items-center justify-center gap-2 w-full bg-whatsapp hover:bg-whatsapp-hover text-whatsapp-foreground font-medium py-3 rounded-lg cursor-pointer transition-colors"
         >
           <MessageCircle class="size-5" />
-          {{ isRequest ? "Yardım Teklif Et" : "WhatsApp'tan Yaz" }}
+          {{ waButtonText }}
         </a>
         <p v-else-if="!isOwner" class="text-sm text-muted-foreground text-center">
           Satıcı iletişim bilgisi eklememişti.
@@ -495,7 +508,7 @@ async function submitReport() {
         class="flex items-center justify-center gap-2 w-full bg-whatsapp hover:bg-whatsapp-hover text-whatsapp-foreground font-medium py-3 rounded-lg cursor-pointer transition-colors"
       >
         <MessageCircle class="size-5" />
-        {{ isRequest ? "Yardım Teklif Et" : "WhatsApp'tan Yaz" }}
+        {{ waButtonText }}
       </a>
     </div>
   </Teleport>

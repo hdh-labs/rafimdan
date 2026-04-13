@@ -220,8 +220,15 @@ async function deleteListing(slug: string, title: string) {
     </div>
 
     <!-- Empty tab -->
-    <div v-else-if="filtered.length === 0" class="py-12 text-center">
+    <div v-else-if="filtered.length === 0" class="py-12 text-center space-y-3">
       <p class="text-sm text-muted-foreground">Bu sekmede ilan yok.</p>
+      <button
+        type="button"
+        class="text-sm text-brand underline underline-offset-2 cursor-pointer"
+        @click="activeTab = 'all'"
+      >
+        Tüm ilanlarına bak
+      </button>
     </div>
 
     <!-- Listing cards -->
