@@ -5,3 +5,11 @@ export function extractStorageKey(url: string, baseUrl: string): string {
   if (match) return match[1]!;
   return url;
 }
+
+export function getStorageBaseUrl(storagePublicUrl: string | undefined): string {
+  return (storagePublicUrl ?? "").replace(/\/$/, "") || "/api/storage";
+}
+
+export function getStorageUrl(storagePublicUrl: string | undefined, key: string): string {
+  return `${getStorageBaseUrl(storagePublicUrl)}/${key}`;
+}

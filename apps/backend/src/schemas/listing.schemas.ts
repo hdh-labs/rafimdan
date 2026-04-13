@@ -50,10 +50,17 @@ export const listingsQuerySchema = z.object({
   category: z.string().optional(),
   price_type: z.enum(LISTING_PRICE_TYPES).optional(),
   condition: z.enum(LISTING_CONDITIONS).optional(),
-  direction: z.string().optional().transform((v) => {
+  direction: z.string().optional().transform((v, ctx) => {
     if (!v) return undefined;
-    if (v.includes(",")) return v.split(",") as import("@rafimdan/shared").ListingDirection[];
-    return v as import("@rafimdan/shared").ListingDirection;
+    const values = v.split(",");
+    for (const val of values) {
+      if (!(LISTING_DIRECTIONS as readonly string[]).includes(val)) {
+        ctx.addIssue({ code: "custom", message: `Geçersiz direction: ${val}` });
+        return z.NEVER;
+      }
+    }
+    const dirs = values as import("@rafimdan/shared").ListingDirection[];
+    return dirs.length > 1 ? dirs : dirs[0];
   }),
   sort: z.enum(["recent", "popular"]).optional(),
   q: z.string().max(100).optional(),
