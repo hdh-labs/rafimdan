@@ -943,7 +943,7 @@ function formatDate(d: string) {
               <template v-if="selectedListing.status === 'pending'">
                 <button
                   type="button"
-                  class="w-full py-2.5 text-sm bg-brand text-brand-foreground rounded-lg cursor-pointer hover:bg-brand/90 transition-colors font-medium flex items-center justify-center gap-2"
+                  class="w-full py-2.5 text-sm bg-green-600 text-white rounded-lg cursor-pointer hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2"
                   @click="panelModerate('active')"
                 >
                   <Check class="size-4" />
@@ -981,7 +981,7 @@ function formatDate(d: string) {
               <template v-else-if="selectedListing.status === 'rejected'">
                 <button
                   type="button"
-                  class="w-full py-2.5 text-sm bg-brand text-brand-foreground rounded-lg cursor-pointer hover:bg-brand/90 transition-colors font-medium flex items-center justify-center gap-2"
+                  class="w-full py-2.5 text-sm bg-green-600 text-white rounded-lg cursor-pointer hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2"
                   @click="panelModerate('active')"
                 >
                   <Check class="size-4" />
