@@ -67,6 +67,8 @@ export default defineNuxtConfig({
     "/ilan/*/duzenle": { ssr: false },
     "/admin/**": { ssr: false },
     "/admin": { ssr: false },
+    "/ilanlarim": { ssr: false },
+    "/favoriler": { ssr: false },
   },
 
   app: {

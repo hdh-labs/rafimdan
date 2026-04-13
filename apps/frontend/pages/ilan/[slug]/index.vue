@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MapPin, Eye, MessageCircle, ChevronLeft, ChevronRight, Pencil, Flag, Share2, AlertCircle, ArrowRight } from "lucide-vue-next"
+import { MapPin, Eye, MessageCircle, ChevronLeft, ChevronRight, Pencil, Flag, Share2, AlertCircle, ArrowRight, Clock, XCircle } from "lucide-vue-next"
 import { toast } from "vue-sonner"
 import type { ListingDetail, ListingListItem } from "@rafimdan/shared"
 import { apiFetch, ApiError } from "~/utils/api"
@@ -11,15 +11,24 @@ type SimilarResp = { data: { items: ListingListItem[] }; status: "ok" }
 const route = useRoute()
 const slug = computed(() => route.params.slug as string)
 const authStore = useAuthStore()
-const isOwner = computed(() => authStore.user?.id === listing.value?.seller.id)
 
-const { data: res, error } = await useFetch<DetailResp>(() => `/api/listings/${slug.value}`)
+const token = useCookie<string | null>("access_token")
 
-if (error.value || !res.value) {
+const { data: listingData, error } = await useAsyncData(
+  `listing-${slug.value}`,
+  () => $fetch<DetailResp>(`/api/listings/${slug.value}`, {
+    headers: token.value ? { Authorization: `Bearer ${token.value}` } : undefined,
+  }),
+)
+
+if (error.value || !listingData.value) {
   throw createError({ statusCode: 404, message: "İlan bulunamadı" })
 }
 
-const listing = computed(() => res.value!.data)
+const listing = computed(() => listingData.value!.data)
+const isOwner = computed(() => authStore.user?.id === listing.value?.seller.id)
+const isPending = computed(() => listing.value?.status === "pending")
+const isRejected = computed(() => listing.value?.status === "rejected")
 
 useSeoMeta({
   title: () => `${listing.value.title} — Rafımdan`,
@@ -211,7 +220,7 @@ async function submitReport() {
 </script>
 
 <template>
-  <div class="max-w-5xl mx-auto px-4 py-8 pb-28 md:pb-8">
+  <div class="max-w-5xl mx-auto px-4 py-8 pb-28 md:pb-8 overflow-x-hidden">
     <div class="flex items-center justify-between mb-6">
       <NuxtLink
         to="/ilanlar"
@@ -230,6 +239,31 @@ async function submitReport() {
       </NuxtLink>
     </div>
 
+    <div
+      v-if="isOwner && isPending"
+      class="flex items-start gap-3 mb-6 rounded-lg border border-border bg-muted px-4 py-3"
+    >
+      <Clock class="size-4 shrink-0 mt-0.5 text-muted-foreground" />
+      <div>
+        <p class="text-sm font-medium text-foreground">İlanınız inceleniyor</p>
+        <p class="text-xs text-muted-foreground mt-0.5">Onaylandıktan sonra herkes görebilir olacak. Bekleyen ilanlarınızı <NuxtLink to="/ilanlarim" class="underline underline-offset-2">ilanlarım</NuxtLink> sayfasından takip edebilirsiniz.</p>
+      </div>
+    </div>
+
+    <div
+      v-if="isOwner && isRejected"
+      class="flex items-start gap-3 mb-6 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3"
+    >
+      <XCircle class="size-4 shrink-0 mt-0.5 text-destructive" />
+      <div class="flex-1 min-w-0">
+        <p class="text-sm font-medium text-destructive">İlanınız reddedildi</p>
+        <p v-if="listing.rejection_reason" class="text-xs text-destructive/80 mt-0.5">Gerekçe: {{ listing.rejection_reason }}</p>
+        <NuxtLink :to="`/ilan/${slug}/duzenle`" class="inline-flex items-center gap-1 text-xs text-destructive underline underline-offset-2 mt-1 cursor-pointer">
+          Düzenleyip tekrar gönder
+        </NuxtLink>
+      </div>
+    </div>
+
     <div class="grid md:grid-cols-[1fr_320px] gap-8">
       <div class="space-y-4">
         <div class="relative rounded-lg overflow-hidden bg-muted aspect-[4/3]">
@@ -237,6 +271,8 @@ async function submitReport() {
             v-if="mainPhoto"
             :src="mainPhoto"
             :alt="listing.title"
+            fetchpriority="high"
+            loading="eager"
             class="size-full object-cover"
           />
           <div
@@ -257,6 +293,7 @@ async function submitReport() {
 
           <template v-if="listing.photos.length > 1">
             <button
+              aria-label="Önceki fotoğraf"
               class="absolute left-2 top-1/2 -translate-y-1/2 size-8 flex items-center justify-center bg-white/80 rounded-full cursor-pointer hover:bg-white transition-colors disabled:opacity-40"
               :disabled="selectedIndex === 0"
               @click="prevPhoto"
@@ -264,6 +301,7 @@ async function submitReport() {
               <ChevronLeft class="size-4" />
             </button>
             <button
+              aria-label="Sonraki fotoğraf"
               class="absolute right-2 top-1/2 -translate-y-1/2 size-8 flex items-center justify-center bg-white/80 rounded-full cursor-pointer hover:bg-white transition-colors disabled:opacity-40"
               :disabled="selectedIndex === listing.photos.length - 1"
               @click="nextPhoto"
@@ -277,6 +315,8 @@ async function submitReport() {
           <button
             v-for="(photo, i) in listing.photos"
             :key="i"
+            :aria-label="`Fotoğraf ${i + 1}`"
+            :aria-pressed="i === selectedIndex"
             class="shrink-0 size-16 rounded-md overflow-hidden border-2 cursor-pointer transition-colors"
             :class="i === selectedIndex ? 'border-foreground' : 'border-border'"
             @click="selectedIndex = i"
@@ -286,17 +326,17 @@ async function submitReport() {
         </div>
 
         <div>
-          <div class="flex items-start gap-2 flex-wrap mb-2">
-            <h1 class="text-xl font-bold text-foreground flex-1">{{ listing.title }}</h1>
+          <div class="flex items-start gap-2 flex-wrap mb-2 min-w-0">
+            <h1 class="text-xl font-bold text-foreground flex-1 break-words min-w-0">{{ listing.title }}</h1>
             <span class="shrink-0 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
               {{ CONDITION_LABELS[listing.condition] }}
             </span>
-            <FavoriteButton :listing-id="listing.id" />
+            <FavoriteButton v-if="listing.status === 'active'" :listing-id="listing.id" />
           </div>
 
           <p
             class="text-2xl font-bold"
-            :class="isRequest ? 'text-amber-700' : listing.price_type === 'free' ? 'text-green-700' : 'text-foreground'"
+            :class="isRequest || listing.price_type === 'free' ? 'text-brand' : 'text-foreground'"
           >
             {{ priceDisplay }}
           </p>
@@ -356,7 +396,7 @@ async function submitReport() {
         <NuxtLink
           v-if="isOwner && !listing.seller.whatsapp"
           to="/ayarlar"
-          class="flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 hover:bg-amber-100 transition-colors cursor-pointer"
+          class="flex items-start gap-2 p-3 rounded-lg bg-brand/5 border border-brand/20 text-foreground hover:bg-brand/10 transition-colors cursor-pointer"
         >
           <AlertCircle class="size-4 shrink-0 mt-0.5" />
           <span class="text-xs">Alıcılar sana ulaşamıyor. <span class="underline underline-offset-2 font-medium">WhatsApp ekle →</span></span>
@@ -367,7 +407,7 @@ async function submitReport() {
           :href="waUrl"
           target="_blank"
           rel="noopener noreferrer"
-          class="flex items-center justify-center gap-2 w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 rounded-lg cursor-pointer transition-colors"
+          class="flex items-center justify-center gap-2 w-full bg-whatsapp hover:bg-whatsapp-hover text-whatsapp-foreground font-medium py-3 rounded-lg cursor-pointer transition-colors"
         >
           <MessageCircle class="size-5" />
           {{ isRequest ? "Yardım Teklif Et" : "WhatsApp'tan Yaz" }}
@@ -377,6 +417,7 @@ async function submitReport() {
         </p>
 
         <button
+          v-if="listing.status === 'active'"
           type="button"
           class="flex items-center justify-center gap-2 w-full border border-border py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-muted cursor-pointer transition-colors"
           @click="share"
@@ -388,7 +429,7 @@ async function submitReport() {
         <SafeMeetingTips />
 
         <button
-          v-if="!isOwner"
+          v-if="!isOwner && listing.status === 'active'"
           ref="reportTriggerRef"
           type="button"
           class="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors cursor-pointer w-full justify-center pt-1"
@@ -451,7 +492,7 @@ async function submitReport() {
         :href="waUrl"
         target="_blank"
         rel="noopener noreferrer"
-        class="flex items-center justify-center gap-2 w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 rounded-lg cursor-pointer transition-colors"
+        class="flex items-center justify-center gap-2 w-full bg-whatsapp hover:bg-whatsapp-hover text-whatsapp-foreground font-medium py-3 rounded-lg cursor-pointer transition-colors"
       >
         <MessageCircle class="size-5" />
         {{ isRequest ? "Yardım Teklif Et" : "WhatsApp'tan Yaz" }}

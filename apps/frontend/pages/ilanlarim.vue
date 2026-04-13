@@ -2,7 +2,7 @@
 import { ClipboardList, ImageOff, Pencil, Trash2, ChevronDown, RefreshCw, AlertCircle, Check, X } from "lucide-vue-next"
 import { toast } from "vue-sonner"
 import type { ListingListItem, ListingStatus } from "@rafimdan/shared"
-import { apiFetch } from "~/utils/api"
+import { apiFetch, ApiError } from "~/utils/api"
 import { STATUS_LABELS, STATUS_COLORS } from "~/utils/listing-constants"
 
 definePageMeta({ middleware: ["auth"] })
@@ -19,6 +19,7 @@ const deleteConfirmSlug = ref<string | null>(null)
 const editingPriceSlug = ref<string | null>(null)
 const priceInputValue = ref("")
 const priceInputRef = ref<HTMLInputElement | null>(null)
+const lightboxUrl = ref<string | null>(null)
 
 
 const TABS: { key: Tab; label: string }[] = [
@@ -138,8 +139,8 @@ async function refreshListing(slug: string) {
     const item = listings.value.find((l) => l.slug === slug)
     if (item) item.updated_at = new Date().toISOString()
     toast.success("İlan yenilendi — artık listenin üstünde görünecek.")
-  } catch {
-    toast.error("Yenileme başarısız, tekrar dene.")
+  } catch (err) {
+    toast.error(err instanceof ApiError ? err.message : "Yenileme başarısız, tekrar dene.")
   } finally {
     pendingSlug.value = null
   }
@@ -168,16 +169,18 @@ async function deleteListing(slug: string, title: string) {
     </div>
 
     <!-- Banners -->
-    <div
+    <button
       v-if="rejectedCount > 0 && !loading"
-      class="mb-4 flex items-start gap-2 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700"
+      type="button"
+      class="mb-4 w-full flex items-start gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/30 text-sm text-destructive text-left cursor-pointer hover:bg-destructive/15 transition-colors"
+      @click="activeTab = 'rejected'"
     >
       <AlertCircle class="size-4 shrink-0 mt-0.5" />
       <span>{{ rejectedCount }} ilanınız reddedildi. Gerekçeyi okuyup düzenleyebilirsiniz.</span>
-    </div>
+    </button>
     <div
       v-else-if="pendingCount > 0 && !loading"
-      class="mb-4 flex items-start gap-2 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-700"
+      class="mb-4 flex items-start gap-2 p-3 rounded-lg bg-muted border border-border text-sm text-muted-foreground"
     >
       <AlertCircle class="size-4 shrink-0 mt-0.5" />
       <span>{{ pendingCount }} ilanınız inceleniyor.</span>
@@ -190,7 +193,7 @@ async function deleteListing(slug: string, title: string) {
         :key="tab.key"
         class="px-3 py-2 text-sm font-medium cursor-pointer transition-colors -mb-px border-b-2 whitespace-nowrap"
         :class="activeTab === tab.key
-          ? 'border-foreground text-foreground'
+          ? 'border-brand text-brand'
           : 'border-transparent text-muted-foreground hover:text-foreground'"
         @click="activeTab = tab.key"
       >
@@ -210,7 +213,7 @@ async function deleteListing(slug: string, title: string) {
       <p class="text-muted-foreground mb-4">Henüz ilan vermedin.</p>
       <NuxtLink
         to="/ilan-ver"
-        class="inline-block text-sm bg-foreground text-background px-4 py-2 rounded-md cursor-pointer hover:opacity-90 transition-opacity"
+        class="inline-block text-sm bg-brand text-brand-foreground px-4 py-2 rounded-md cursor-pointer hover:opacity-90 transition-opacity"
       >
         İlan Ver
       </NuxtLink>
@@ -226,7 +229,7 @@ async function deleteListing(slug: string, title: string) {
       <div
         v-for="listing in filteredWithAge"
         :key="listing.id"
-        class="flex items-center gap-3 p-3 rounded-lg border border-border bg-white transition-opacity"
+        class="flex items-center gap-3 p-3 rounded-lg border border-border bg-background transition-opacity"
         :class="pendingSlug === listing.slug ? 'opacity-50 pointer-events-none' : ''"
       >
         <!-- Thumbnail -->
@@ -235,8 +238,9 @@ async function deleteListing(slug: string, title: string) {
             v-if="listing.cover_photo"
             :src="listing.cover_photo"
             :alt="listing.title"
-            class="size-full object-cover"
+            class="size-full object-cover cursor-zoom-in hover:opacity-90 transition-opacity"
             loading="lazy"
+            @click.stop="lightboxUrl = listing.cover_photo"
           />
           <div v-else class="size-full flex items-center justify-center" aria-hidden="true">
             <ImageOff class="size-5 text-muted-foreground/30" />
@@ -263,7 +267,7 @@ async function deleteListing(slug: string, title: string) {
             </span>
 
             <!-- Inline fiyat edit -->
-            <template v-if="listing.price_type !== 'free'">
+            <template v-if="listing.price_type === 'fixed' && listing.status === 'active'">
               <div v-if="editingPriceSlug === listing.slug" class="flex items-center gap-1" @click.stop>
                 <input
                   :ref="el => { if (editingPriceSlug === listing.slug) priceInputRef = el as HTMLInputElement | null }"
@@ -273,11 +277,12 @@ async function deleteListing(slug: string, title: string) {
                   class="w-20 px-1.5 py-0.5 text-xs border border-ring rounded focus:outline-none"
                   @keydown.enter="savePriceEdit(listing.slug)"
                   @keydown.esc="cancelPriceEdit"
+                  @blur="cancelPriceEdit"
                 />
-                <button class="text-green-600 hover:text-green-700 cursor-pointer" @click="savePriceEdit(listing.slug)">
+                <button class="text-brand hover:opacity-80 cursor-pointer" @mousedown.prevent="savePriceEdit(listing.slug)">
                   <Check class="size-3.5" />
                 </button>
-                <button class="text-muted-foreground hover:text-foreground cursor-pointer" @click="cancelPriceEdit">
+                <button class="text-muted-foreground hover:text-foreground cursor-pointer" @mousedown.prevent="cancelPriceEdit">
                   <X class="size-3.5" />
                 </button>
               </div>
@@ -286,20 +291,26 @@ async function deleteListing(slug: string, title: string) {
                 class="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 cursor-pointer transition-colors"
                 @click.stop="startPriceEdit(listing.slug, listing.price)"
               >
-                {{ listing.price_type === 'negotiable' ? `${listing.price ?? '?'} ₺ ~` : `${listing.price ?? '?'} ₺` }}
+                {{ listing.price ?? '?' }} ₺
               </button>
             </template>
-            <span v-else class="text-xs text-green-600 font-medium">Ücretsiz</span>
+            <span v-else-if="listing.price_type === 'free'" class="text-xs text-brand font-medium">Ücretsiz</span>
+            <span v-else-if="listing.price_type === 'negotiable'" class="text-xs text-muted-foreground">
+              {{ listing.price ?? '?' }} ₺ · Pazarlık
+            </span>
+            <span v-else class="text-xs text-muted-foreground">
+              {{ listing.price ?? '?' }} ₺
+            </span>
 
             <span
               class="text-xs"
-              :class="listing.age > 14 ? 'text-amber-600' : 'text-muted-foreground'"
+              :class="listing.age > 14 ? 'text-brand' : 'text-muted-foreground'"
             >
               {{ listing.age === 0 ? 'Bugün' : `${listing.age} gün önce` }}
             </span>
           </div>
           <template v-if="listing.status === 'rejected'">
-            <p class="text-xs text-red-600 mt-1">
+            <p class="text-xs text-destructive mt-1">
               <span class="font-medium">Gerekçe:</span>
               {{ listing.rejection_reason ?? 'Belirtilmemiş' }}
             </p>
@@ -310,7 +321,7 @@ async function deleteListing(slug: string, title: string) {
               Düzenle ve tekrar gönder
             </NuxtLink>
           </template>
-          <p v-if="listing.status === 'pending'" class="text-xs text-amber-600 mt-1">
+          <p v-if="listing.status === 'pending'" class="text-xs text-muted-foreground mt-1">
             Yönetici onayı bekleniyor.
           </p>
         </div>
@@ -322,7 +333,7 @@ async function deleteListing(slug: string, title: string) {
           <div v-if="listing.status === 'active' || listing.status === 'sold'" class="relative">
             <button
               type="button"
-              class="flex items-center gap-1 text-xs border border-border rounded px-2 py-1.5 bg-white cursor-pointer hover:bg-muted transition-colors"
+              class="flex items-center gap-1 text-xs border border-border rounded px-2 py-1.5 bg-background cursor-pointer hover:bg-muted transition-colors"
               :class="STATUS_COLORS[listing.status]"
               @click="toggleMenu(listing.slug)"
             >
@@ -340,7 +351,7 @@ async function deleteListing(slug: string, title: string) {
             >
               <div
                 v-if="openMenuSlug === listing.slug"
-                class="absolute right-0 top-full mt-1 z-20 min-w-[110px] rounded-md border border-border bg-white shadow-lg py-1"
+                class="absolute right-0 top-full mt-1 z-20 min-w-[110px] rounded-md border border-border bg-background shadow-lg py-1"
               >
                 <button
                   v-for="s in STATUSES"
@@ -353,8 +364,8 @@ async function deleteListing(slug: string, title: string) {
                   <span
                     class="inline-block size-1.5 rounded-full shrink-0"
                     :class="{
-                      'bg-green-500': s === 'active',
-                      'bg-gray-400': s === 'sold',
+                      'bg-brand': s === 'active',
+                      'bg-muted-foreground': s === 'sold',
                     }"
                   />
                   {{ STATUS_LABELS[s] }}
@@ -370,7 +381,7 @@ async function deleteListing(slug: string, title: string) {
             variant="outline"
             size="sm"
             :title="`${listing.age} gün önce yenilendi`"
-            :class="listing.age > 7 ? 'border-amber-300 text-amber-700 hover:bg-amber-50' : ''"
+            :class="listing.age > 7 ? 'border-brand/40 text-brand hover:bg-brand/5' : ''"
             @click="refreshListing(listing.slug)"
           >
             <RefreshCw class="size-3" />
@@ -380,40 +391,19 @@ async function deleteListing(slug: string, title: string) {
           <!-- Edit -->
           <NuxtLink
             :to="`/ilan/${listing.slug}/duzenle`"
-            class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-1.5 rounded border border-border cursor-pointer transition-colors"
+            class="inline-flex items-center justify-center gap-2 h-8 px-3 text-sm rounded-md font-medium border border-border bg-background hover:bg-muted text-foreground transition-opacity cursor-pointer"
           >
             <Pencil class="size-3" />
             <span class="hidden sm:inline">Düzenle</span>
           </NuxtLink>
 
           <!-- Delete -->
-          <template v-if="deleteConfirmSlug === listing.slug">
-            <span class="text-xs text-muted-foreground hidden sm:inline">Emin misin?</span>
-            <Button
-              type="button"
-              variant="destructive"
-              size="sm"
-              :loading="pendingSlug === listing.slug"
-              @click="deleteListing(listing.slug, listing.title)"
-            >
-              Evet
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              @click="deleteConfirmSlug = null"
-            >
-              Hayır
-            </Button>
-          </template>
           <Button
-            v-else
             type="button"
             variant="outline"
             size="sm"
             class="text-destructive border-destructive/30 hover:bg-destructive/5"
-            @click="deleteConfirmSlug = listing.slug"
+            @click.stop="deleteConfirmSlug = listing.slug"
           >
             <Trash2 class="size-3" />
             <span class="hidden sm:inline">Sil</span>
@@ -422,4 +412,53 @@ async function deleteListing(slug: string, title: string) {
       </div>
     </div>
   </div>
+
+  <ImageLightbox :url="lightboxUrl" @close="lightboxUrl = null" />
+
+  <!-- Delete confirm modal -->
+  <Teleport to="body">
+    <Transition
+      enter-active-class="transition duration-150 ease-out"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition duration-100 ease-in"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div
+        v-if="deleteConfirmSlug"
+        class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40"
+        @click.self="deleteConfirmSlug = null"
+        @keydown.esc.window="deleteConfirmSlug = null"
+      >
+        <div class="w-full sm:max-w-sm bg-background rounded-2xl sm:rounded-xl border border-border shadow-2xl p-6 space-y-4">
+          <div>
+            <p class="font-semibold text-sm text-foreground">İlanı sil</p>
+            <p class="text-sm text-muted-foreground mt-1">
+              "{{ listings.find(l => l.slug === deleteConfirmSlug)?.title }}" kalıcı olarak silinecek. Bu işlem geri alınamaz.
+            </p>
+          </div>
+          <div class="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              class="flex-1"
+              @click="deleteConfirmSlug = null"
+            >
+              Vazgeç
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              class="flex-1"
+              :loading="pendingSlug === deleteConfirmSlug"
+              @click="deleteListing(deleteConfirmSlug, listings.find(l => l.slug === deleteConfirmSlug)?.title ?? '')"
+            >
+              Sil
+            </Button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>

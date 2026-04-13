@@ -23,11 +23,11 @@ const pending = ref(false)
 const capturing = ref(false)
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const descriptionRef = ref<HTMLTextAreaElement | null>(null)
+const triggerRef = ref<HTMLButtonElement | null>(null)
 
 const attachments = ref<{ file: File; preview: string }[]>([])
 
 const route = useRoute()
-const authStore = useAuthStore()
 const isListingDetail = computed(() => route.name === "ilan-slug")
 
 function openModal() {
@@ -37,6 +37,10 @@ function openModal() {
 
 function closeModal() {
   open.value = false
+  nextTick(() => triggerRef.value?.focus())
+}
+
+function resetForm() {
   description.value = ""
   type.value = "bug"
   attachments.value.forEach((a) => URL.revokeObjectURL(a.preview))
@@ -66,6 +70,21 @@ function removeAttachment(i: number) {
   attachments.value.splice(i, 1)
 }
 
+function playShutterSound() {
+  const audio = new Audio("/sounds/shutter.mp3")
+  audio.volume = 0.6
+  audio.play().catch(() => {})
+}
+
+function showFlash() {
+  const flash = document.createElement("div")
+  flash.style.cssText =
+    "position:fixed;inset:0;z-index:99999;background:white;pointer-events:none;opacity:0.7;transition:opacity 300ms"
+  document.body.appendChild(flash)
+  requestAnimationFrame(() => { flash.style.opacity = "0" })
+  setTimeout(() => flash.remove(), 350)
+}
+
 async function captureScreen() {
   if (!import.meta.client) return
   if (attachments.value.length >= MAX_ATTACHMENTS) {
@@ -74,27 +93,34 @@ async function captureScreen() {
   }
   capturing.value = true
   open.value = false
+
   await nextTick()
-  await new Promise((r) => setTimeout(r, 80))
+  await new Promise<void>((r) => setTimeout(r, 400))
 
   try {
-    const { default: html2canvas } = await import("html2canvas")
+    const mod = await import("html2canvas-pro")
+    const html2canvas = (mod.default || mod) as (
+      el: HTMLElement,
+      opts?: Record<string, unknown>,
+    ) => Promise<HTMLCanvasElement>
+
     const canvas = await html2canvas(document.body, {
-      useCORS: false,
-      allowTaint: false,
+      useCORS: true,
+      scale: window.devicePixelRatio || 1,
       logging: false,
-      scale: Math.min(window.devicePixelRatio, 2),
-      ignoreElements: (el) => {
-        if (el.tagName !== "IMG") return false
-        const src = (el as HTMLImageElement).src
-        return Boolean(src && !src.startsWith(window.location.origin))
-      },
     })
-    canvas.toBlob((blob) => {
-      if (!blob) return
-      const file = new File([blob], `screenshot-${Date.now()}.png`, { type: "image/png" })
-      addFiles([file])
-    }, "image/png")
+
+    playShutterSound()
+    showFlash()
+
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", 0.8),
+    )
+    if (blob) {
+      const file = new File([blob], `screenshot-${Date.now()}.jpg`, { type: "image/jpeg" })
+      const preview = URL.createObjectURL(blob)
+      attachments.value.push({ file, preview })
+    }
   } catch {
     toast.error("Ekran görüntüsü alınamadı.")
   } finally {
@@ -115,10 +141,6 @@ async function uploadAttachment(file: File): Promise<string> {
 
 async function submit() {
   if (!description.value.trim()) return
-  if (!authStore.isLoggedIn) {
-    toast.error("Geri bildirim göndermek için giriş yapmalısın.")
-    return
-  }
   pending.value = true
   try {
     const attachment_urls: string[] = []
@@ -136,6 +158,7 @@ async function submit() {
     })
     toast.success("Geri bildirim alındı, teşekkürler!")
     closeModal()
+    resetForm()
   } catch (err) {
     toast.error(err instanceof ApiError ? err.message : "Gönderilemedi, tekrar dene.")
   } finally {
@@ -147,6 +170,7 @@ async function submit() {
 <template>
   <!-- Trigger -->
   <button
+    ref="triggerRef"
     type="button"
     aria-label="Geri bildirim gönder"
     :aria-expanded="open"
@@ -285,7 +309,7 @@ async function submit() {
           <button
             type="button"
             class="flex-1 py-2.5 text-sm border border-border rounded-md hover:bg-muted cursor-pointer transition-colors"
-            @click="closeModal"
+            @click="closeModal(); resetForm()"
           >
             Vazgeç
           </button>

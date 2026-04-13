@@ -15,14 +15,23 @@ const initials = computed(
 
 const menuOpen = ref(false)
 const avatarError = ref(false)
-const pendingCount = ref(0)
+const pendingCount = useState<number>("admin-pending-count", () => 0)
+const menuTriggerRef = ref<HTMLButtonElement | null>(null)
 
 function closeMenu() {
   menuOpen.value = false
 }
 
+function onGlobalKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape" && menuOpen.value) {
+    menuOpen.value = false
+    menuTriggerRef.value?.focus()
+  }
+}
+
 onMounted(async () => {
   document.addEventListener("click", closeMenu)
+  document.addEventListener("keydown", onGlobalKeydown)
   if (!authStore.user?.is_admin) return
   try {
     const res = await apiFetch<{ data: AdminStats; status: "ok" }>("/api/admin/stats")
@@ -34,21 +43,22 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener("click", closeMenu)
+  document.removeEventListener("keydown", onGlobalKeydown)
 })
 </script>
 
 <template>
-  <header class="bg-white border-b border-border">
+  <header class="bg-background border-b border-border">
     <ClientOnly>
       <div
         v-if="authStore.isLoggedIn && !authStore.user?.whatsapp"
-        class="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center justify-center gap-2.5 text-sm text-amber-800"
+        class="bg-brand/5 border-b border-brand/20 px-4 py-2.5 flex items-center justify-center gap-2.5 text-sm text-foreground"
       >
         <AlertCircle class="size-4 shrink-0" />
         <span class="font-medium">WhatsApp numaran olmadan ilanlarındaki kişiler sana ulaşamaz.</span>
         <NuxtLink
           to="/ayarlar"
-          class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-amber-600 text-white text-xs font-medium cursor-pointer hover:bg-amber-700 transition-colors shrink-0"
+          class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-brand text-brand-foreground text-xs font-medium cursor-pointer hover:opacity-90 transition-opacity shrink-0"
         >
           Hemen Ekle
         </NuxtLink>
@@ -82,6 +92,10 @@ onUnmounted(() => {
 
           <div class="relative" @click.stop>
             <button
+              ref="menuTriggerRef"
+              :aria-expanded="menuOpen"
+              aria-haspopup="menu"
+              aria-label="Hesap menüsünü aç"
               class="flex items-center gap-1.5 cursor-pointer"
               @click="menuOpen = !menuOpen"
             >
@@ -103,7 +117,8 @@ onUnmounted(() => {
 
             <div
               v-if="menuOpen"
-              class="absolute right-0 top-full mt-1.5 w-44 bg-white border border-border rounded-lg shadow-md py-1 z-50"
+              role="menu"
+              class="absolute right-0 top-full mt-1.5 w-44 bg-background border border-border rounded-lg shadow-md py-1 z-50"
             >
               <NuxtLink
                 v-if="authStore.user?.slug"
@@ -150,7 +165,7 @@ onUnmounted(() => {
                   <span class="flex-1">Yönetim</span>
                   <span
                     v-if="pendingCount > 0"
-                    class="inline-flex items-center rounded-full bg-amber-100 text-amber-700 text-xs px-1.5 py-0.5 font-medium"
+                    class="inline-flex items-center rounded-full bg-brand/10 text-brand text-xs px-1.5 py-0.5 font-medium"
                   >
                     {{ pendingCount }}
                   </span>
@@ -158,7 +173,7 @@ onUnmounted(() => {
               </template>
               <div class="border-t border-border my-1" />
               <button
-                class="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-muted cursor-pointer transition-colors"
+                class="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted cursor-pointer transition-colors"
                 @click="authStore.logout(); closeMenu()"
               >
                 <LogOut class="size-3.5 shrink-0" />
