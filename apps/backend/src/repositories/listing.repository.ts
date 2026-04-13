@@ -204,13 +204,17 @@ export const listingRepository = {
     const where = `WHERE ${conditions.join(" AND ")}`;
     const orderBy = params.sort === "popular" ? "l.view_count DESC" : "l.updated_at DESC";
 
-    const [countResult, dataResult] = await db.batch([
+    const batchResults = await db.batch([
       db.prepare(`SELECT COUNT(*) as total FROM listings l JOIN categories c ON c.id = l.category_id ${where}`).bind(...bindings),
       db.prepare(`${JOIN_SQL} ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`).bind(...bindings, limit, offset),
     ]);
+    const [countResult, dataResult] = batchResults as [
+      D1Result<{ total: number }>,
+      D1Result<ListingRowJoined>,
+    ];
 
-    const countRow = countResult.results?.[0] as { total: number } | undefined;
-    const rows = dataResult.results as ListingRowJoined[] ?? [];
+    const countRow = countResult.results[0];
+    const rows = dataResult.results ?? [];
 
     return {
       items: rows.map(toListItem),
