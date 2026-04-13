@@ -22,5 +22,7 @@ watch(
   <NuxtLayout>
     <NuxtPage />
   </NuxtLayout>
-  <Toaster position="bottom-right" richColors />
+  <ClientOnly>
+    <Toaster position="bottom-right" richColors />
+  </ClientOnly>
 </template>

@@ -20,7 +20,7 @@ const communityListings = computed(() => communityRes.value?.data.items ?? [])
 
     <!-- Hero -->
     <section class="text-center pt-14 pb-4 space-y-5">
-      <div class="inline-flex items-center gap-2 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+      <div class="inline-flex items-center gap-2 text-xs font-medium text-brand bg-brand/5 border border-brand/20 px-3 py-1 rounded-full">
         Kargo yok · Yüz yüze buluşma · Gerçek fiyatlar
       </div>
       <h1 class="text-4xl sm:text-5xl font-bold text-foreground tracking-tight leading-tight">
@@ -38,7 +38,7 @@ const communityListings = computed(() => communityRes.value?.data.items ?? [])
         </NuxtLink>
         <NuxtLink
           to="/ilan-ver"
-          class="inline-flex items-center gap-2 border border-border bg-white text-foreground px-6 py-2.5 rounded-lg text-sm font-medium cursor-pointer hover:bg-muted transition-colors"
+          class="inline-flex items-center gap-2 border border-border bg-background text-foreground px-6 py-2.5 rounded-lg text-sm font-medium cursor-pointer hover:bg-muted transition-colors"
         >
           İlan Ver
           <ArrowRight class="size-4" />
@@ -94,7 +94,7 @@ const communityListings = computed(() => communityRes.value?.data.items ?? [])
     <section v-if="communityListings.length > 0" class="space-y-4">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <HandHeart class="size-5 text-amber-600" />
+          <HandHeart class="size-5 text-brand" />
           <h2 class="text-xl font-bold text-foreground">Ahaliye Destek Ol</h2>
         </div>
         <NuxtLink

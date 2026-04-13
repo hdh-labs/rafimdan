@@ -158,8 +158,8 @@ function submit() {
     <ClientOnly>
       <!-- WhatsApp Gate -->
       <div v-if="!authStore.user?.whatsapp" class="py-8 flex flex-col items-center text-center gap-4">
-        <div class="size-16 rounded-full bg-amber-100 flex items-center justify-center">
-          <MessageCircle class="size-8 text-amber-600" />
+        <div class="size-16 rounded-full bg-brand/10 flex items-center justify-center">
+          <MessageCircle class="size-8 text-brand" />
         </div>
         <div class="space-y-1.5 max-w-sm">
           <p class="text-lg font-semibold text-foreground">Önce WhatsApp numaranı ekle</p>
@@ -169,7 +169,7 @@ function submit() {
         </div>
         <NuxtLink
           to="/ayarlar"
-          class="inline-flex items-center gap-2 px-5 py-2.5 bg-foreground text-background rounded-lg text-sm font-medium cursor-pointer hover:opacity-90 transition-opacity"
+          class="inline-flex items-center gap-2 px-5 py-2.5 bg-brand text-brand-foreground rounded-lg text-sm font-medium cursor-pointer hover:opacity-90 transition-opacity"
         >
           Ayarlara Git
         </NuxtLink>
@@ -183,7 +183,7 @@ function submit() {
         <label
           class="flex flex-col items-center gap-1.5 py-3 px-4 rounded-lg border-2 cursor-pointer transition-colors"
           :class="form.direction === 'offer'
-            ? 'border-foreground bg-foreground text-background'
+            ? 'border-brand bg-brand text-brand-foreground'
             : 'border-border hover:bg-muted'"
         >
           <input v-model="form.direction" type="radio" value="offer" class="sr-only" />
@@ -193,7 +193,7 @@ function submit() {
         <label
           class="flex flex-col items-center gap-1.5 py-3 px-4 rounded-lg border-2 cursor-pointer transition-colors"
           :class="form.direction !== 'offer'
-            ? 'border-amber-500 bg-amber-50 text-amber-900'
+            ? 'border-brand bg-brand text-brand-foreground'
             : 'border-border hover:bg-muted'"
         >
           <input
@@ -208,18 +208,18 @@ function submit() {
       </div>
 
       <!-- Destek Alt Seçeneği -->
-      <div v-if="form.direction !== 'offer'" class="flex rounded-lg border border-amber-200 overflow-hidden">
+      <div v-if="form.direction !== 'offer'" class="flex rounded-lg border border-border overflow-hidden">
         <label
           class="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm cursor-pointer transition-colors"
-          :class="form.direction === 'request' ? 'bg-amber-100 text-amber-900 font-semibold' : 'bg-white text-muted-foreground hover:bg-amber-50'"
+          :class="form.direction === 'request' ? 'bg-brand/10 text-foreground font-semibold' : 'bg-background text-muted-foreground hover:bg-muted'"
         >
           <input v-model="form.direction" type="radio" value="request" class="sr-only" />
           Arıyorum
         </label>
-        <div class="w-px bg-amber-200" />
+        <div class="w-px bg-border" />
         <label
           class="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm cursor-pointer transition-colors"
-          :class="form.direction === 'support' ? 'bg-amber-100 text-amber-900 font-semibold' : 'bg-white text-muted-foreground hover:bg-amber-50'"
+          :class="form.direction === 'support' ? 'bg-brand/10 text-foreground font-semibold' : 'bg-background text-muted-foreground hover:bg-muted'"
         >
           <input v-model="form.direction" type="radio" value="support" class="sr-only" />
           Veriyorum
@@ -305,7 +305,7 @@ function submit() {
             :key="opt.value"
             class="flex items-center justify-center py-2 px-3 rounded-md border text-sm cursor-pointer transition-colors"
             :class="form.price_type === opt.value
-              ? 'border-foreground bg-foreground text-background'
+              ? 'border-brand bg-brand text-brand-foreground'
               : 'border-border hover:bg-muted'"
           >
             <input v-model="form.price_type" type="radio" :value="opt.value" class="sr-only" />
@@ -479,6 +479,7 @@ function submit() {
 
       <Button
         type="submit"
+        variant="brand"
         size="lg"
         :loading="submitting"
         :disabled="submitting"

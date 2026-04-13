@@ -1,5 +1,5 @@
 import { toast } from "vue-sonner"
-import { apiFetch } from "~/utils/api"
+import { apiFetch, ApiError } from "~/utils/api"
 import type { ApiResponse } from "@rafimdan/shared"
 
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024
@@ -73,8 +73,9 @@ export function useEagerPhotoUpload() {
       })
       entry.tempKey = res.data.key
       entry.status = "done"
-    } catch {
+    } catch (err) {
       entry.status = "error"
+      toast.error(err instanceof ApiError ? err.message : "Fotoğraf yüklenemedi. Yeniden dene.")
     }
   }
 

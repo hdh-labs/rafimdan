@@ -131,6 +131,7 @@ watch(() => form.title, () => { delete errors.title })
 watch(() => form.category_id, () => { delete errors.category_id })
 watch(() => form.condition, () => { delete errors.condition })
 watch(() => form.price, () => { delete errors.price })
+watch(totalPhotos, (n) => { if (n > 0) delete errors.photos })
 
 function validate(): boolean {
   const e: Record<string, string> = {}
@@ -149,6 +150,10 @@ function validate(): boolean {
   }
   if (form.direction === "offer" && form.price_type !== "free") {
     if (form.price === "" || form.price === null) e.price = "Fiyat zorunludur."
+  }
+
+  if (form.direction === "offer" && totalPhotos.value === 0) {
+    e.photos = "Sat/Ver ilanı için en az 1 fotoğraf zorunludur."
   }
 
   Object.assign(errors, e)
@@ -176,6 +181,14 @@ function onPhotoDrop(i: number) {
   existingPhotos.value = arr
   dragFromIndex.value = null
   dragOverIndex.value = null
+  savePhotoOrder()
+}
+
+function setCoverExisting(index: number) {
+  const arr = [...existingPhotos.value]
+  const [moved] = arr.splice(index, 1)
+  arr.unshift(moved!)
+  existingPhotos.value = arr
   savePhotoOrder()
 }
 
@@ -231,7 +244,12 @@ async function save() {
       toast.error(`${failedCount} fotoğraf yüklenemedi. Tekrar ekleyebilirsin.`)
     }
 
-    await navigateTo(`/ilan/${slug}`)
+    if (currentStatus.value === "rejected") {
+      toast.success("İlanınız incelemeye gönderildi.")
+      await navigateTo("/ilanlarim")
+    } else {
+      await navigateTo(`/ilan/${slug}`)
+    }
   } catch (err) {
     submitError.value = err instanceof ApiError ? err.message : "Bir hata oluştu, tekrar deneyin."
   } finally {
@@ -322,8 +340,11 @@ async function confirmDelete() {
         </div>
       </div>
 
-      <!-- İlan Durumu -->
-      <div class="rounded-xl border border-border p-4 space-y-3">
+      <!-- İlan Durumu — sadece active/sold için göster -->
+      <div
+        v-if="currentStatus === 'active' || currentStatus === 'sold'"
+        class="rounded-xl border border-border p-4 space-y-3"
+      >
         <p class="text-sm font-medium text-foreground">İlan Durumu</p>
         <div class="flex gap-2">
           <button
@@ -346,50 +367,45 @@ async function confirmDelete() {
 
         <!-- İlan Tipi -->
         <div class="grid grid-cols-2 gap-3">
-          <label
+          <button
+            type="button"
             class="flex flex-col items-center gap-1.5 py-3 px-4 rounded-lg border-2 cursor-pointer transition-colors"
-            :class="form.direction === 'offer'
-              ? 'border-foreground bg-foreground text-background'
-              : 'border-border hover:bg-muted'"
+            :class="form.direction === 'offer' ? 'border-brand bg-brand text-brand-foreground' : 'border-border hover:bg-muted'"
+            @click="form.direction = 'offer'"
           >
-            <input v-model="form.direction" type="radio" value="offer" class="sr-only" />
             <span class="text-sm font-semibold">Sat / Ver</span>
             <span class="text-xs opacity-70">Ürün veya eşya paylaş</span>
-          </label>
-          <label
+          </button>
+          <button
+            type="button"
             class="flex flex-col items-center gap-1.5 py-3 px-4 rounded-lg border-2 cursor-pointer transition-colors"
-            :class="form.direction !== 'offer'
-              ? 'border-amber-500 bg-amber-50 text-amber-900'
-              : 'border-border hover:bg-muted'"
+            :class="form.direction !== 'offer' ? 'border-brand bg-brand text-brand-foreground' : 'border-border hover:bg-muted'"
+            @click="form.direction === 'offer' && (form.direction = 'request')"
           >
-            <input
-              type="radio"
-              class="sr-only"
-              :checked="form.direction !== 'offer'"
-              @change="form.direction === 'offer' ? form.direction = 'request' : null"
-            />
             <span class="text-sm font-semibold">Destek</span>
             <span class="text-xs opacity-70">İhtiyaç veya yardım teklifi</span>
-          </label>
+          </button>
         </div>
 
         <!-- Destek Alt Seçeneği -->
-        <div v-if="form.direction !== 'offer'" class="flex rounded-lg border border-amber-200 overflow-hidden">
-          <label
+        <div v-if="form.direction !== 'offer'" class="flex rounded-lg border border-border overflow-hidden">
+          <button
+            type="button"
             class="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm cursor-pointer transition-colors"
-            :class="form.direction === 'request' ? 'bg-amber-100 text-amber-900 font-semibold' : 'bg-white text-muted-foreground hover:bg-amber-50'"
+            :class="form.direction === 'request' ? 'bg-brand/10 text-foreground font-semibold' : 'bg-background text-muted-foreground hover:bg-muted'"
+            @click="form.direction = 'request'"
           >
-            <input v-model="form.direction" type="radio" value="request" class="sr-only" />
             Arıyorum
-          </label>
-          <div class="w-px bg-amber-200" />
-          <label
+          </button>
+          <div class="w-px bg-border" />
+          <button
+            type="button"
             class="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm cursor-pointer transition-colors"
-            :class="form.direction === 'support' ? 'bg-amber-100 text-amber-900 font-semibold' : 'bg-white text-muted-foreground hover:bg-amber-50'"
+            :class="form.direction === 'support' ? 'bg-brand/10 text-foreground font-semibold' : 'bg-background text-muted-foreground hover:bg-muted'"
+            @click="form.direction = 'support'"
           >
-            <input v-model="form.direction" type="radio" value="support" class="sr-only" />
             Veriyorum
-          </label>
+          </button>
         </div>
 
         <!-- Başlık -->
@@ -465,7 +481,7 @@ async function confirmDelete() {
               :key="opt.value"
               class="flex items-center justify-center py-2 px-4 rounded-xl border text-sm cursor-pointer transition-colors"
               :class="form.price_type === opt.value
-                ? 'border-foreground bg-foreground text-background font-medium'
+                ? 'border-brand bg-brand text-brand-foreground font-medium'
                 : 'border-border hover:bg-muted'"
             >
               <input v-model="form.price_type" type="radio" :value="opt.value" class="sr-only" />
@@ -535,19 +551,23 @@ async function confirmDelete() {
           <label class="block text-sm font-medium text-foreground mb-1">
             Fotoğraflar
             <span class="font-normal text-muted-foreground">(max 6, jpeg/png/webp)</span>
+            <span v-if="form.direction === 'offer'" class="text-destructive"> *</span>
           </label>
           <p v-if="existingPhotos.length > 1" class="text-xs text-muted-foreground mb-2">
             Sürükleyerek sırala — ilk fotoğraf kapak olarak gösterilir.
           </p>
-          <div class="flex flex-wrap gap-2">
+          <div class="grid grid-cols-3 gap-2">
+            <!-- Mevcut fotoğraflar -->
             <div
               v-for="(url, i) in existingPhotos"
               :key="`existing-${url}`"
               draggable="true"
-              class="relative size-20 rounded-xl overflow-hidden border transition-all cursor-grab active:cursor-grabbing"
+              class="relative aspect-square rounded-lg overflow-hidden border transition-all"
               :class="[
-                i === 0 ? 'border-foreground ring-1 ring-foreground' : 'border-border',
+                i === 0 ? 'border-foreground' : 'border-border',
+                existingPhotos.length > 1 ? 'cursor-grab active:cursor-grabbing' : '',
                 dragOverIndex === i && dragFromIndex !== i ? 'ring-2 ring-blue-400 scale-105' : '',
+                errors.photos ? 'ring-1 ring-destructive' : '',
               ]"
               @dragstart="onPhotoDragStart(i)"
               @dragover.prevent="onPhotoDragOver(i)"
@@ -555,9 +575,13 @@ async function confirmDelete() {
               @dragend="dragFromIndex = null; dragOverIndex = null"
             >
               <img :src="url" alt="Mevcut fotoğraf" class="size-full object-cover pointer-events-none" />
-              <span v-if="i === 0" class="absolute bottom-0 left-0 right-0 text-center text-[10px] font-medium bg-black/50 text-white py-0.5">
-                Kapak
-              </span>
+              <div
+                class="absolute bottom-0 inset-x-0 text-center text-[10px] font-medium py-0.5"
+                :class="i === 0 ? 'bg-black/60 text-white' : 'bg-foreground/80 text-background cursor-pointer'"
+                @click="i > 0 ? setCoverExisting(i) : null"
+              >
+                {{ i === 0 ? 'Kapak' : 'Kapağa Al' }}
+              </div>
               <button
                 type="button"
                 :disabled="deletingPhotoIndex === i"
@@ -569,10 +593,11 @@ async function confirmDelete() {
               </button>
             </div>
 
+            <!-- Yeni eklenen dosyalar (henüz yüklenmedi) -->
             <div
               v-for="(file, i) in newFiles"
               :key="`new-${i}`"
-              class="relative size-20 rounded-xl overflow-hidden border border-dashed border-border"
+              class="relative aspect-square rounded-lg overflow-hidden border border-dashed border-border"
             >
               <img :src="previewUrl(file)" :alt="file.name" class="size-full object-cover" />
               <button
@@ -584,9 +609,10 @@ async function confirmDelete() {
               </button>
             </div>
 
+            <!-- Ekle butonu -->
             <label
               v-if="totalPhotos < 6"
-              class="size-20 rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-muted transition-colors"
+              class="aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-muted transition-colors"
             >
               <ImagePlus class="size-5 text-muted-foreground" />
               <span class="text-xs text-muted-foreground">Ekle</span>
@@ -599,6 +625,7 @@ async function confirmDelete() {
               />
             </label>
           </div>
+          <p v-if="errors.photos" class="mt-1.5 text-xs text-destructive">{{ errors.photos }}</p>
         </div>
 
         <!-- Submit error -->
@@ -619,11 +646,11 @@ async function confirmDelete() {
           <button
             type="submit"
             :disabled="submitting"
-            class="flex-1 bg-foreground text-background py-2.5 rounded-xl text-sm font-medium cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            class="flex-1 bg-brand text-brand-foreground py-2.5 rounded-xl text-sm font-medium cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             <Loader2 v-if="submitting" class="size-4 animate-spin" />
             <Save v-else class="size-4" />
-            {{ submitting ? "Kaydediliyor..." : "Kaydet" }}
+            {{ submitting ? "Gönderiliyor..." : currentStatus === "rejected" ? "Tekrar Gönder" : "Kaydet" }}
           </button>
         </div>
       </form>

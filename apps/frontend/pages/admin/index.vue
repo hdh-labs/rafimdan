@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { Trash2, ShieldOff, Shield, Loader2, ExternalLink, Check, X, RotateCcw } from "lucide-vue-next"
+import { Trash2, ShieldOff, Shield, Loader2, ExternalLink, Check, X, RotateCcw, ChevronRight, Users, Clock, CheckCircle, ShoppingBag, Flag } from "lucide-vue-next"
 import { toast } from "vue-sonner"
 import type { ListingDetail, AdminUserProfile, AdminStats, AdminLog, Report, ReportStatus } from "@rafimdan/shared"
 import { apiFetch } from "~/utils/api"
-import { STATUS_LABELS, STATUS_COLORS } from "~/utils/listing-constants"
+import { STATUS_LABELS, STATUS_COLORS, CONDITION_LABELS, PRICE_TYPE_LABELS } from "~/utils/listing-constants"
 
 definePageMeta({ middleware: ["auth", "admin"], ssr: false })
 useSeoMeta({ title: "Admin — Rafımdan" })
@@ -17,6 +17,11 @@ const activeTab = ref<Tab>("listings")
 // ---------------------------------------------------------------------------
 
 const stats = ref<AdminStats | null>(null)
+const headerPendingCount = useState<number>("admin-pending-count", () => 0)
+
+watch(() => stats.value?.pending_listings, (v) => {
+  if (v !== undefined) headerPendingCount.value = v
+})
 
 async function fetchStats() {
   try {
@@ -45,14 +50,40 @@ const listingsStatus = ref<string>("pending")
 const listingsLoading = ref(false)
 const deletingSlug = ref<string | null>(null)
 const moderatingSlug = ref<string | null>(null)
-const rejectModal = ref({ open: false, slug: "", title: "", reason: "" })
+
+const selectedListing = ref<ListingDetail | null>(null)
+const panelRejectMode = ref(false)
+const panelRejectReason = ref("")
+const lightboxUrl = ref<string | null>(null)
+
+function openPanel(listing: ListingDetail) {
+  selectedListing.value = listing
+  panelRejectMode.value = false
+  panelRejectReason.value = ""
+}
+
+function closePanel() {
+  selectedListing.value = null
+  panelRejectMode.value = false
+  panelRejectReason.value = ""
+  deleteConfirmSlug.value = null
+}
+
+const panelPriceDisplay = computed(() => {
+  const l = selectedListing.value
+  if (!l) return ""
+  if (l.direction === "request") return "Destek Arıyor"
+  if (l.price_type === "free") return "Ücretsiz"
+  const formatted = (l.price ?? 0).toLocaleString("tr-TR") + " ₺"
+  return l.price_type === "negotiable" ? `${formatted} · Pazarlığa açık` : formatted
+})
 
 const STATUS_OPTIONS = [
-  { value: "", label: "Tümü" },
-  { value: "pending", label: "Bekleyen" },
-  { value: "active", label: "Aktif" },
-  { value: "rejected", label: "Reddedilen" },
-  { value: "sold", label: "Satıldı" },
+  { value: "", label: "Tümü", countKey: "total_listings" as const },
+  { value: "pending", label: "Bekleyen", countKey: "pending_listings" as const },
+  { value: "active", label: "Aktif", countKey: "active_listings" as const },
+  { value: "rejected", label: "Reddedilen", countKey: "rejected_listings" as const },
+  { value: "sold", label: "Satıldı", countKey: "sold_listings" as const },
 ]
 
 
@@ -71,13 +102,21 @@ async function fetchListings() {
   }
 }
 
-async function deleteListing(slug: string, title: string) {
-  if (!confirm(`"${title}" silinecek. Emin misin?`)) return
+const deleteConfirmSlug = ref<string | null>(null)
+
+async function deleteListing(slug: string) {
+  deleteConfirmSlug.value = null
   deletingSlug.value = slug
   try {
+    const deleted = listings.value.find(l => l.slug === slug)
     await apiFetch(`/api/admin/listings/${slug}`, { method: "DELETE" })
     listings.value = listings.value.filter(l => l.slug !== slug)
     listingsTotal.value = Math.max(0, listingsTotal.value - 1)
+    if (deleted && stats.value) {
+      const key = STATUS_COUNT_KEY[deleted.status]
+      if (key) (stats.value[key] as number)--
+      ;(stats.value.total_listings as number)--
+    }
     fetchStats()
     fetchLogs()
     toast.success("İlan silindi.")
@@ -94,6 +133,13 @@ const MODERATE_MSG: Record<string, string> = {
   rejected: "İlan reddedildi.",
 }
 
+const STATUS_COUNT_KEY: Record<string, keyof AdminStats> = {
+  active:   "active_listings",
+  pending:  "pending_listings",
+  rejected: "rejected_listings",
+  sold:     "sold_listings",
+}
+
 async function moderateListing(slug: string, status: "active" | "pending" | "rejected", reason = "") {
   moderatingSlug.value = slug
   try {
@@ -103,8 +149,19 @@ async function moderateListing(slug: string, status: "active" | "pending" | "rej
     })
     const item = listings.value.find(l => l.slug === slug)
     if (item) {
-      item.status = status
-      item.rejection_reason = status === "rejected" ? (reason || null) : null
+      if (stats.value) {
+        const fromKey = STATUS_COUNT_KEY[item.status]
+        const toKey = STATUS_COUNT_KEY[status]
+        if (fromKey) (stats.value[fromKey] as number)--
+        if (toKey)   (stats.value[toKey] as number)++
+      }
+      if (listingsStatus.value && listingsStatus.value !== status) {
+        listings.value = listings.value.filter(l => l.slug !== slug)
+        listingsTotal.value = Math.max(0, listingsTotal.value - 1)
+      } else {
+        item.status = status
+        item.rejection_reason = status === "rejected" ? (reason || null) : null
+      }
     }
     fetchStats()
     fetchLogs()
@@ -116,42 +173,18 @@ async function moderateListing(slug: string, status: "active" | "pending" | "rej
   }
 }
 
-const rejectModalRef = ref<HTMLDivElement | null>(null)
-const rejectTriggerRef = ref<HTMLElement | null>(null)
-
-function openRejectModal(slug: string, title: string, trigger?: HTMLElement) {
-  rejectTriggerRef.value = trigger ?? null
-  rejectModal.value = { open: true, slug, title, reason: "" }
-  nextTick(() => {
-    rejectModalRef.value?.querySelector<HTMLElement>("textarea")?.focus()
-  })
+async function panelModerate(status: "active" | "pending" | "rejected") {
+  if (!selectedListing.value) return
+  await moderateListing(selectedListing.value.slug, status, status === "rejected" ? panelRejectReason.value : "")
+  if (status === "rejected") panelRejectMode.value = false
+  closePanel()
 }
 
-function closeRejectModal() {
-  rejectModal.value.open = false
-  rejectTriggerRef.value?.focus()
-}
-
-function onRejectKeydown(e: KeyboardEvent) {
-  if (e.key === "Escape") { closeRejectModal(); return }
-  if (e.key !== "Tab" || !rejectModalRef.value) return
-  const focusable = Array.from(
-    rejectModalRef.value.querySelectorAll<HTMLElement>("button, textarea"),
-  ).filter((el) => !el.hasAttribute("disabled"))
-  if (focusable.length === 0) return
-  const first = focusable[0]
-  const last = focusable[focusable.length - 1]
-  if (e.shiftKey && document.activeElement === first) {
-    e.preventDefault(); last.focus()
-  } else if (!e.shiftKey && document.activeElement === last) {
-    e.preventDefault(); first.focus()
-  }
-}
-
-async function confirmReject() {
-  const { slug, reason } = rejectModal.value
-  closeRejectModal()
-  await moderateListing(slug, "rejected", reason)
+async function panelDelete() {
+  if (!selectedListing.value) return
+  const slug = selectedListing.value.slug
+  await deleteListing(slug)
+  if (!listings.value.find(l => l.slug === slug)) closePanel()
 }
 
 watch([listingsStatus, listingsPage], fetchListings, { immediate: false })
@@ -332,6 +365,14 @@ function switchTab(tab: Tab) {
   activeTab.value = tab
 }
 
+function navigateToStat(tab: Tab, status?: string) {
+  activeTab.value = tab
+  if (tab === "listings" && status !== undefined) {
+    listingsStatus.value = status
+    listingsPage.value = 1
+  }
+}
+
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString("tr-TR", { day: "numeric", month: "short", year: "numeric" })
 }
@@ -346,30 +387,48 @@ function formatDate(d: string) {
 
     <!-- Stats -->
     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
-      <div class="border border-border rounded-lg p-3">
-        <p class="text-xs text-muted-foreground">Kullanıcılar</p>
-        <p class="text-2xl font-bold mt-0.5">{{ stats?.total_users ?? '—' }}</p>
+      <div
+        class="border border-border rounded-lg p-3 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all"
+        @click="navigateToStat('users')"
+      >
+        <Users class="size-4 text-brand mb-1.5" />
+        <p class="text-2xl font-bold">{{ stats?.total_users ?? '—' }}</p>
+        <p class="text-xs text-muted-foreground mt-0.5">Kullanıcılar</p>
       </div>
       <div
-        class="rounded-lg p-3 border"
+        class="rounded-lg p-3 border cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all"
         :class="(stats?.pending_listings ?? 0) > 0
           ? 'border-amber-300 bg-amber-50'
           : 'border-border'"
+        @click="navigateToStat('listings', 'pending')"
       >
-        <p class="text-xs" :class="(stats?.pending_listings ?? 0) > 0 ? 'text-amber-700' : 'text-muted-foreground'">Bekleyen</p>
-        <p class="text-2xl font-bold mt-0.5" :class="(stats?.pending_listings ?? 0) > 0 ? 'text-amber-700' : ''">{{ stats?.pending_listings ?? '—' }}</p>
+        <Clock class="size-4 mb-1.5" :class="(stats?.pending_listings ?? 0) > 0 ? 'text-amber-600' : 'text-brand'" />
+        <p class="text-2xl font-bold" :class="(stats?.pending_listings ?? 0) > 0 ? 'text-amber-700' : ''">{{ stats?.pending_listings ?? '—' }}</p>
+        <p class="text-xs mt-0.5" :class="(stats?.pending_listings ?? 0) > 0 ? 'text-amber-700' : 'text-muted-foreground'">Bekleyen</p>
       </div>
-      <div class="border border-border rounded-lg p-3">
-        <p class="text-xs text-muted-foreground">Aktif İlanlar</p>
-        <p class="text-2xl font-bold mt-0.5">{{ stats?.active_listings ?? '—' }}</p>
+      <div
+        class="border border-border rounded-lg p-3 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all"
+        @click="navigateToStat('listings', '')"
+      >
+        <CheckCircle class="size-4 text-brand mb-1.5" />
+        <p class="text-2xl font-bold">{{ stats?.active_listings ?? '—' }}</p>
+        <p class="text-xs text-muted-foreground mt-0.5">Aktif İlanlar</p>
       </div>
-      <div class="border border-border rounded-lg p-3">
-        <p class="text-xs text-muted-foreground">Satılan İlanlar</p>
-        <p class="text-2xl font-bold mt-0.5">{{ stats?.sold_listings ?? '—' }}</p>
+      <div
+        class="border border-border rounded-lg p-3 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all"
+        @click="navigateToStat('listings', 'sold')"
+      >
+        <ShoppingBag class="size-4 text-brand mb-1.5" />
+        <p class="text-2xl font-bold">{{ stats?.sold_listings ?? '—' }}</p>
+        <p class="text-xs text-muted-foreground mt-0.5">Satılan İlanlar</p>
       </div>
-      <div class="border border-border rounded-lg p-3">
-        <p class="text-xs text-muted-foreground">Raporlar</p>
-        <p class="text-2xl font-bold mt-0.5">{{ stats?.total_reports ?? '—' }}</p>
+      <div
+        class="border border-border rounded-lg p-3 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all"
+        @click="navigateToStat('reports')"
+      >
+        <Flag class="size-4 text-brand mb-1.5" />
+        <p class="text-2xl font-bold">{{ stats?.total_reports ?? '—' }}</p>
+        <p class="text-xs text-muted-foreground mt-0.5">Raporlar</p>
       </div>
     </div>
 
@@ -380,7 +439,7 @@ function formatDate(d: string) {
         :key="tab.key"
         class="px-4 py-2 text-sm font-medium cursor-pointer transition-colors -mb-px border-b-2"
         :class="activeTab === tab.key
-          ? 'border-foreground text-foreground'
+          ? 'border-brand text-brand'
           : 'border-transparent text-muted-foreground hover:text-foreground'"
         @click="switchTab(tab.key)"
       >
@@ -401,11 +460,14 @@ function formatDate(d: string) {
             :key="opt.value"
             class="px-3 py-1 text-xs rounded-full border cursor-pointer transition-colors"
             :class="listingsStatus === opt.value
-              ? 'bg-foreground text-background border-foreground'
+              ? 'bg-brand text-brand-foreground border-brand'
               : 'border-border text-muted-foreground hover:bg-muted'"
             @click="listingsStatus = opt.value; listingsPage = 1"
           >
             {{ opt.label }}
+            <span v-if="stats && stats[opt.countKey] > 0" class="ml-0.5 opacity-70">
+              ({{ stats[opt.countKey] }})
+            </span>
           </button>
         </div>
       </div>
@@ -424,30 +486,28 @@ function formatDate(d: string) {
               <th class="text-left px-3 py-2 text-xs font-medium text-muted-foreground hidden sm:table-cell">Satıcı</th>
               <th class="text-left px-3 py-2 text-xs font-medium text-muted-foreground">Durum</th>
               <th class="text-left px-3 py-2 text-xs font-medium text-muted-foreground hidden md:table-cell">Tarih</th>
-              <th class="w-12" />
+              <th class="w-8" />
             </tr>
           </thead>
           <tbody class="divide-y divide-border">
             <tr
               v-for="listing in listings"
               :key="listing.id"
-              class="hover:bg-muted/30 transition-colors"
-              :class="deletingSlug === listing.slug ? 'opacity-40 pointer-events-none' : ''"
+              class="hover:bg-muted/30 transition-colors cursor-pointer"
+              :class="[
+                deletingSlug === listing.slug || moderatingSlug === listing.slug ? 'opacity-40 pointer-events-none' : '',
+                selectedListing?.id === listing.id ? 'bg-muted/40' : '',
+              ]"
+              @click="openPanel(listing)"
             >
-              <td class="px-3 py-2">
-                <NuxtLink
-                  :to="`/ilan/${listing.slug}`"
-                  target="_blank"
-                  class="font-medium hover:underline cursor-pointer line-clamp-1"
-                >
-                  {{ listing.title }}
-                </NuxtLink>
+              <td class="px-3 py-2.5">
+                <p class="font-medium line-clamp-1">{{ listing.title }}</p>
                 <p class="text-xs text-muted-foreground">{{ listing.city }}</p>
               </td>
-              <td class="px-3 py-2 hidden sm:table-cell text-muted-foreground">
+              <td class="px-3 py-2.5 hidden sm:table-cell text-sm text-muted-foreground">
                 {{ listing.seller.display_name || listing.seller.name }}
               </td>
-              <td class="px-3 py-2">
+              <td class="px-3 py-2.5">
                 <span
                   class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium"
                   :class="STATUS_COLORS[listing.status] ?? 'bg-muted text-muted-foreground border-border'"
@@ -455,76 +515,11 @@ function formatDate(d: string) {
                   {{ STATUS_LABELS[listing.status] ?? listing.status }}
                 </span>
               </td>
-              <td class="px-3 py-2 hidden md:table-cell text-xs text-muted-foreground">
+              <td class="px-3 py-2.5 hidden md:table-cell text-xs text-muted-foreground">
                 {{ formatDate(listing.created_at) }}
               </td>
-              <td class="px-3 py-2">
-                <div
-                  class="flex items-center gap-1"
-                  :class="moderatingSlug === listing.slug ? 'opacity-40 pointer-events-none' : ''"
-                >
-                  <!-- pending: onayla + reddet -->
-                  <template v-if="listing.status === 'pending'">
-                    <button
-                      type="button"
-                      title="Onayla"
-                      class="flex items-center justify-center size-7 rounded text-green-600 hover:bg-green-50 cursor-pointer transition-colors"
-                      @click="moderateListing(listing.slug, 'active')"
-                    >
-                      <Loader2 v-if="moderatingSlug === listing.slug" class="size-3.5 animate-spin" />
-                      <Check v-else class="size-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      title="Reddet"
-                      class="flex items-center justify-center size-7 rounded text-amber-600 hover:bg-amber-50 cursor-pointer transition-colors"
-                      @click="openRejectModal(listing.slug, listing.title, $event.currentTarget as HTMLElement)"
-                    >
-                      <X class="size-3.5" />
-                    </button>
-                  </template>
-                  <!-- active: moderasyona al + reddet -->
-                  <template v-else-if="listing.status === 'active'">
-                    <button
-                      type="button"
-                      title="Moderasyona Al"
-                      class="flex items-center justify-center size-7 rounded text-amber-600 hover:bg-amber-50 cursor-pointer transition-colors"
-                      @click="moderateListing(listing.slug, 'pending')"
-                    >
-                      <Loader2 v-if="moderatingSlug === listing.slug" class="size-3.5 animate-spin" />
-                      <RotateCcw v-else class="size-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      title="Reddet"
-                      class="flex items-center justify-center size-7 rounded text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
-                      @click="openRejectModal(listing.slug, listing.title, $event.currentTarget as HTMLElement)"
-                    >
-                      <X class="size-3.5" />
-                    </button>
-                  </template>
-                  <!-- rejected: aktifleştir -->
-                  <template v-else-if="listing.status === 'rejected'">
-                    <button
-                      type="button"
-                      title="Aktifleştir"
-                      class="flex items-center justify-center size-7 rounded text-green-600 hover:bg-green-50 cursor-pointer transition-colors"
-                      @click="moderateListing(listing.slug, 'active')"
-                    >
-                      <Loader2 v-if="moderatingSlug === listing.slug" class="size-3.5 animate-spin" />
-                      <Check v-else class="size-3.5" />
-                    </button>
-                  </template>
-                  <button
-                    type="button"
-                    title="Sil"
-                    class="flex items-center justify-center size-7 rounded text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
-                    @click="deleteListing(listing.slug, listing.title)"
-                  >
-                    <Loader2 v-if="deletingSlug === listing.slug" class="size-3.5 animate-spin" />
-                    <Trash2 v-else class="size-3.5" />
-                  </button>
-                </div>
+              <td class="px-3 py-2.5 text-muted-foreground">
+                <ChevronRight class="size-4" />
               </td>
             </tr>
           </tbody>
@@ -685,7 +680,7 @@ function formatDate(d: string) {
           type="button"
           class="px-3 py-2 text-sm font-medium cursor-pointer transition-colors -mb-px border-b-2 whitespace-nowrap"
           :class="reportsStatusFilter === opt.key
-            ? 'border-foreground text-foreground'
+            ? 'border-brand text-brand'
             : 'border-transparent text-muted-foreground hover:text-foreground'"
           @click="reportsStatusFilter = opt.key"
         >
@@ -778,45 +773,275 @@ function formatDate(d: string) {
     </div>
   </div>
 
-  <!-- Reject Modal -->
+  <!-- Listing Detail Panel -->
   <Teleport to="body">
-    <div
-      v-if="rejectModal.open"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      @click.self="closeRejectModal"
-      @keydown="onRejectKeydown"
-    >
-      <div
-        ref="rejectModalRef"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="reject-modal-title"
-        class="bg-white rounded-lg shadow-xl p-5 w-full max-w-sm mx-4"
-      >
-        <h3 id="reject-modal-title" class="text-sm font-semibold mb-1">İlanı Reddet</h3>
-        <p class="text-xs text-muted-foreground mb-3 line-clamp-1">{{ rejectModal.title }}</p>
-        <textarea
-          v-model="rejectModal.reason"
-          placeholder="Red gerekçesi (isteğe bağlı) — kullanıcıya gösterilecek"
-          class="w-full text-sm border border-border rounded-md p-2 h-24 resize-none focus:outline-none focus:ring-1 focus:ring-foreground"
-        />
-        <div class="flex justify-end gap-2 mt-3">
-          <button
-            type="button"
-            class="px-3 py-1.5 text-sm border border-border rounded cursor-pointer hover:bg-muted transition-colors"
-            @click="closeRejectModal"
-          >
-            İptal
-          </button>
-          <button
-            type="button"
-            class="px-3 py-1.5 text-sm bg-red-600 text-white rounded cursor-pointer hover:bg-red-700 transition-colors"
-            @click="confirmReject"
-          >
-            Reddet
-          </button>
+    <Transition name="panel">
+      <div v-if="selectedListing" class="fixed inset-0 z-50 flex justify-end">
+        <!-- Backdrop -->
+        <div class="absolute inset-0 bg-black/40" @click="closePanel" />
+
+        <!-- Panel -->
+        <div
+          role="dialog"
+          aria-modal="true"
+          class="panel-drawer relative z-10 flex flex-col w-full max-w-md bg-background border-l border-border shadow-2xl"
+          @keydown.esc="closePanel"
+        >
+          <!-- Header -->
+          <div class="flex items-start gap-3 px-5 py-4 border-b border-border shrink-0">
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-sm line-clamp-2">{{ selectedListing.title }}</p>
+              <p class="text-xs text-muted-foreground mt-0.5">{{ formatDate(selectedListing.created_at) }}</p>
+            </div>
+            <button
+              type="button"
+              class="shrink-0 flex items-center justify-center size-7 rounded hover:bg-muted cursor-pointer transition-colors"
+              @click="closePanel"
+            >
+              <X class="size-4" />
+            </button>
+          </div>
+
+          <!-- Scrollable body -->
+          <div class="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+            <!-- Photos -->
+            <div v-if="selectedListing.photos.length" class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+              <img
+                v-for="(photo, i) in selectedListing.photos"
+                :key="i"
+                :src="photo"
+                :alt="`Fotoğraf ${i + 1}`"
+                class="h-32 w-32 shrink-0 rounded-lg object-cover border border-border cursor-zoom-in hover:opacity-90 transition-opacity"
+                @click="lightboxUrl = photo"
+              />
+            </div>
+            <div
+              v-else
+              class="h-24 rounded-lg bg-muted flex items-center justify-center text-xs text-muted-foreground"
+            >
+              Fotoğraf yok
+            </div>
+
+            <!-- Status + external link -->
+            <div class="flex items-center justify-between">
+              <span
+                class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium"
+                :class="STATUS_COLORS[selectedListing.status]"
+              >
+                {{ STATUS_LABELS[selectedListing.status] }}
+              </span>
+              <NuxtLink
+                v-if="selectedListing.status === 'active' || selectedListing.status === 'sold'"
+                :to="`/ilan/${selectedListing.slug}`"
+                target="_blank"
+                class="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+              >
+                <ExternalLink class="size-3.5" />
+                Sayfaya git
+              </NuxtLink>
+            </div>
+
+            <!-- Rejection reason -->
+            <div
+              v-if="selectedListing.rejection_reason"
+              class="text-xs text-muted-foreground bg-muted/60 rounded-md px-3 py-2"
+            >
+              <span class="font-medium text-foreground">Red gerekçesi:</span> {{ selectedListing.rejection_reason }}
+            </div>
+
+            <!-- Details grid -->
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between gap-4">
+                <span class="text-muted-foreground shrink-0">Kategori</span>
+                <span class="text-right">{{ selectedListing.category.name }}</span>
+              </div>
+              <div class="flex justify-between gap-4">
+                <span class="text-muted-foreground shrink-0">Konum</span>
+                <span class="text-right">{{ selectedListing.district ? `${selectedListing.district}, ${selectedListing.city}` : selectedListing.city }}</span>
+              </div>
+              <div class="flex justify-between gap-4">
+                <span class="text-muted-foreground shrink-0">Ürün durumu</span>
+                <span class="text-right">{{ CONDITION_LABELS[selectedListing.condition] }}</span>
+              </div>
+              <div class="flex justify-between gap-4">
+                <span class="text-muted-foreground shrink-0">Fiyat</span>
+                <span class="text-right font-medium">{{ panelPriceDisplay }}</span>
+              </div>
+            </div>
+
+            <!-- Description -->
+            <div v-if="selectedListing.description">
+              <p class="text-xs text-muted-foreground mb-1.5">Açıklama</p>
+              <p class="text-sm leading-relaxed whitespace-pre-line">{{ selectedListing.description }}</p>
+            </div>
+
+            <!-- Seller -->
+            <div class="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+              <img
+                v-if="selectedListing.seller.avatar_url"
+                :src="selectedListing.seller.avatar_url"
+                :alt="selectedListing.seller.display_name || selectedListing.seller.name"
+                referrerpolicy="no-referrer"
+                class="size-9 rounded-full object-cover shrink-0"
+              />
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium truncate">{{ selectedListing.seller.display_name || selectedListing.seller.name }}</p>
+                <p v-if="selectedListing.seller.slug" class="text-xs text-muted-foreground">@{{ selectedListing.seller.slug }}</p>
+              </div>
+              <NuxtLink
+                v-if="selectedListing.seller.slug"
+                :to="`/profil/${selectedListing.seller.slug}`"
+                target="_blank"
+                class="shrink-0 flex items-center justify-center size-7 rounded hover:bg-muted cursor-pointer transition-colors text-muted-foreground"
+              >
+                <ExternalLink class="size-3.5" />
+              </NuxtLink>
+            </div>
+
+            <!-- Reject reason textarea -->
+            <div v-if="panelRejectMode" class="space-y-2">
+              <p class="text-xs font-medium text-muted-foreground">
+                Red gerekçesi <span class="font-normal">(isteğe bağlı — kullanıcıya gösterilir)</span>
+              </p>
+              <textarea
+                v-model="panelRejectReason"
+                placeholder="Gerekçe yazın..."
+                rows="3"
+                class="w-full text-sm border border-border rounded-md px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-foreground"
+              />
+            </div>
+          </div>
+
+          <!-- Actions footer -->
+          <div class="shrink-0 border-t border-border px-5 py-4 space-y-2">
+            <div
+              v-if="moderatingSlug === selectedListing.slug || deletingSlug === selectedListing.slug"
+              class="flex justify-center py-3"
+            >
+              <Loader2 class="size-5 animate-spin text-muted-foreground" />
+            </div>
+
+            <template v-else-if="panelRejectMode">
+              <button
+                type="button"
+                class="w-full py-2.5 text-sm bg-red-600 text-white rounded-lg cursor-pointer hover:bg-red-700 transition-colors font-medium"
+                @click="panelModerate('rejected')"
+              >
+                Reddet
+              </button>
+              <button
+                type="button"
+                class="w-full py-2.5 text-sm border border-border rounded-lg cursor-pointer hover:bg-muted transition-colors"
+                @click="panelRejectMode = false"
+              >
+                İptal
+              </button>
+            </template>
+
+            <template v-else>
+              <!-- pending -->
+              <template v-if="selectedListing.status === 'pending'">
+                <button
+                  type="button"
+                  class="w-full py-2.5 text-sm bg-green-600 text-white rounded-lg cursor-pointer hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2"
+                  @click="panelModerate('active')"
+                >
+                  <Check class="size-4" />
+                  Onayla
+                </button>
+                <button
+                  type="button"
+                  class="w-full py-2.5 text-sm border border-red-200 text-red-600 rounded-lg cursor-pointer hover:bg-red-50 transition-colors"
+                  @click="panelRejectMode = true"
+                >
+                  Reddet
+                </button>
+              </template>
+
+              <!-- active -->
+              <template v-else-if="selectedListing.status === 'active'">
+                <button
+                  type="button"
+                  class="w-full py-2.5 text-sm border border-border rounded-lg cursor-pointer hover:bg-muted transition-colors flex items-center justify-center gap-2"
+                  @click="panelModerate('pending')"
+                >
+                  <RotateCcw class="size-4" />
+                  Moderasyona Al
+                </button>
+                <button
+                  type="button"
+                  class="w-full py-2.5 text-sm border border-red-200 text-red-600 rounded-lg cursor-pointer hover:bg-red-50 transition-colors"
+                  @click="panelRejectMode = true"
+                >
+                  Reddet
+                </button>
+              </template>
+
+              <!-- rejected -->
+              <template v-else-if="selectedListing.status === 'rejected'">
+                <button
+                  type="button"
+                  class="w-full py-2.5 text-sm bg-green-600 text-white rounded-lg cursor-pointer hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2"
+                  @click="panelModerate('active')"
+                >
+                  <Check class="size-4" />
+                  Aktifleştir
+                </button>
+              </template>
+
+              <template v-if="deleteConfirmSlug === selectedListing.slug">
+                <p class="text-xs text-center text-muted-foreground">Bu işlem geri alınamaz.</p>
+                <div class="flex gap-2">
+                  <button
+                    type="button"
+                    class="flex-1 py-2.5 text-sm border border-border rounded-lg cursor-pointer hover:bg-muted transition-colors"
+                    @click="deleteConfirmSlug = null"
+                  >
+                    Vazgeç
+                  </button>
+                  <button
+                    type="button"
+                    class="flex-1 py-2.5 text-sm bg-red-600 text-white rounded-lg cursor-pointer hover:bg-red-700 transition-colors font-medium"
+                    @click="panelDelete()"
+                  >
+                    Sil
+                  </button>
+                </div>
+              </template>
+              <button
+                v-else
+                type="button"
+                class="w-full py-2.5 text-sm border border-red-200 text-red-600 rounded-lg cursor-pointer hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+                @click="deleteConfirmSlug = selectedListing.slug"
+              >
+                <Trash2 class="size-4" />
+                İlanı Sil
+              </button>
+            </template>
+          </div>
         </div>
       </div>
-    </div>
+    </Transition>
   </Teleport>
+
+  <ImageLightbox :url="lightboxUrl" @close="lightboxUrl = null" />
 </template>
+
+<style scoped>
+.panel-enter-active,
+.panel-leave-active {
+  transition: opacity 0.2s ease;
+}
+.panel-enter-active :deep(.panel-drawer),
+.panel-leave-active :deep(.panel-drawer) {
+  transition: transform 0.25s ease;
+}
+.panel-enter-from,
+.panel-leave-to {
+  opacity: 0;
+}
+.panel-enter-from :deep(.panel-drawer),
+.panel-leave-to :deep(.panel-drawer) {
+  transform: translateX(100%);
+}
+</style>

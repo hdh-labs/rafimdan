@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ImageOff, MapPin, Heart } from "lucide-vue-next"
+import { ImageOff, MapPin } from "lucide-vue-next"
 import { cn } from "~/utils/cn"
 import { CONDITION_LABELS, CONDITION_COLORS, getInitials } from "~/utils/listing-constants"
 import type { ListingCondition, ListingPriceType, ListingStatus, ListingDirection } from "@rafimdan/shared"
@@ -65,9 +65,9 @@ const sellerAvatarError = ref(false)
 <template>
   <div
     :class="cn(
-      'group relative rounded-xl border bg-white overflow-hidden',
+      'group relative flex flex-col rounded-xl border bg-background overflow-hidden',
       'hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200',
-      direction === 'request' ? 'border-amber-300' : direction === 'support' ? 'border-green-300' : 'border-border',
+      direction === 'request' ? 'border-brand/40' : direction === 'support' ? 'border-brand/20' : 'border-border',
       isOverlaid && 'opacity-60'
     )"
   >
@@ -97,13 +97,10 @@ const sellerAvatarError = ref(false)
         </span>
       </div>
 
-      <div class="absolute top-2 right-2 z-10">
-        <FavoriteButton :listing-id="id" />
-      </div>
     </div>
 
     <!-- Bilgiler -->
-    <div class="p-3 space-y-1.5">
+    <div class="p-3 flex flex-col flex-1 gap-1.5">
       <h3 class="text-sm font-semibold text-foreground line-clamp-2 leading-snug">
         <NuxtLink
           :to="`/ilan/${slug}`"
@@ -116,7 +113,7 @@ const sellerAvatarError = ref(false)
       <div class="flex items-center justify-between gap-2">
         <p
           class="text-sm font-bold"
-          :class="direction === 'request' ? 'text-amber-700' : direction === 'support' ? 'text-green-700' : price_type === 'free' ? 'text-green-700' : 'text-foreground'"
+          :class="direction === 'request' || direction === 'support' || price_type === 'free' ? 'text-brand' : 'text-foreground'"
         >
           {{ priceDisplay }}
         </p>
@@ -129,19 +126,13 @@ const sellerAvatarError = ref(false)
         </span>
       </div>
 
-      <div class="flex items-center justify-between pt-1 border-t border-border/60">
+      <div class="flex items-center justify-between pt-1 border-t border-border/60 mt-auto">
         <div class="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
           <MapPin class="size-3 shrink-0" />
           <span class="truncate">{{ locationDisplay }}</span>
         </div>
-        <div class="flex items-center gap-2 shrink-0 ml-2">
-          <span
-            v-if="favorites_count"
-            class="flex items-center gap-0.5 text-xs text-muted-foreground"
-          >
-            <Heart class="size-3 text-rose-400" />
-            {{ favorites_count }}
-          </span>
+        <div class="flex items-center gap-1.5 shrink-0 ml-2 relative z-10">
+          <FavoriteButton :listing-id="id" :count="favorites_count" />
           <span
             class="inline-flex items-center justify-center size-5 rounded-full bg-muted text-xs font-medium text-muted-foreground overflow-hidden"
           >
