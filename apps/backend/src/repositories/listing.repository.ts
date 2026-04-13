@@ -111,10 +111,15 @@ const JOIN_SQL = `
     u.whatsapp     AS seller_whatsapp,
     u.city         AS seller_city,
     u.created_at   AS seller_created_at,
-    (SELECT COUNT(*) FROM favorites f WHERE f.listing_id = l.id) AS favorites_count
+    COALESCE(fav_agg.fav_count, 0) AS favorites_count
   FROM listings l
   JOIN categories c ON c.id = l.category_id
   JOIN users u ON u.id = l.user_id
+  LEFT JOIN (
+    SELECT listing_id, COUNT(*) AS fav_count
+    FROM favorites
+    GROUP BY listing_id
+  ) fav_agg ON fav_agg.listing_id = l.id
 `;
 
 export const listingRepository = {
@@ -199,18 +204,16 @@ export const listingRepository = {
     const where = `WHERE ${conditions.join(" AND ")}`;
     const orderBy = params.sort === "popular" ? "l.view_count DESC" : "l.updated_at DESC";
 
-    const countRow = await db
-      .prepare(`SELECT COUNT(*) as total FROM listings l JOIN categories c ON c.id = l.category_id JOIN users u ON u.id = l.user_id ${where}`)
-      .bind(...bindings)
-      .first<{ total: number }>();
+    const [countResult, dataResult] = await db.batch([
+      db.prepare(`SELECT COUNT(*) as total FROM listings l JOIN categories c ON c.id = l.category_id ${where}`).bind(...bindings),
+      db.prepare(`${JOIN_SQL} ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`).bind(...bindings, limit, offset),
+    ]);
 
-    const rows = await db
-      .prepare(`${JOIN_SQL} ${where} ORDER BY ${orderBy} LIMIT ? OFFSET ?`)
-      .bind(...bindings, limit, offset)
-      .all<ListingRowJoined>();
+    const countRow = countResult.results?.[0] as { total: number } | undefined;
+    const rows = dataResult.results as ListingRowJoined[] ?? [];
 
     return {
-      items: (rows.results ?? []).map(toListItem),
+      items: rows.map(toListItem),
       total: countRow?.total ?? 0,
       page,
       limit,
@@ -261,6 +264,7 @@ export const listingRepository = {
     if (input.price !== undefined) { fields.push("price = ?"); values.push(input.price); }
     if (input.city !== undefined) { fields.push("city = ?"); values.push(input.city); }
     if (input.district !== undefined) { fields.push("district = ?"); values.push(input.district); }
+    if (input.direction !== undefined) { fields.push("direction = ?"); values.push(input.direction); }
 
     if (fields.length === 0) return listingRepository.findById(db, id);
 

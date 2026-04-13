@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import type { HonoEnv } from "../types/env";
-import { authMiddleware } from "../middleware/auth";
+import { authMiddleware, optionalAuthMiddleware } from "../middleware/auth";
 import { listingService } from "../services/listing.service";
 import { reportService } from "../services/report.service";
 import { AppError } from "../errors";
@@ -30,6 +30,7 @@ listings.get("/", zValidator("query", listingsQuerySchema), async (c) => {
   try {
     const params = c.req.valid("query");
     const result = await listingService.getAll(c.env.DB, params);
+    c.header("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
     return c.json({ data: result, status: "ok" });
   } catch (err) {
     return handleError(c, err);
@@ -121,10 +122,11 @@ listings.get("/mine", authMiddleware, async (c) => {
 // GET /:slug — detay
 // ---------------------------------------------------------------------------
 
-listings.get("/:slug", async (c) => {
+listings.get("/:slug", optionalAuthMiddleware, async (c) => {
   try {
     const slug = c.req.param("slug");
-    const listing = await listingService.getBySlug(c.env.DB, slug);
+    const viewerId = c.get("user")?.sub;
+    const listing = await listingService.getBySlug(c.env.DB, slug, viewerId);
     return c.json({ data: listing, status: "ok" });
   } catch (err) {
     return handleError(c, err);

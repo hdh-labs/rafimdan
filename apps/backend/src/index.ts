@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { logger } from "hono/logger";
-import { prettyJSON } from "hono/pretty-json";
 
 import type { HonoEnv } from "./types/env";
 import { corsMiddleware } from "./middleware/cors";
@@ -23,7 +22,6 @@ const app = new Hono<HonoEnv>();
 
 app.use("*", corsMiddleware);
 app.use("*", logger());
-app.use("*", prettyJSON());
 
 // ---------------------------------------------------------------------------
 // Routes

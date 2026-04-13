@@ -8,6 +8,7 @@ const categories = new Hono<HonoEnv>();
 categories.get("/", async (c) => {
   try {
     const tree = await categoryService.getAll(c.env.DB);
+    c.header("Cache-Control", "public, max-age=86400, stale-while-revalidate=3600");
     return c.json({ data: tree, status: "ok" });
   } catch (err) {
     if (err instanceof AppError) {
