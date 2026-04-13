@@ -13,6 +13,7 @@ import { categoryRepository } from "../repositories/category.repository";
 import { userRepository } from "../repositories/user.repository";
 import { generateSlug, findUniqueSlug } from "../lib/slug";
 import { extractStorageKey } from "../lib/storage";
+import { validateImageMagicBytes, getImageExtension } from "../lib/image-validation";
 import {
   ListingNotFoundError,
   ForbiddenError,
@@ -25,21 +26,6 @@ import {
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
-
-
-async function validateImageMagicBytes(file: File): Promise<boolean> {
-  const buffer = new Uint8Array(await file.slice(0, 12).arrayBuffer());
-  // JPEG: FF D8 FF
-  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return true;
-  // PNG: 89 50 4E 47 0D 0A 1A 0A
-  if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) return true;
-  // WebP: RIFF????WEBP
-  if (
-    buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
-    buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50
-  ) return true;
-  return false;
-}
 
 export const listingService = {
   async create(
@@ -198,7 +184,7 @@ export const listingService = {
     if (!(ALLOWED_TYPES as readonly string[]).includes(file.type)) throw new InvalidFileTypeError();
     if (!(await validateImageMagicBytes(file))) throw new InvalidFileTypeError();
 
-    const ext = file.type === "image/jpeg" ? "jpg" : file.type.split("/")[1];
+    const ext = getImageExtension(file.type);
     const key = `listings/${listing.id}/${crypto.randomUUID()}.${ext}`;
 
     await env.STORAGE.put(key, file.stream(), {

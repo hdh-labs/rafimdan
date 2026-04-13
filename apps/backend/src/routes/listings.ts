@@ -12,6 +12,7 @@ import {
   listingStatusSchema,
   listingsQuerySchema,
 } from "../schemas/listing.schemas";
+import { validateImageMagicBytes, getImageExtension } from "../lib/image-validation";
 
 const listings = new Hono<HonoEnv>();
 
@@ -83,16 +84,11 @@ listings.post("/photos/temp", authMiddleware, async (c) => {
       return c.json({ error: "Only JPEG, PNG and WebP images are allowed", status: "error", code: "INVALID_FILE_TYPE" }, 400);
     }
 
-    const buffer = new Uint8Array(await file.slice(0, 12).arrayBuffer());
-    const isJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
-    const isPng = buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
-    const isWebp = buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46
-      && buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50;
-    if (!isJpeg && !isPng && !isWebp) {
+    if (!(await validateImageMagicBytes(file))) {
       return c.json({ error: "Only JPEG, PNG and WebP images are allowed", status: "error", code: "INVALID_FILE_TYPE" }, 400);
     }
 
-    const ext = file.type === "image/jpeg" ? "jpg" : file.type.split("/")[1];
+    const ext = getImageExtension(file.type);
     const key = `temp/${sub}/${crypto.randomUUID()}.${ext}`;
     await c.env.STORAGE.put(key, file.stream(), {
       httpMetadata: { contentType: file.type },

@@ -8,6 +8,7 @@ import { authService } from "../services/auth.service";
 import { AppError } from "../errors";
 import { updateProfileSchema } from "../schemas/auth.schemas";
 import { REFRESH_TOKEN_MAX_AGE_SECONDS } from "../lib/jwt";
+import { validateImageMagicBytes, getImageExtension } from "../lib/image-validation";
 
 const auth = new Hono<HonoEnv>();
 
@@ -200,16 +201,11 @@ auth.post("/me/avatar", authMiddleware, async (c) => {
       throw new AppError("Dosya 2 MB'dan büyük olamaz", 400, "FILE_TOO_LARGE");
     }
 
-    const buf = new Uint8Array(await file.slice(0, 12).arrayBuffer());
-    const isJpeg = buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
-    const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
-    const isWebp = buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46
-      && buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50;
-    if (!isJpeg && !isPng && !isWebp) {
+    if (!(await validateImageMagicBytes(file))) {
       throw new AppError("Sadece JPEG, PNG veya WebP yüklenebilir", 400, "INVALID_FILE_TYPE");
     }
 
-    const ext = file.type === "image/jpeg" ? "jpg" : file.type.split("/")[1]!;
+    const ext = getImageExtension(file.type);
     const key = `avatars/${sub}.${ext}`;
 
     const existingProfile = await authService.getProfile(c.env.DB, sub);

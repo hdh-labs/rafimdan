@@ -3,6 +3,7 @@ import type { HonoEnv } from "../types/env";
 import { AppError } from "../errors";
 import { authMiddleware, optionalAuthMiddleware } from "../middleware/auth";
 import { userRepository } from "../repositories/user.repository";
+import { validateImageMagicBytes, getImageExtension } from "../lib/image-validation";
 
 const feedback = new Hono<HonoEnv>();
 
@@ -53,17 +54,11 @@ feedback.post("/attachments", optionalAuthMiddleware, async (c) => {
     throw new AppError("Dosya 5 MB'dan büyük olamaz", 400, "FILE_TOO_LARGE");
   }
 
-  const buf = new Uint8Array(await file.slice(0, 12).arrayBuffer());
-  const isJpeg = buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
-  const isPng  = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
-  const isWebp = buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46
-    && buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50;
-  const isGif  = buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46;
-  if (!isJpeg && !isPng && !isWebp && !isGif) {
+  if (!(await validateImageMagicBytes(file))) {
     throw new AppError("Sadece görsel dosyaları kabul edilir", 400, "INVALID_FILE_TYPE");
   }
 
-  const ext = file.type === "image/jpeg" ? "jpg" : (file.type.split("/")[1] ?? "jpg");
+  const ext = getImageExtension(file.type);
   const key = `feedback/${crypto.randomUUID()}.${ext}`;
 
   await c.env.STORAGE.put(key, file.stream(), {

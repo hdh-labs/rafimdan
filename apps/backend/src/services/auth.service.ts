@@ -112,20 +112,6 @@ async function issueTokens(db: D1Database, user: User, secret: string): Promise<
 // ---------------------------------------------------------------------------
 
 export const authService = {
-  buildGoogleAuthUrl(env: Env, callbackUrl: string): string {
-    const state = crypto.randomUUID();
-    const params = new URLSearchParams({
-      client_id: env.GOOGLE_CLIENT_ID,
-      redirect_uri: callbackUrl,
-      response_type: "code",
-      scope: "openid email profile",
-      state,
-      access_type: "offline",
-      prompt: "consent",
-    });
-    return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-  },
-
   async buildGoogleAuthUrlWithState(
     env: Env,
     callbackUrl: string,
