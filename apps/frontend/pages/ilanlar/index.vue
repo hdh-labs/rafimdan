@@ -256,14 +256,14 @@ useSeoMeta({
           <div class="flex items-center rounded-md border border-border overflow-hidden shrink-0">
             <button
               class="px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer"
-              :class="draft.sort === 'recent' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'"
+              :class="draft.sort === 'recent' ? 'bg-brand text-brand-foreground' : 'text-muted-foreground hover:text-foreground'"
               @click="setSort('recent')"
             >
               En Yeni
             </button>
             <button
               class="px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer border-l border-border"
-              :class="draft.sort === 'popular' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'"
+              :class="draft.sort === 'popular' ? 'bg-brand text-brand-foreground' : 'text-muted-foreground hover:text-foreground'"
               @click="setSort('popular')"
             >
               En Popüler

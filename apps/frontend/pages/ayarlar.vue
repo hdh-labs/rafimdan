@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Save, CheckCircle, ExternalLink, LogOut, MessageCircle, Camera, Trash2 } from "lucide-vue-next"
+import { toast } from "vue-sonner"
 import type { UserProfile, ApiResponse } from "@rafimdan/shared"
 import { apiFetch, ApiError } from "~/utils/api"
 import { IL_NAMES, getIlceler } from "~/utils/turkey-locations"
@@ -44,6 +45,7 @@ async function deleteAccount() {
   } catch {
     deleting.value = false
     showDeleteConfirm.value = false
+    toast.error("Hesap silinemedi. Lütfen tekrar deneyin.")
   }
 }
 const avatarError = ref(false)
@@ -197,16 +199,16 @@ async function save() {
     <ClientOnly>
       <div
         v-if="!authStore.user?.whatsapp"
-        class="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 flex gap-3"
+        class="mb-6 rounded-xl border border-brand/20 bg-brand/5 p-4 flex gap-3"
       >
         <div class="shrink-0">
-          <div class="size-9 rounded-full bg-amber-100 flex items-center justify-center">
-            <MessageCircle class="size-4.5 text-amber-600" />
+          <div class="size-9 rounded-full bg-brand/10 flex items-center justify-center">
+            <MessageCircle class="size-4.5 text-brand" />
           </div>
         </div>
         <div class="min-w-0">
-          <p class="text-sm font-semibold text-amber-900">Sana ulaşılamıyor</p>
-          <p class="text-sm text-amber-700 mt-0.5 leading-snug">
+          <p class="text-sm font-semibold text-foreground">Sana ulaşılamıyor</p>
+          <p class="text-sm text-muted-foreground mt-0.5 leading-snug">
             WhatsApp numaran olmadan ilanlarındaki kişiler seninle iletişime geçemez.
           </p>
         </div>
@@ -253,7 +255,7 @@ async function save() {
           <p class="text-xs text-muted-foreground">
             İlan sayfasında "WhatsApp'tan Yaz" butonu aktif olur.
           </p>
-          <span class="text-xs tabular-nums" :class="form.whatsapp.length === WHATSAPP_MAX ? 'text-green-600' : 'text-muted-foreground'">
+          <span class="text-xs tabular-nums" :class="form.whatsapp.length === WHATSAPP_MAX ? 'text-brand' : 'text-muted-foreground'">
             {{ form.whatsapp.length }}/{{ WHATSAPP_MAX }}
           </span>
         </div>
@@ -303,8 +305,8 @@ async function save() {
         type="submit"
         size="lg"
         :loading="submitting"
-        :disabled="submitting"
-        :class="`w-full transition-colors ${saved ? 'bg-green-600 text-white hover:opacity-100' : ''}`"
+        :disabled="submitting || (!isDirty && !saved)"
+        :class="`w-full transition-colors ${saved ? 'bg-brand text-brand-foreground hover:opacity-100' : ''}`"
       >
         <CheckCircle v-if="saved" class="size-4" />
         <Save v-else-if="!submitting" class="size-4" />
@@ -315,7 +317,7 @@ async function save() {
     <div class="mt-8 pt-6 border-t border-border space-y-4">
       <button
         type="button"
-        class="flex items-center gap-2 text-sm text-muted-foreground hover:text-red-600 cursor-pointer transition-colors"
+        class="flex items-center gap-2 text-sm text-muted-foreground hover:text-destructive cursor-pointer transition-colors"
         @click="authStore.logout()"
       >
         <LogOut class="size-4" />

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Heart } from "lucide-vue-next"
+import { toast } from "vue-sonner"
 import type { ListingListItem, FavoritesResponse } from "@rafimdan/shared"
 import { apiFetch } from "~/utils/api"
 
@@ -32,6 +33,7 @@ onMounted(async () => {
     favoritesStore.ids = new Set(res.data.listings.map((l) => l.id))
   } catch {
     listings.value = []
+    toast.error("Favoriler yüklenemedi.")
   } finally {
     loading.value = false
   }
@@ -41,7 +43,7 @@ onMounted(async () => {
 <template>
   <div class="max-w-5xl mx-auto px-4 py-8">
     <div class="flex items-center gap-2 mb-6">
-      <Heart class="size-5 text-red-500 fill-red-500" />
+      <Heart class="size-5 fill-rose-500 text-rose-500" />
       <h1 class="text-xl font-bold">Favorilerim</h1>
     </div>
 

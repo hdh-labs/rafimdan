@@ -8,10 +8,10 @@ export const CONDITION_LABELS: Record<ListingCondition, string> = {
 }
 
 export const CONDITION_COLORS: Record<ListingCondition, string> = {
-  new: "bg-green-50 text-green-700",
-  like_new: "bg-blue-50 text-blue-700",
-  good: "bg-amber-50 text-amber-700",
-  fair: "bg-gray-100 text-gray-600",
+  new: "bg-brand/10 text-brand",
+  like_new: "bg-brand/10 text-brand",
+  good: "bg-muted text-muted-foreground",
+  fair: "bg-muted text-muted-foreground",
 }
 
 export const PRICE_TYPE_LABELS: Record<ListingPriceType, string> = {
@@ -28,10 +28,10 @@ export const STATUS_LABELS: Record<ListingStatus, string> = {
 }
 
 export const STATUS_COLORS: Record<ListingStatus, string> = {
-  active:   "bg-green-50 text-green-700 border-green-200",
-  sold:     "bg-gray-100 text-gray-500 border-gray-200",
-  pending:  "bg-amber-50 text-amber-700 border-amber-200",
-  rejected: "bg-red-50 text-red-700 border-red-200",
+  active:   "bg-brand/10 text-brand border-brand/20",
+  sold:     "bg-muted text-muted-foreground border-border",
+  pending:  "bg-muted text-muted-foreground border-border",
+  rejected: "bg-destructive/10 text-destructive border-destructive/30",
 }
 
 export function getInitials(name: string): string {

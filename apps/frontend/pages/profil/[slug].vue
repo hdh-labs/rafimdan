@@ -75,7 +75,7 @@ useSeoMeta({
           <h1 class="text-xl font-bold text-foreground">{{ displayName }}</h1>
           <span
             v-if="profile.sold_count >= 5"
-            class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200"
+            class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-brand/10 text-brand border border-brand/20"
           >
             <BadgeCheck class="size-3 shrink-0" />
             Güvenilir Satıcı
@@ -104,7 +104,7 @@ useSeoMeta({
             :href="waUrl"
             target="_blank"
             rel="noopener noreferrer"
-            class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5 hover:bg-green-100 transition-colors cursor-pointer"
+            class="inline-flex items-center gap-1 text-xs font-medium text-whatsapp-foreground bg-whatsapp/90 rounded-full px-2 py-0.5 hover:bg-whatsapp transition-colors cursor-pointer"
           >
             <MessageCircle class="size-3 shrink-0" />
             WhatsApp
@@ -123,7 +123,7 @@ useSeoMeta({
       :href="waUrl"
       target="_blank"
       rel="noopener noreferrer"
-      class="flex items-center justify-center gap-2 w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-lg cursor-pointer transition-colors"
+      class="flex items-center justify-center gap-2 w-full sm:w-auto bg-whatsapp hover:bg-whatsapp-hover text-whatsapp-foreground font-medium py-3 px-6 rounded-lg cursor-pointer transition-colors"
     >
       <MessageCircle class="size-5" />
       WhatsApp'tan Yaz

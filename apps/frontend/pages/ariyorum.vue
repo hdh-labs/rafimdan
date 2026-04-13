@@ -4,20 +4,28 @@ import type { ApiResponse, PaginatedResponse, ListingListItem } from "@rafimdan/
 
 type ListingsData = ApiResponse<PaginatedResponse<ListingListItem>>
 
-const page = ref(1)
 const LIMIT = 20
+const page = ref(1)
+const allListings = ref<ListingListItem[]>([])
 
-const { data: listingsRes, refresh } = await useFetch<ListingsData>(
+const { data: listingsRes } = await useFetch<ListingsData>(
   () => `/api/listings?direction=request,support&limit=${LIMIT}&page=${page.value}`,
 )
 
-const listings = computed(() => listingsRes.value?.data.items ?? [])
+watch(listingsRes, (res) => {
+  if (!res?.data.items) return
+  if (page.value === 1) {
+    allListings.value = res.data.items
+  } else {
+    allListings.value.push(...res.data.items)
+  }
+}, { immediate: true })
+
 const total = computed(() => listingsRes.value?.data.total ?? 0)
-const hasMore = computed(() => page.value * LIMIT < total.value)
+const hasMore = computed(() => allListings.value.length < total.value)
 
 function loadMore() {
   page.value++
-  refresh()
 }
 
 useSeoMeta({
@@ -31,7 +39,7 @@ useSeoMeta({
 
     <!-- Hero -->
     <section class="text-center pt-12 pb-2 space-y-4">
-      <div class="inline-flex items-center gap-2 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full">
+      <div class="inline-flex items-center gap-2 text-xs font-medium text-brand bg-brand/10 border border-brand/20 px-3 py-1 rounded-full">
         <HandHeart class="size-3.5" />
         Destek İlanları
       </div>
@@ -43,7 +51,7 @@ useSeoMeta({
       </p>
       <NuxtLink
         to="/ilan-ver?direction=request"
-        class="inline-flex items-center gap-2 border border-border bg-white text-foreground px-5 py-2 rounded-lg text-sm font-medium cursor-pointer hover:bg-muted transition-colors"
+        class="inline-flex items-center gap-2 border border-border bg-background text-foreground px-5 py-2 rounded-lg text-sm font-medium cursor-pointer hover:bg-muted transition-colors"
       >
         <Plus class="size-4" />
         Ben de arıyorum
@@ -58,14 +66,14 @@ useSeoMeta({
         </h2>
       </div>
 
-      <div v-if="listings.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+      <div v-if="allListings.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
         <NuxtLink
-          v-for="listing in listings"
+          v-for="listing in allListings"
           :key="listing.id"
           :to="`/ilan/${listing.slug}`"
           :class="[
             'group flex gap-3 rounded-xl border p-4 hover:shadow-sm transition-all duration-150 cursor-pointer',
-            listing.direction === 'support' ? 'border-green-200 bg-green-50/40 hover:bg-green-50' : 'border-amber-200 bg-amber-50/40 hover:bg-amber-50'
+            listing.direction === 'support' ? 'border-brand/20 bg-brand/5 hover:bg-brand/10' : 'border-brand/40 bg-brand/10 hover:bg-brand/15'
           ]"
         >
           <div class="shrink-0 size-16 rounded-lg overflow-hidden bg-muted">
@@ -77,7 +85,7 @@ useSeoMeta({
               loading="lazy"
             />
             <div v-else class="size-full flex items-center justify-center">
-              <HandHeart class="size-6 text-amber-400" />
+              <HandHeart class="size-6 text-brand/40" />
             </div>
           </div>
           <div class="min-w-0 flex-1 space-y-1">
@@ -89,8 +97,7 @@ useSeoMeta({
             </p>
             <div class="flex items-center justify-between pt-1">
               <span
-                class="text-xs font-medium"
-                :class="listing.direction === 'support' ? 'text-green-700' : 'text-amber-700'"
+                class="text-xs font-medium text-brand"
               >
                 {{ listing.direction === 'support' ? 'Destek Sunuyor' : 'Destek Arıyor' }}
               </span>

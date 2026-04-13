@@ -143,7 +143,7 @@ function onKeydown(e: KeyboardEvent) {
         id="district-autocomplete-list"
         role="listbox"
         aria-label="İlçeler"
-        class="absolute z-30 w-full mt-1 rounded-md border border-border bg-white shadow-lg max-h-52 overflow-y-auto py-1"
+        class="absolute z-30 w-full mt-1 rounded-md border border-border bg-background shadow-lg max-h-52 overflow-y-auto py-1"
       >
         <li
           v-for="(district, i) in filtered"

@@ -7,7 +7,7 @@
    */
 
   /* Brand */
-  --color-brand:            oklch(0.55 0.145 38);
+  --color-brand:            oklch(0.53 0.14 35);
   --color-brand-foreground: oklch(0.99 0.006 38);
 
   /* Arka plan & metin */
@@ -29,10 +29,15 @@
   --color-input:  oklch(0.91 0.012 38);
 
   /* Focus ring */
-  --color-ring: oklch(0.55 0.145 38);
+  --color-ring: oklch(0.53 0.14 35);
 
   /* Hata */
   --color-destructive: oklch(0.577 0.245 27.325);
+
+  /* WhatsApp brand rengi — yalnızca WhatsApp CTA butonları için */
+  --color-whatsapp:            oklch(0.52 0.17 145);
+  --color-whatsapp-hover:      oklch(0.46 0.17 145);
+  --color-whatsapp-foreground: oklch(0.99 0.006 38);
 
   /* Köşe yuvarlaklıkları */
   --radius-sm: 0.375rem;
