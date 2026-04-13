@@ -647,7 +647,7 @@ function formatDate(d: string) {
                   <button
                     type="button"
                     :title="'Banla / Banı kaldır'"
-                    class="flex items-center justify-center size-7 rounded text-red-600 hover:bg-red-50 cursor-pointer transition-colors"
+                    class="flex items-center justify-center size-7 rounded text-destructive hover:bg-destructive/5 cursor-pointer transition-colors"
                     @click="toggleBan(user)"
                   >
                     <ShieldOff class="size-3.5" />
@@ -732,7 +732,7 @@ function formatDate(d: string) {
               <button
                 type="button"
                 :disabled="resolvingReportId === r.id"
-                class="flex items-center gap-1 text-xs px-2 py-1.5 rounded border border-green-300 text-green-700 hover:bg-green-50 cursor-pointer transition-colors disabled:opacity-50"
+                class="flex items-center gap-1 text-xs px-2 py-1.5 rounded border border-brand/30 text-brand hover:bg-brand/5 cursor-pointer transition-colors disabled:opacity-50"
                 @click="resolveReport(r.id, 'resolved')"
               >
                 <Check class="size-3" />
@@ -924,7 +924,7 @@ function formatDate(d: string) {
             <template v-else-if="panelRejectMode">
               <button
                 type="button"
-                class="w-full py-2.5 text-sm bg-red-600 text-white rounded-lg cursor-pointer hover:bg-red-700 transition-colors font-medium"
+                class="w-full py-2.5 text-sm bg-destructive text-white rounded-lg cursor-pointer hover:bg-destructive/90 transition-colors font-medium"
                 @click="panelModerate('rejected')"
               >
                 Reddet
@@ -943,7 +943,7 @@ function formatDate(d: string) {
               <template v-if="selectedListing.status === 'pending'">
                 <button
                   type="button"
-                  class="w-full py-2.5 text-sm bg-green-600 text-white rounded-lg cursor-pointer hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2"
+                  class="w-full py-2.5 text-sm bg-brand text-brand-foreground rounded-lg cursor-pointer hover:bg-brand/90 transition-colors font-medium flex items-center justify-center gap-2"
                   @click="panelModerate('active')"
                 >
                   <Check class="size-4" />
@@ -951,7 +951,7 @@ function formatDate(d: string) {
                 </button>
                 <button
                   type="button"
-                  class="w-full py-2.5 text-sm border border-red-200 text-red-600 rounded-lg cursor-pointer hover:bg-red-50 transition-colors"
+                  class="w-full py-2.5 text-sm border border-destructive/30 text-destructive rounded-lg cursor-pointer hover:bg-destructive/5 transition-colors"
                   @click="panelRejectMode = true"
                 >
                   Reddet
@@ -970,7 +970,7 @@ function formatDate(d: string) {
                 </button>
                 <button
                   type="button"
-                  class="w-full py-2.5 text-sm border border-red-200 text-red-600 rounded-lg cursor-pointer hover:bg-red-50 transition-colors"
+                  class="w-full py-2.5 text-sm border border-destructive/30 text-destructive rounded-lg cursor-pointer hover:bg-destructive/5 transition-colors"
                   @click="panelRejectMode = true"
                 >
                   Reddet
@@ -981,7 +981,7 @@ function formatDate(d: string) {
               <template v-else-if="selectedListing.status === 'rejected'">
                 <button
                   type="button"
-                  class="w-full py-2.5 text-sm bg-green-600 text-white rounded-lg cursor-pointer hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2"
+                  class="w-full py-2.5 text-sm bg-brand text-brand-foreground rounded-lg cursor-pointer hover:bg-brand/90 transition-colors font-medium flex items-center justify-center gap-2"
                   @click="panelModerate('active')"
                 >
                   <Check class="size-4" />
@@ -1001,7 +1001,7 @@ function formatDate(d: string) {
                   </button>
                   <button
                     type="button"
-                    class="flex-1 py-2.5 text-sm bg-red-600 text-white rounded-lg cursor-pointer hover:bg-red-700 transition-colors font-medium"
+                    class="flex-1 py-2.5 text-sm bg-destructive text-white rounded-lg cursor-pointer hover:bg-destructive/90 transition-colors font-medium"
                     @click="panelDelete()"
                   >
                     Sil
@@ -1011,7 +1011,7 @@ function formatDate(d: string) {
               <button
                 v-else
                 type="button"
-                class="w-full py-2.5 text-sm border border-red-200 text-red-600 rounded-lg cursor-pointer hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+                class="w-full py-2.5 text-sm border border-destructive/30 text-destructive rounded-lg cursor-pointer hover:bg-destructive/5 transition-colors flex items-center justify-center gap-2"
                 @click="deleteConfirmSlug = selectedListing.slug"
               >
                 <Trash2 class="size-4" />
