@@ -29,7 +29,7 @@ const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp
 // POST /attachments — görsel yükle, R2'ye kaydet, public URL döndür
 // ---------------------------------------------------------------------------
 
-feedback.post("/attachments", async (c) => {
+feedback.post("/attachments", authMiddleware, async (c) => {
   const contentType = c.req.header("content-type") ?? "";
   if (!contentType.includes("multipart/form-data")) {
     throw new AppError("Content-Type multipart/form-data olmalı", 400, "INVALID_CONTENT_TYPE");
@@ -63,7 +63,7 @@ feedback.post("/attachments", async (c) => {
 // POST / — feedback gönder, GitHub issue aç
 // ---------------------------------------------------------------------------
 
-feedback.post("/", async (c) => {
+feedback.post("/", authMiddleware, async (c) => {
   const body = await c.req.json<{
     type?: string;
     description?: string;
@@ -84,19 +84,29 @@ feedback.post("/", async (c) => {
     throw new AppError("Geçersiz tür", 400, "VALIDATION_ERROR");
   }
 
-  // Login olmuşsa kullanıcı bilgisini al
-  let senderInfo = "Anonim";
-  try {
-    await authMiddleware(c, async () => {});
-    const user = c.get("user");
-    if (user?.sub) senderInfo = `Kullanıcı ID: \`${user.sub}\``;
-  } catch {
-    // anonim — devam
-  }
+  const user = c.get("user");
+  const senderInfo = user?.sub ? `Kullanıcı ID: \`${user.sub}\`` : "Anonim";
 
   const typeLabel = FEEDBACK_TYPES[type] ?? type;
-  const attachments = (body.attachment_urls ?? []).slice(0, 3);
-  const attachmentsMd = attachments.map((url, i) => `![Ekran görüntüsü ${i + 1}](${url})`).join("\n");
+
+  const storageBase = (c.env.STORAGE_PUBLIC_URL ?? "").replace(/\/$/, "");
+  const safeAttachments = (body.attachment_urls ?? [])
+    .slice(0, 3)
+    .filter(url => {
+      if (storageBase) return url.startsWith(storageBase + "/");
+      return /^\/api\/storage\//.test(url);
+    });
+  const attachmentsMd = safeAttachments.map((url, i) => `![Ekran görüntüsü ${i + 1}](${url})`).join("\n");
+
+  let safePageUrl: string | null = null;
+  if (body.page_url) {
+    try {
+      const parsed = new URL(body.page_url);
+      if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+        safePageUrl = parsed.toString();
+      }
+    } catch { /* geçersiz URL — yoksay */ }
+  }
 
   const issueBody = [
     `## ${typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1)} Bildirimi`,
@@ -104,7 +114,7 @@ feedback.post("/", async (c) => {
     description,
     attachmentsMd ? `\n${attachmentsMd}` : "",
     "---",
-    body.page_url ? `**Sayfa:** ${body.page_url}` : "",
+    safePageUrl ? `**Sayfa:** ${safePageUrl}` : "",
     `**Gönderen:** ${senderInfo}`,
     `**Tarih:** ${new Date().toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" })}`,
   ]

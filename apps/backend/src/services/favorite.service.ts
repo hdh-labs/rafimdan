@@ -6,7 +6,7 @@ import { ListingNotFoundError, FavoriteAlreadyExistsError } from "../errors";
 export const favoriteService = {
   async add(db: D1Database, userId: string, listingId: string): Promise<void> {
     const listing = await listingRepository.findById(db, listingId);
-    if (!listing) throw new ListingNotFoundError();
+    if (!listing || listing.status !== "active") throw new ListingNotFoundError();
 
     const exists = await favoriteRepository.exists(db, userId, listingId);
     if (exists) throw new FavoriteAlreadyExistsError();

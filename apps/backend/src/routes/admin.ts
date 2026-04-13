@@ -5,9 +5,10 @@ import type { AdminStats } from "@rafimdan/shared";
 import { reportService } from "../services/report.service";
 import { listingRepository } from "../repositories/listing.repository";
 import { userRepository } from "../repositories/user.repository";
+import { refreshTokenRepository } from "../repositories/refresh-token.repository";
 import { adminLogRepository } from "../repositories/admin-log.repository";
-import { authMiddleware } from "../middleware/auth";
 import { AppError } from "../errors";
+import { extractStorageKey } from "../lib/storage";
 
 const admin = new Hono<HonoEnv>();
 
@@ -18,21 +19,25 @@ function handleError(c: Parameters<MiddlewareHandler<HonoEnv>>[0], err: unknown)
   throw err;
 }
 
-const apiKeyMiddleware: MiddlewareHandler<HonoEnv> = async (c, next) => {
-  const key = c.req.header("x-admin-key");
-  if (!key || key !== c.env.ADMIN_API_KEY) {
-    return c.json({ error: "Unauthorized", status: "error", code: "UNAUTHORIZED" }, 401);
-  }
-  return next();
-};
-
 const adminAuthMiddleware: MiddlewareHandler<HonoEnv> = async (c, next) => {
-  await authMiddleware(c, async () => {});
-  const userPayload = c.get("user");
-  if (!userPayload) return;
-
-  const user = await userRepository.findById(c.env.DB, userPayload.sub);
-  if (!user || !user.is_admin) {
+  const authHeader = c.req.header("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return c.json({ error: "Unauthorized", status: "error", code: "MISSING_TOKEN" }, 401);
+  }
+  const { verifyAccessToken } = await import("../lib/jwt");
+  let sub: string;
+  try {
+    const payload = await verifyAccessToken(authHeader.slice(7), c.env.JWT_SECRET);
+    sub = payload.sub;
+    c.set("user", payload);
+  } catch {
+    return c.json({ error: "Unauthorized", status: "error", code: "INVALID_TOKEN" }, 401);
+  }
+  const user = await userRepository.findById(c.env.DB, sub);
+  if (!user || !user.is_active) {
+    return c.json({ error: "Unauthorized", status: "error", code: "ACCOUNT_DISABLED" }, 401);
+  }
+  if (!user.is_admin) {
     return c.json({ error: "Forbidden", status: "error", code: "FORBIDDEN" }, 403);
   }
   return next();
@@ -149,6 +154,10 @@ admin.delete("/listings/:slug", adminAuthMiddleware, async (c) => {
     const slug = c.req.param("slug");
     const listing = await listingRepository.findBySlug(c.env.DB, slug);
     if (!listing) return c.json({ error: "Bulunamadı", status: "error", code: "NOT_FOUND" }, 404);
+    const bucketBase = c.env.STORAGE_PUBLIC_URL || "/api/storage";
+    await Promise.allSettled(
+      listing.photos.map(url => c.env.STORAGE.delete(extractStorageKey(url, bucketBase))),
+    );
     await listingRepository.delete(c.env.DB, listing.id);
     await adminLogRepository.insert(c.env.DB, {
       id: crypto.randomUUID(),
@@ -190,6 +199,9 @@ admin.patch("/users/:id", adminAuthMiddleware, async (c) => {
     }
     const updated = await userRepository.update(c.env.DB, id, allowed);
     if (!updated) return c.json({ error: "Kullanıcı bulunamadı", status: "error", code: "NOT_FOUND" }, 404);
+    if (body.is_active === 0) {
+      await refreshTokenRepository.deleteAllByUserId(c.env.DB, id);
+    }
     const adminId = c.get("user").sub;
     if (typeof body.is_active === "number") {
       await adminLogRepository.insert(c.env.DB, {

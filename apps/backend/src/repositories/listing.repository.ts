@@ -221,7 +221,7 @@ export const listingRepository = {
     if (ids.length === 0) return [];
     const placeholders = ids.map(() => "?").join(", ");
     const rows = await db
-      .prepare(`${JOIN_SQL} WHERE l.id IN (${placeholders})`)
+      .prepare(`${JOIN_SQL} WHERE l.id IN (${placeholders}) AND l.status IN ('active', 'sold')`)
       .bind(...ids)
       .all<ListingRowJoined>();
     return (rows.results ?? []).map(toListItem);

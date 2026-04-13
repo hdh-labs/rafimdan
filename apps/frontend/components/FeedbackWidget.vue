@@ -27,6 +27,7 @@ const descriptionRef = ref<HTMLTextAreaElement | null>(null)
 const attachments = ref<{ file: File; preview: string }[]>([])
 
 const route = useRoute()
+const authStore = useAuthStore()
 const isListingDetail = computed(() => route.name === "ilan-slug")
 
 function openModal() {
@@ -114,6 +115,10 @@ async function uploadAttachment(file: File): Promise<string> {
 
 async function submit() {
   if (!description.value.trim()) return
+  if (!authStore.isLoggedIn) {
+    toast.error("Geri bildirim göndermek için giriş yapmalısın.")
+    return
+  }
   pending.value = true
   try {
     const attachment_urls: string[] = []
@@ -146,13 +151,13 @@ async function submit() {
     aria-label="Geri bildirim gönder"
     :aria-expanded="open"
     aria-haspopup="dialog"
-    class="fixed right-4 z-40 flex items-center gap-2 bg-foreground text-background text-sm font-medium px-4 py-2.5 rounded-full shadow-lg cursor-pointer hover:opacity-90 transition-all select-none"
+    class="fixed right-4 z-40 flex items-center gap-2 bg-foreground text-background text-sm font-medium rounded-full shadow-lg cursor-pointer hover:opacity-90 transition-all select-none p-2.5 md:px-4 md:py-2.5"
     :class="isListingDetail ? 'bottom-[calc(4.5rem+env(safe-area-inset-bottom))] md:bottom-6' : 'bottom-6'"
     @click="openModal"
   >
     <Loader2 v-if="capturing" class="size-4 shrink-0 animate-spin" />
     <MessageSquarePlus v-else class="size-4 shrink-0" />
-    <span>Feedback</span>
+    <span class="hidden md:inline">Feedback</span>
   </button>
 
   <!-- Hidden file input -->

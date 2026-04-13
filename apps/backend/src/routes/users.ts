@@ -20,10 +20,11 @@ users.get("/:slug", async (c) => {
       listingService.getStatsByUserId(c.env.DB, user.id),
     ]);
 
+    const { whatsapp: _whatsapp, ...publicProfile } = userRepository.toProfile(user);
     return c.json({
       data: {
         profile: {
-          ...userRepository.toProfile(user),
+          ...publicProfile,
           listing_count: stats.active_count,
           sold_count: stats.sold_count,
         },
