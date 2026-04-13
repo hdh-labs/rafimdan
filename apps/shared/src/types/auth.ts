@@ -60,8 +60,8 @@ export type AuthResult = {
 };
 
 export type UpdateProfileInput = {
-  display_name?: string;
-  whatsapp?: string;
+  display_name?: string | null;
+  whatsapp?: string | null;
   city?: string;
   district?: string;
   bio?: string;

@@ -151,7 +151,7 @@ feedback.post("/", authMiddleware, async (c) => {
   }
 
   if (!res.ok) {
-    const ghError = await res.json<{ message?: string }>().catch(() => ({}));
+    const ghError = await res.json<{ message?: string }>().catch(() => ({} as { message?: string }));
     throw new AppError(
       `GitHub ${res.status}: ${ghError.message ?? "bilinmeyen hata"}`,
       502,

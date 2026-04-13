@@ -88,7 +88,7 @@ export type CreateListingInput = {
   direction?: ListingDirection;
 };
 
-export type UpdateListingInput = Partial<CreateListingInput>;
+export type UpdateListingInput = Omit<Partial<CreateListingInput>, "price"> & { price?: number | null };
 
 export type UpdateListingStatusInput = {
   status: ListingStatus;
