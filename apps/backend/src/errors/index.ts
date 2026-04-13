@@ -99,6 +99,13 @@ export class FavoriteAlreadyExistsError extends AppError {
   }
 }
 
+export class NoWhatsappError extends AppError {
+  constructor() {
+    super("İlan verebilmek için WhatsApp numarası gereklidir", 422, "NO_WHATSAPP");
+    this.name = "NoWhatsappError";
+  }
+}
+
 // 502
 export class OAuthError extends AppError {
   constructor(detail: string) {

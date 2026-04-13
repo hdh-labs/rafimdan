@@ -12,6 +12,7 @@ import { listingRepository } from "../repositories/listing.repository";
 import { categoryRepository } from "../repositories/category.repository";
 import { userRepository } from "../repositories/user.repository";
 import { generateSlug, findUniqueSlug } from "../lib/slug";
+import { extractStorageKey } from "../lib/storage";
 import {
   ListingNotFoundError,
   ForbiddenError,
@@ -19,10 +20,12 @@ import {
   FileTooLargeError,
   InvalidFileTypeError,
   TooManyPhotosError,
+  NoWhatsappError,
 } from "../errors";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
 
 async function validateImageMagicBytes(file: File): Promise<boolean> {
   const buffer = new Uint8Array(await file.slice(0, 12).arrayBuffer());
@@ -41,20 +44,56 @@ async function validateImageMagicBytes(file: File): Promise<boolean> {
 export const listingService = {
   async create(
     db: D1Database,
+    env: Env,
     userId: string,
     input: CreateListingInput,
+    tempPhotoKeys?: string[],
   ): Promise<ListingDetail> {
+    const user = await userRepository.findById(db, userId);
+    if (!user?.whatsapp) throw new NoWhatsappError();
+
     const category = await categoryRepository.findById(db, input.category_id);
     if (!category) throw new CategoryNotFoundError();
 
     const slug = await findUniqueSlug(db, "listings", generateSlug(input.title));
+    const id = crypto.randomUUID();
 
-    return listingRepository.create(db, {
-      id: crypto.randomUUID(),
+    const listing = await listingRepository.create(db, {
+      id,
       user_id: userId,
       slug,
       ...input,
     });
+
+    if (!tempPhotoKeys?.length) return listing;
+
+    const bucketUrl = env.STORAGE_PUBLIC_URL || "/api/storage";
+    const photoResults = await Promise.allSettled(
+      tempPhotoKeys.map(async (key) => {
+        if (!key.startsWith(`temp/${userId}/`)) return null;
+        const obj = await env.STORAGE.get(key);
+        if (!obj) return null;
+        const ext = key.split(".").pop() ?? "jpg";
+        const newKey = `listings/${id}/${crypto.randomUUID()}.${ext}`;
+        await env.STORAGE.put(newKey, obj.body, {
+          httpMetadata: { contentType: obj.httpMetadata?.contentType ?? "image/jpeg" },
+        });
+        await env.STORAGE.delete(key);
+        return `${bucketUrl}/${newKey}`;
+      }),
+    );
+
+    const photos = photoResults
+      .filter((r): r is PromiseFulfilledResult<string | null> => r.status === "fulfilled")
+      .map(r => r.value)
+      .filter((v): v is string => v !== null);
+
+    if (photos.length > 0) {
+      await listingRepository.updatePhotos(db, id, photos);
+      return { ...listing, photos };
+    }
+
+    return listing;
   },
 
   async getAll(
@@ -114,9 +153,10 @@ export const listingService = {
     if (!listing) throw new ListingNotFoundError();
     if (listing.seller.id !== userId) throw new ForbiddenError("Bu ilan size ait değil");
 
+    const bucketBaseUrl = env.STORAGE_PUBLIC_URL || "/api/storage";
     await Promise.allSettled(
       listing.photos.map((url) => {
-        const key = url.replace(/^.*\/api\/storage\//, "");
+        const key = extractStorageKey(url, bucketBaseUrl);
         return env.STORAGE.delete(key);
       }),
     );
@@ -176,7 +216,7 @@ export const listingService = {
     }
 
     const photoUrl = listing.photos[index]!;
-    const key = photoUrl.replace(/^.*\/api\/storage\//, "");
+    const key = extractStorageKey(photoUrl, env.STORAGE_PUBLIC_URL || "/api/storage");
     await env.STORAGE.delete(key);
 
     const photos = listing.photos.filter((_, i) => i !== index);
@@ -212,10 +252,10 @@ export const listingService = {
     if (!listing) throw new ListingNotFoundError();
     if (listing.seller.id !== userId) throw new ForbiddenError("Bu ilan size ait değil");
 
+    if (photos.length !== listing.photos.length) throw new ForbiddenError("Geçersiz fotoğraf listesi");
+    if (new Set(photos).size !== photos.length) throw new ForbiddenError("Tekrar eden fotoğraf URL'i");
     const validUrls = new Set(listing.photos);
-    if (!photos.every(url => validUrls.has(url))) {
-      throw new ForbiddenError("Geçersiz fotoğraf URL'i");
-    }
+    if (!photos.every(url => validUrls.has(url))) throw new ForbiddenError("Geçersiz fotoğraf URL'i");
 
     await listingRepository.updatePhotos(db, listing.id, photos);
     return { ...listing, photos };

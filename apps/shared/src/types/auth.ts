@@ -11,6 +11,7 @@ export type User = {
   whatsapp: string | null;
   city: string | null;
   district: string | null;
+  bio: string | null;
   slug: string | null;
   is_active: number;
   is_admin: number;
@@ -26,6 +27,7 @@ export type UserProfile = {
   whatsapp: string | null;
   city: string | null;
   district: string | null;
+  bio: string | null;
   slug: string | null;
   is_active: number;
   is_admin: number;
@@ -62,12 +64,14 @@ export type UpdateProfileInput = {
   whatsapp?: string;
   city?: string;
   district?: string;
+  bio?: string;
 };
 
 export type CreateUserInput = {
   id: string;
   google_id: string;
   name: string;
+  slug: string;
   avatar_url?: string | null;
 };
 

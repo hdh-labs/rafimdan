@@ -43,9 +43,61 @@ listings.get("/", zValidator("query", listingsQuerySchema), async (c) => {
 listings.post("/", authMiddleware, zValidator("json", createListingSchema), async (c) => {
   try {
     const { sub } = c.get("user");
-    const body = c.req.valid("json");
-    const listing = await listingService.create(c.env.DB, sub, body);
+    const { temp_photo_keys, ...body } = c.req.valid("json");
+    const listing = await listingService.create(c.env.DB, c.env, sub, body, temp_photo_keys);
     return c.json({ data: listing, status: "ok" }, 201);
+  } catch (err) {
+    return handleError(c, err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /photos/temp — geçici fotoğraf yükle (ilan oluşturulmadan önce eager upload)
+// ---------------------------------------------------------------------------
+
+listings.post("/photos/temp", authMiddleware, async (c) => {
+  try {
+    const { sub } = c.get("user");
+
+    const contentType = c.req.header("content-type") ?? "";
+    if (!contentType.includes("multipart/form-data")) {
+      return c.json(
+        { error: "Content-Type must be multipart/form-data", status: "error", code: "INVALID_CONTENT_TYPE" },
+        400,
+      );
+    }
+
+    const formData = await c.req.formData();
+    const file = formData.get("file") as File | null;
+    if (!file) {
+      return c.json({ error: "Dosya gerekli", status: "error", code: "MISSING_FILE" }, 400);
+    }
+
+    const MAX_FILE_SIZE = 10 * 1024 * 1024;
+    const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+    if (file.size > MAX_FILE_SIZE) {
+      return c.json({ error: "File must be smaller than 10MB", status: "error", code: "FILE_TOO_LARGE" }, 400);
+    }
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return c.json({ error: "Only JPEG, PNG and WebP images are allowed", status: "error", code: "INVALID_FILE_TYPE" }, 400);
+    }
+
+    const buffer = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+    const isJpeg = buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+    const isPng = buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
+    const isWebp = buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46
+      && buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50;
+    if (!isJpeg && !isPng && !isWebp) {
+      return c.json({ error: "Only JPEG, PNG and WebP images are allowed", status: "error", code: "INVALID_FILE_TYPE" }, 400);
+    }
+
+    const ext = file.type === "image/jpeg" ? "jpg" : file.type.split("/")[1];
+    const key = `temp/${sub}/${crypto.randomUUID()}.${ext}`;
+    await c.env.STORAGE.put(key, file.stream(), {
+      httpMetadata: { contentType: file.type },
+    });
+
+    return c.json({ data: { key }, status: "ok" }, 201);
   } catch (err) {
     return handleError(c, err);
   }
@@ -230,7 +282,10 @@ listings.post("/:slug/report", authMiddleware, async (c) => {
     const slug = c.req.param("slug");
     const body = await c.req.json<{ reason?: string; description?: string }>();
     const reason = body?.reason ?? "other";
-    await reportService.report(c.env.DB, sub, slug, reason, body?.description ?? null);
+    const description = typeof body?.description === "string"
+      ? body.description.slice(0, 1000)
+      : null;
+    await reportService.report(c.env.DB, sub, slug, reason, description);
     return c.json({ data: null, status: "ok" }, 201);
   } catch (err) {
     return handleError(c, err);

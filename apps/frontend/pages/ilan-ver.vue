@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Upload, X, ImagePlus, MessageCircle } from "lucide-vue-next"
+import { Upload, X, ImagePlus, MessageCircle, Loader2, RefreshCw, Star } from "lucide-vue-next"
 import { toast } from "vue-sonner"
 import type { ListingDetail, CategoryTree, ApiResponse } from "@rafimdan/shared"
 import { apiFetch, ApiError } from "~/utils/api"
@@ -26,16 +26,29 @@ const form = reactive({
 })
 
 const errors = reactive<Record<string, string>>({})
+const submitting = ref(false)
+const submitError = ref<string | null>(null)
+const pendingSubmit = ref(false)
+
 const {
-  selectedFiles,
-  submitting,
-  submitError,
-  uploadedCount,
-  previewUrl,
+  photos,
+  totalCount,
+  isUploading,
+  doneKeys,
+  doneCount,
   onFileChange,
-  removeFile,
-  uploadFiles,
-} = useListingPhotos()
+  retry,
+  remove,
+  setCover,
+  MAX_PHOTOS,
+} = useEagerPhotoUpload()
+
+watch(isUploading, (uploading) => {
+  if (!uploading && pendingSubmit.value) {
+    pendingSubmit.value = false
+    void doSubmit()
+  }
+})
 
 const ilceler = computed(() => getIlceler(form.city))
 
@@ -53,14 +66,12 @@ watch(() => form.direction, (val) => {
   if (val === "request" || val === "support") { form.price_type = "free"; form.price = "" }
   if (val === "offer" && form.price_type === "free") form.price = ""
 })
-
 watch(() => form.price_type, (val) => {
   if (val === "free") form.price = ""
   delete errors.price
 })
-
-watch(selectedFiles, (files) => {
-  if (files.length > 0) delete errors.photos
+watch(doneKeys, (keys) => {
+  if (keys.length > 0) delete errors.photos
 })
 
 const CONDITION_OPTIONS = [
@@ -69,8 +80,6 @@ const CONDITION_OPTIONS = [
   { value: "good", label: "İyi" },
   { value: "fair", label: "Orta" },
 ] as const
-
-const priceDisabled = computed(() => form.price_type === "free")
 
 function validate(): boolean {
   const e: Record<string, string> = {}
@@ -91,7 +100,7 @@ function validate(): boolean {
     if (form.price === "" || form.price === null) e.price = "Fiyat zorunludur."
   }
 
-  if (form.direction === "offer" && selectedFiles.value.length === 0) {
+  if (form.direction === "offer" && doneKeys.value.length === 0) {
     e.photos = "En az 1 fotoğraf zorunludur."
   }
 
@@ -100,10 +109,7 @@ function validate(): boolean {
   return Object.keys(e).length === 0
 }
 
-async function submit() {
-  submitError.value = null
-  if (!validate()) return
-
+async function doSubmit() {
   submitting.value = true
   try {
     const body: Record<string, unknown> = {
@@ -117,25 +123,31 @@ async function submit() {
     if (form.district) body.district = form.district
     if (form.description.trim()) body.description = form.description.trim()
     if (form.price !== "") body.price = Number(form.price)
+    if (doneKeys.value.length > 0) body.temp_photo_keys = doneKeys.value
 
     const res = await apiFetch<ApiResponse<ListingDetail>>("/api/listings", {
       method: "POST",
       body: JSON.stringify(body),
     })
 
-    const { slug } = res.data
-
-    const failedCount = await uploadFiles(slug)
-    if (failedCount > 0) {
-      toast.error(`${failedCount} fotoğraf yüklenemedi. İlan düzenleme sayfasından tekrar ekleyebilirsin.`)
-    }
-
-    await navigateTo(`/ilan/${slug}`)
+    await navigateTo(`/ilan/${res.data.slug}`)
   } catch (err) {
     submitError.value = err instanceof ApiError ? err.message : "Bir hata oluştu, tekrar deneyin."
   } finally {
     submitting.value = false
   }
+}
+
+function submit() {
+  submitError.value = null
+  if (!validate()) return
+
+  if (isUploading.value) {
+    pendingSubmit.value = true
+    return
+  }
+
+  void doSubmit()
 }
 </script>
 
@@ -364,32 +376,88 @@ async function submit() {
 
       <!-- Fotoğraflar -->
       <div>
-        <label class="block text-sm font-medium text-foreground mb-2">
-          Fotoğraflar
-          <span v-if="form.direction === 'offer'" class="text-destructive">*</span>
-          <span class="font-normal text-muted-foreground">(max 6, jpeg/png/webp)</span>
-        </label>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex items-center justify-between mb-2">
+          <label class="block text-sm font-medium text-foreground">
+            Fotoğraflar
+            <span v-if="form.direction === 'offer'" class="text-destructive">*</span>
+          </label>
+          <span class="text-xs text-muted-foreground">{{ totalCount }}/{{ MAX_PHOTOS }}</span>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2">
+          <!-- Fotoğraf tile'ları -->
           <div
-            v-for="(file, i) in selectedFiles"
+            v-for="(photo, i) in photos"
             :key="i"
-            class="relative size-20 rounded-md overflow-hidden border border-border"
+            class="relative aspect-square rounded-lg overflow-hidden border"
+            :class="[
+              i === 0 ? 'border-foreground' : 'border-border',
+              errors.photos ? 'ring-1 ring-destructive' : '',
+            ]"
           >
-            <img :src="previewUrl(file)" :alt="file.name" class="size-full object-cover" />
+            <img :src="photo.previewUrl" :alt="`Fotoğraf ${i + 1}`" class="size-full object-cover" />
+
+            <!-- Yükleniyor overlay -->
+            <div
+              v-if="photo.status === 'uploading'"
+              class="absolute inset-0 bg-black/50 flex items-center justify-center"
+            >
+              <Loader2 class="size-6 text-white animate-spin" />
+            </div>
+
+            <!-- Hata overlay — tıklayınca retry -->
             <button
+              v-else-if="photo.status === 'error'"
               type="button"
-              class="absolute top-0.5 right-0.5 size-5 rounded-full bg-black/60 flex items-center justify-center cursor-pointer"
-              @click="removeFile(i)"
+              class="absolute inset-0 bg-destructive/70 flex flex-col items-center justify-center gap-1 cursor-pointer w-full"
+              @click="retry(i)"
+            >
+              <RefreshCw class="size-5 text-white" />
+              <span class="text-[10px] text-white font-medium">Tekrar</span>
+            </button>
+
+            <!-- Kapak / Kapağa Al -->
+            <template v-else>
+              <div
+                class="absolute bottom-0 inset-x-0 text-center text-[10px] font-medium py-0.5"
+                :class="i === 0
+                  ? 'bg-black/60 text-white'
+                  : 'bg-foreground/80 text-background cursor-pointer'"
+                @click="i > 0 ? setCover(i) : null"
+              >
+                {{ i === 0 ? 'Kapak' : 'Kapağa Al' }}
+              </div>
+            </template>
+
+            <!-- Yıldız (kapak göstergesi) -->
+            <div
+              class="absolute top-1 left-1 size-5 flex items-center justify-center pointer-events-none"
+            >
+              <Star
+                class="size-3.5"
+                :class="i === 0 ? 'text-yellow-400' : 'text-white/50'"
+                :fill="i === 0 ? 'currentColor' : 'none'"
+              />
+            </div>
+
+            <!-- Sil butonu -->
+            <button
+              v-if="photo.status !== 'uploading'"
+              type="button"
+              class="absolute top-1 right-1 size-5 rounded-full bg-black/60 flex items-center justify-center cursor-pointer"
+              @click="remove(i)"
             >
               <X class="size-3 text-white" />
             </button>
           </div>
 
+          <!-- Ekle butonu -->
           <label
-            v-if="selectedFiles.length < 6"
-            class="size-20 rounded-md border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-muted transition-colors"
+            v-if="totalCount < MAX_PHOTOS"
+            class="aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors"
+            :class="errors.photos ? 'border-destructive' : 'border-border hover:bg-muted'"
           >
-            <ImagePlus class="size-5 text-muted-foreground" />
+            <ImagePlus class="size-6 text-muted-foreground" />
             <span class="text-xs text-muted-foreground">Ekle</span>
             <input
               type="file"
@@ -400,6 +468,7 @@ async function submit() {
             />
           </label>
         </div>
+
         <p v-if="errors.photos" class="mt-1 text-xs text-destructive">{{ errors.photos }}</p>
       </div>
 
@@ -408,11 +477,15 @@ async function submit() {
         {{ submitError }}
       </p>
 
-      <Button type="submit" size="lg" :loading="submitting" class="w-full">
-        <Upload v-if="!submitting" class="size-4" />
-        <span v-if="submitting && selectedFiles.length > 0">
-          Fotoğraflar yükleniyor {{ uploadedCount }}/{{ selectedFiles.length }}...
-        </span>
+      <Button
+        type="submit"
+        size="lg"
+        :loading="submitting"
+        :disabled="submitting"
+        class="w-full"
+      >
+        <Upload v-if="!submitting && !pendingSubmit" class="size-4" />
+        <span v-if="pendingSubmit">Fotoğraflar hazırlanıyor {{ doneCount }}/{{ totalCount }}...</span>
         <span v-else-if="submitting">Yayınlanıyor...</span>
         <span v-else>Yayınla</span>
       </Button>

@@ -12,6 +12,7 @@ export const createListingSchema = z
     city: z.string().min(2).max(60),
     district: z.string().min(2).max(60).optional(),
     direction: z.enum(LISTING_DIRECTIONS).default("offer"),
+    temp_photo_keys: z.array(z.string().max(300)).max(6).optional(),
   })
   .refine(
     (data) =>
@@ -28,7 +29,7 @@ export const updateListingSchema = z.object({
   category_id: z.string().min(1).optional(),
   condition: z.enum(LISTING_CONDITIONS).optional(),
   price_type: z.enum(LISTING_PRICE_TYPES).optional(),
-  price: z.number().int().positive().optional(),
+  price: z.number().int().positive().nullable().optional(),
   city: z.string().min(2).max(60).optional(),
   district: z.string().min(2).max(60).optional(),
   direction: z.enum(LISTING_DIRECTIONS).optional(),

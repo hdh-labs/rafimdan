@@ -118,7 +118,7 @@ watch(() => form.city, () => {
 })
 
 watch(() => form.direction, (val) => {
-  if (val === "request") { form.price_type = "free"; form.price = "" }
+  if (val === "request" || val === "support") { form.price_type = "free"; form.price = "" }
   if (val === "offer" && form.price_type === "free") form.price = ""
 })
 
@@ -214,7 +214,7 @@ async function save() {
       category_id: form.category_id,
       direction: form.direction,
       condition: form.condition,
-      price_type: form.direction === "request" ? "free" : form.price_type,
+      price_type: form.direction !== "offer" ? "free" : form.price_type,
       city: form.city,
     }
     if (form.district) body.district = form.district
@@ -358,13 +358,37 @@ async function confirmDelete() {
           </label>
           <label
             class="flex flex-col items-center gap-1.5 py-3 px-4 rounded-lg border-2 cursor-pointer transition-colors"
-            :class="form.direction === 'request'
+            :class="form.direction !== 'offer'
               ? 'border-amber-500 bg-amber-50 text-amber-900'
               : 'border-border hover:bg-muted'"
           >
+            <input
+              type="radio"
+              class="sr-only"
+              :checked="form.direction !== 'offer'"
+              @change="form.direction === 'offer' ? form.direction = 'request' : null"
+            />
+            <span class="text-sm font-semibold">Destek</span>
+            <span class="text-xs opacity-70">İhtiyaç veya yardım teklifi</span>
+          </label>
+        </div>
+
+        <!-- Destek Alt Seçeneği -->
+        <div v-if="form.direction !== 'offer'" class="flex rounded-lg border border-amber-200 overflow-hidden">
+          <label
+            class="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm cursor-pointer transition-colors"
+            :class="form.direction === 'request' ? 'bg-amber-100 text-amber-900 font-semibold' : 'bg-white text-muted-foreground hover:bg-amber-50'"
+          >
             <input v-model="form.direction" type="radio" value="request" class="sr-only" />
-            <span class="text-sm font-semibold">Destek Arıyorum</span>
-            <span class="text-xs opacity-70">İhtiyacını yaz, topluluk bir el atsın</span>
+            Arıyorum
+          </label>
+          <div class="w-px bg-amber-200" />
+          <label
+            class="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm cursor-pointer transition-colors"
+            :class="form.direction === 'support' ? 'bg-amber-100 text-amber-900 font-semibold' : 'bg-white text-muted-foreground hover:bg-amber-50'"
+          >
+            <input v-model="form.direction" type="radio" value="support" class="sr-only" />
+            Veriyorum
           </label>
         </div>
 
@@ -498,7 +522,7 @@ async function confirmDelete() {
             v-model="form.description"
             maxlength="2000"
             rows="4"
-            :placeholder="form.direction === 'request' ? 'Neye ihtiyacın var, ne zaman lazım, nerede buluşabilirsin...' : 'Ürün durumunu, eksiklerini, buluşma tercihin yaz... (örn: Çiğdem Mah. civarı uygun)'"
+            :placeholder="form.direction === 'request' ? 'Neye ihtiyacın var, ne zaman lazım, nerede buluşabilirsin...' : form.direction === 'support' ? 'Ne kadar süre ayırabilirsin, hangi şehir, nasıl iletişime geçilsin...' : 'Ürün durumunu, eksiklerini, buluşma tercihin yaz... (örn: Çiğdem Mah. civarı uygun)'"
             class="w-full px-3 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-1 focus:ring-ring resize-none"
           />
           <p class="text-xs text-muted-foreground mt-1 text-right">
