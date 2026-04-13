@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ClipboardList, ImageOff, Pencil, Trash2, ChevronDown, RefreshCw, AlertCircle } from "lucide-vue-next"
+import { ClipboardList, ImageOff, Pencil, Trash2, ChevronDown, RefreshCw, AlertCircle, Check, X } from "lucide-vue-next"
 import { toast } from "vue-sonner"
 import type { ListingListItem, ListingStatus } from "@rafimdan/shared"
 import { apiFetch } from "~/utils/api"
@@ -16,6 +16,9 @@ const activeTab = ref<Tab>("all")
 const pendingSlug = ref<string | null>(null)
 const openMenuSlug = ref<string | null>(null)
 const deleteConfirmSlug = ref<string | null>(null)
+const editingPriceSlug = ref<string | null>(null)
+const priceInputValue = ref("")
+const priceInputRef = ref<HTMLInputElement | null>(null)
 
 
 const TABS: { key: Tab; label: string }[] = [
@@ -58,6 +61,43 @@ function toggleMenu(slug: string) {
 
 function closeMenus() {
   openMenuSlug.value = null
+}
+
+function startPriceEdit(slug: string, currentPrice: number | null) {
+  editingPriceSlug.value = slug
+  priceInputValue.value = currentPrice ? String(currentPrice) : ""
+  nextTick(() => priceInputRef.value?.select())
+}
+
+function cancelPriceEdit() {
+  editingPriceSlug.value = null
+  priceInputValue.value = ""
+}
+
+async function savePriceEdit(slug: string) {
+  const parsed = parseInt(priceInputValue.value, 10)
+  if (!parsed || parsed <= 0) { cancelPriceEdit(); return }
+
+  const item = listings.value.find((l) => l.slug === slug)
+  if (!item || item.price === parsed) { cancelPriceEdit(); return }
+
+  const prev = item.price
+  item.price = parsed
+  editingPriceSlug.value = null
+  pendingSlug.value = slug
+
+  try {
+    await apiFetch(`/api/listings/${slug}`, {
+      method: "PATCH",
+      body: JSON.stringify({ price: parsed }),
+    })
+    toast.success("Fiyat güncellendi.")
+  } catch {
+    item.price = prev
+    toast.error("Fiyat güncellenemedi.")
+  } finally {
+    pendingSlug.value = null
+  }
 }
 
 async function changeStatus(slug: string, status: ListingStatus) {
@@ -206,7 +246,7 @@ async function deleteListing(slug: string, title: string) {
         <!-- Info -->
         <div class="flex-1 min-w-0">
           <NuxtLink
-            :to="`/ilan/${listing.slug}`"
+            :to="listing.status === 'pending' || listing.status === 'rejected' ? `/ilan/${listing.slug}/duzenle` : `/ilan/${listing.slug}`"
             class="text-sm font-semibold text-foreground line-clamp-1 hover:underline cursor-pointer"
           >
             {{ listing.title }}
@@ -221,6 +261,36 @@ async function deleteListing(slug: string, title: string) {
             >
               {{ STATUS_LABELS[listing.status] }}
             </span>
+
+            <!-- Inline fiyat edit -->
+            <template v-if="listing.price_type !== 'free'">
+              <div v-if="editingPriceSlug === listing.slug" class="flex items-center gap-1" @click.stop>
+                <input
+                  :ref="el => { if (editingPriceSlug === listing.slug) priceInputRef = el as HTMLInputElement | null }"
+                  v-model="priceInputValue"
+                  type="number"
+                  min="1"
+                  class="w-20 px-1.5 py-0.5 text-xs border border-ring rounded focus:outline-none"
+                  @keydown.enter="savePriceEdit(listing.slug)"
+                  @keydown.esc="cancelPriceEdit"
+                />
+                <button class="text-green-600 hover:text-green-700 cursor-pointer" @click="savePriceEdit(listing.slug)">
+                  <Check class="size-3.5" />
+                </button>
+                <button class="text-muted-foreground hover:text-foreground cursor-pointer" @click="cancelPriceEdit">
+                  <X class="size-3.5" />
+                </button>
+              </div>
+              <button
+                v-else
+                class="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 cursor-pointer transition-colors"
+                @click.stop="startPriceEdit(listing.slug, listing.price)"
+              >
+                {{ listing.price_type === 'negotiable' ? `${listing.price ?? '?'} ₺ ~` : `${listing.price ?? '?'} ₺` }}
+              </button>
+            </template>
+            <span v-else class="text-xs text-green-600 font-medium">Ücretsiz</span>
+
             <span
               class="text-xs"
               :class="listing.age > 14 ? 'text-amber-600' : 'text-muted-foreground'"

@@ -4,6 +4,7 @@ import { userRepository } from "../repositories/user.repository";
 import { refreshTokenRepository } from "../repositories/refresh-token.repository";
 import { sha256 } from "../lib/crypto";
 import { findUniqueSlug, generateSlug } from "../lib/slug";
+import { extractStorageKey } from "../lib/storage";
 import {
   signAccessToken,
   signRefreshToken,
@@ -166,10 +167,9 @@ export const authService = {
         id: crypto.randomUUID(),
         google_id: googleUser.id,
         name: googleUser.name,
+        slug,
         avatar_url: googleUser.picture,
       });
-      await userRepository.update(db, user.id, { slug });
-      user = (await userRepository.findById(db, user.id))!;
     } else if (!user.is_active) {
       throw new AccountDisabledError();
     }
@@ -230,5 +230,31 @@ export const authService = {
     const user = await userRepository.update(db, userId, input);
     if (!user) throw new UserNotFoundError();
     return userRepository.toProfile(user);
+  },
+
+  async updateAvatar(db: D1Database, userId: string, avatarUrl: string): Promise<UserProfile> {
+    const user = await userRepository.update(db, userId, { avatar_url: avatarUrl });
+    if (!user) throw new UserNotFoundError();
+    return userRepository.toProfile(user);
+  },
+
+  async deleteAccount(db: D1Database, env: Env, userId: string): Promise<void> {
+    const user = await userRepository.findById(db, userId);
+    if (!user) throw new UserNotFoundError();
+
+    const bucketBase = env.STORAGE_PUBLIC_URL || "/api/storage";
+    const listingRows = await db
+      .prepare("SELECT photos FROM listings WHERE user_id = ?")
+      .bind(userId)
+      .all<{ photos: string | null }>();
+    const photoKeys = (listingRows.results ?? []).flatMap((row) => {
+      if (!row.photos) return [];
+      try { return (JSON.parse(row.photos) as string[]).map(url => extractStorageKey(url, bucketBase)); }
+      catch { return []; }
+    });
+    await Promise.allSettled(photoKeys.map(key => env.STORAGE.delete(key)));
+
+    await refreshTokenRepository.deleteAllByUserId(db, userId);
+    await userRepository.deleteById(db, userId);
   },
 } as const;

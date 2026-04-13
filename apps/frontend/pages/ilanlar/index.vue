@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SlidersHorizontal, X, Search } from "lucide-vue-next"
+import { SlidersHorizontal, X, Search, ListFilter } from "lucide-vue-next"
 import type { ListingListItem, CategoryTree, PaginatedResponse } from "@rafimdan/shared"
 import { getIlceler } from "~/utils/turkey-locations"
 import { CONDITION_LABELS, PRICE_TYPE_LABELS } from "~/utils/listing-constants"
@@ -23,6 +23,7 @@ const { data: listingsRes, pending } = await useFetch<ListingsResp>(
     if (q.price_type) p.set("price_type", q.price_type as string)
     if (q.condition) p.set("condition", q.condition as string)
     if (q.q) p.set("q", q.q as string)
+    if (q.sort && q.sort !== "recent") p.set("sort", q.sort as string)
     if (q.page) p.set("page", q.page as string)
     p.set("limit", "20")
     return `/api/listings?${p}`
@@ -42,6 +43,7 @@ const draft = reactive({
   price_type: (route.query.price_type as string) || "",
   condition: (route.query.condition as string) || "",
   q: (route.query.q as string) || "",
+  sort: (route.query.sort as string) || "recent",
 })
 
 const ilceler = computed(() => getIlceler(draft.city))
@@ -68,6 +70,7 @@ watch(() => route.query, (q) => {
   draft.price_type = (q.price_type as string) || ""
   draft.condition = (q.condition as string) || ""
   draft.q = (q.q as string) || ""
+  draft.sort = (q.sort as string) || "recent"
   nextTick(() => { _isRouteUpdate = false })
 })
 
@@ -84,12 +87,18 @@ function applyFilters() {
   if (draft.price_type) query.price_type = draft.price_type
   if (draft.condition) query.condition = draft.condition
   if (draft.q) query.q = draft.q
+  if (draft.sort !== "recent") query.sort = draft.sort
   router.push({ query })
 }
 
 function clearFilters() {
-  Object.assign(draft, { city: "", district: "", category: "", price_type: "", condition: "", q: "" })
+  Object.assign(draft, { city: "", district: "", category: "", price_type: "", condition: "", q: "", sort: "recent" })
   router.push({ query: {} })
+}
+
+function setSort(val: "recent" | "popular") {
+  draft.sort = val
+  applyFilters()
 }
 
 function goToPage(p: number) {
@@ -99,6 +108,23 @@ function goToPage(p: number) {
 const hasFilters = computed(
   () => draft.city || draft.district || draft.category || draft.price_type || draft.condition || draft.q,
 )
+
+const activeFilterCount = computed(() =>
+  [draft.city, draft.district, draft.category, draft.price_type, draft.condition, draft.q]
+    .filter(Boolean).length,
+)
+
+const drawerOpen = ref(false)
+
+watch(drawerOpen, (open) => {
+  if (!import.meta.client) return
+  document.body.style.overflow = open ? "hidden" : ""
+})
+
+function applyAndClose() {
+  applyFilters()
+  drawerOpen.value = false
+}
 
 
 useSeoMeta({
@@ -110,7 +136,7 @@ useSeoMeta({
 <template>
   <div class="max-w-5xl mx-auto px-4 py-8">
     <div class="flex flex-col md:flex-row gap-6">
-      <aside class="w-full md:w-56 shrink-0 space-y-4">
+      <aside class="hidden md:block md:w-56 shrink-0 space-y-4">
         <div class="flex items-center justify-between">
           <span class="text-sm font-medium flex items-center gap-1.5">
             <SlidersHorizontal class="size-4" />
@@ -208,12 +234,41 @@ useSeoMeta({
       </aside>
 
       <div class="flex-1 min-w-0 space-y-4">
-        <div class="flex items-center justify-between">
-          <p class="text-sm text-muted-foreground">
-            <template v-if="!pending">
-              {{ total }} ilan bulundu
-            </template>
-          </p>
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <button
+              class="md:hidden flex items-center gap-1.5 px-3 py-1.5 text-sm border border-border rounded-md hover:bg-muted transition-colors cursor-pointer relative"
+              @click="drawerOpen = true"
+            >
+              <ListFilter class="size-4" />
+              Filtrele
+              <span
+                v-if="activeFilterCount > 0"
+                class="absolute -top-1.5 -right-1.5 flex items-center justify-center size-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold"
+              >
+                {{ activeFilterCount }}
+              </span>
+            </button>
+            <p class="text-sm text-muted-foreground">
+              <template v-if="!pending">{{ total }} ilan</template>
+            </p>
+          </div>
+          <div class="flex items-center rounded-md border border-border overflow-hidden shrink-0">
+            <button
+              class="px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer"
+              :class="draft.sort === 'recent' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'"
+              @click="setSort('recent')"
+            >
+              En Yeni
+            </button>
+            <button
+              class="px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer border-l border-border"
+              :class="draft.sort === 'popular' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground'"
+              @click="setSort('popular')"
+            >
+              En Popüler
+            </button>
+          </div>
         </div>
 
         <div v-if="pending" class="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -285,4 +340,113 @@ useSeoMeta({
       </div>
     </div>
   </div>
+
+  <!-- Mobile Filtre Drawer -->
+  <Teleport to="body">
+    <Transition name="drawer">
+      <div
+        v-if="drawerOpen"
+        class="md:hidden fixed inset-0 z-50 flex flex-col justify-end"
+        @click.self="drawerOpen = false"
+      >
+        <div class="absolute inset-0 bg-black/40" @click="drawerOpen = false" />
+        <div class="relative bg-background rounded-t-2xl shadow-xl max-h-[85dvh] flex flex-col">
+          <div class="flex items-center justify-between px-4 pt-4 pb-3 border-b border-border">
+            <span class="text-sm font-semibold">Filtreler</span>
+            <button class="text-muted-foreground hover:text-foreground cursor-pointer" @click="drawerOpen = false">
+              <X class="size-5" />
+            </button>
+          </div>
+
+          <div class="overflow-y-auto px-4 py-4 space-y-4 flex-1">
+            <div>
+              <label class="text-xs font-medium text-muted-foreground mb-1 block">Arama</label>
+              <div class="relative">
+                <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                <input
+                  v-model="draft.q"
+                  type="text"
+                  placeholder="İlan ara..."
+                  class="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+            </div>
+            <div>
+              <label class="text-xs font-medium text-muted-foreground mb-1 block">Şehir</label>
+              <CityAutocomplete v-model="draft.city" />
+            </div>
+            <div>
+              <label class="text-xs font-medium text-muted-foreground mb-1 block">İlçe</label>
+              <DistrictAutocomplete v-model="draft.district" :options="ilceler" :disabled="!draft.city" />
+            </div>
+            <div>
+              <label class="text-xs font-medium text-muted-foreground mb-1 block">Kategori</label>
+              <select
+                v-model="draft.category"
+                class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+              >
+                <option value="">Tümü</option>
+                <template v-for="cat in categories" :key="cat.id">
+                  <option :value="cat.slug">{{ cat.name }}</option>
+                  <option v-for="child in cat.children" :key="child.id" :value="child.slug">
+                    &nbsp;&nbsp;{{ child.name }}
+                  </option>
+                </template>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs font-medium text-muted-foreground mb-1 block">Fiyat Tipi</label>
+              <select
+                v-model="draft.price_type"
+                class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+              >
+                <option value="">Tümü</option>
+                <option v-for="(label, val) in PRICE_TYPE_LABELS" :key="val" :value="val">{{ label }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-xs font-medium text-muted-foreground mb-1 block">Durum</label>
+              <select
+                v-model="draft.condition"
+                class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
+              >
+                <option value="">Tümü</option>
+                <option v-for="(label, val) in CONDITION_LABELS" :key="val" :value="val">{{ label }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] border-t border-border flex gap-3">
+            <button
+              v-if="hasFilters"
+              class="flex-1 py-2.5 text-sm border border-border rounded-lg hover:bg-muted transition-colors cursor-pointer"
+              @click="() => { clearFilters(); drawerOpen = false }"
+            >
+              Temizle
+            </button>
+            <Button class="flex-1" @click="applyAndClose">Uygula</Button>
+          </div>
+        </div>
+      </div>
+    </Transition>
+  </Teleport>
 </template>
+
+<style scoped>
+.drawer-enter-active,
+.drawer-leave-active {
+  transition: opacity 200ms ease;
+}
+.drawer-enter-active .relative,
+.drawer-leave-active .relative {
+  transition: transform 250ms ease;
+}
+.drawer-enter-from,
+.drawer-leave-to {
+  opacity: 0;
+}
+.drawer-enter-from .relative,
+.drawer-leave-to .relative {
+  transform: translateY(100%);
+}
+</style>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Save, CheckCircle, ExternalLink, LogOut, MessageCircle } from "lucide-vue-next"
+import { Save, CheckCircle, ExternalLink, LogOut, MessageCircle, Camera, Trash2 } from "lucide-vue-next"
 import type { UserProfile, ApiResponse } from "@rafimdan/shared"
 import { apiFetch, ApiError } from "~/utils/api"
 import { IL_NAMES, getIlceler } from "~/utils/turkey-locations"
@@ -8,12 +8,21 @@ definePageMeta({ middleware: ["auth"] })
 
 const authStore = useAuthStore()
 
+const BIO_MAX = 500
+
 const form = reactive({
   display_name: authStore.user?.display_name ?? "",
   whatsapp: authStore.user?.whatsapp ?? "",
   city: IL_NAMES.includes(authStore.user?.city ?? "") ? (authStore.user?.city ?? "") : "",
   district: authStore.user?.district ?? "",
+  bio: authStore.user?.bio ?? "",
 })
+
+const savedForm = reactive({ ...form })
+
+const isDirty = computed(() =>
+  (Object.keys(form) as (keyof typeof form)[]).some((k) => form[k] !== savedForm[k]),
+)
 
 const ilceler = computed(() => getIlceler(form.city))
 
@@ -24,7 +33,24 @@ watch(() => form.city, () => {
 const submitting = ref(false)
 const saved = ref(false)
 const error = ref<string | null>(null)
+const showDeleteConfirm = ref(false)
+const deleting = ref(false)
+
+async function deleteAccount() {
+  deleting.value = true
+  try {
+    await apiFetch("/api/auth/me", { method: "DELETE" })
+    await authStore.logout()
+  } catch {
+    deleting.value = false
+    showDeleteConfirm.value = false
+  }
+}
 const avatarError = ref(false)
+const uploading = ref(false)
+const uploadError = ref<string | null>(null)
+const previewUrl = ref<string | null>(null)
+const fileInputRef = ref<HTMLInputElement | null>(null)
 
 const WHATSAPP_RE = /^5\d{9}$/
 const WHATSAPP_MAX = 10
@@ -33,6 +59,39 @@ function onWhatsappInput(e: Event) {
   const raw = (e.target as HTMLInputElement).value.replace(/\D/g, "").slice(0, WHATSAPP_MAX)
   form.whatsapp = raw
   ;(e.target as HTMLInputElement).value = raw
+}
+
+function onFileChange(e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  const prev = previewUrl.value
+  previewUrl.value = URL.createObjectURL(file)
+  if (prev) URL.revokeObjectURL(prev)
+  uploadAvatar(file)
+}
+
+async function uploadAvatar(file: File) {
+  uploading.value = true
+  uploadError.value = null
+  const fd = new FormData()
+  fd.append("file", file)
+  try {
+    const res = await apiFetch<ApiResponse<UserProfile>>("/api/auth/me/avatar", {
+      method: "POST",
+      body: fd,
+    })
+    authStore.user = res.data
+    avatarError.value = false
+  } catch (err) {
+    uploadError.value = err instanceof ApiError ? err.message : "Yükleme başarısız."
+    if (previewUrl.value) {
+      URL.revokeObjectURL(previewUrl.value)
+      previewUrl.value = null
+    }
+  } finally {
+    uploading.value = false
+    if (fileInputRef.value) fileInputRef.value.value = ""
+  }
 }
 
 async function save() {
@@ -46,11 +105,12 @@ async function save() {
   submitting.value = true
 
   try {
-    const body: Record<string, string> = {}
-    if (form.display_name) body.display_name = form.display_name
-    if (form.whatsapp) body.whatsapp = form.whatsapp.replace(/\s/g, "")
+    const body: Record<string, string | null> = {}
+    body.display_name = form.display_name.trim() || null
+    body.whatsapp = form.whatsapp ? form.whatsapp.replace(/\s/g, "") : null
     if (form.city) body.city = form.city
     if (form.district) body.district = form.district
+    body.bio = form.bio
 
     const res = await apiFetch<ApiResponse<UserProfile>>("/api/auth/me", {
       method: "PATCH",
@@ -58,6 +118,7 @@ async function save() {
     })
 
     authStore.user = res.data
+    Object.assign(savedForm, { ...form })
     saved.value = true
     setTimeout(() => { saved.value = false }, 2500)
   } catch (err) {
@@ -75,24 +136,50 @@ async function save() {
     <div class="mb-6 pb-6 border-b border-border">
       <div class="flex items-center justify-between gap-3">
         <div class="flex items-center gap-3">
-          <span
-            class="inline-flex shrink-0 items-center justify-center size-12 rounded-full bg-muted text-sm font-medium text-muted-foreground overflow-hidden"
-          >
-            <img
-              v-if="authStore.user?.avatar_url && !avatarError"
-              :src="authStore.user.avatar_url"
-              :alt="authStore.user.name"
-              referrerpolicy="no-referrer"
-              class="size-full object-cover"
-              @error="avatarError = true"
-            />
-            <span v-else>
-              {{ authStore.user?.name?.[0]?.toUpperCase() }}
-            </span>
-          </span>
+          <div class="relative shrink-0">
+            <button
+              type="button"
+              class="inline-flex items-center justify-center size-12 rounded-full bg-muted text-sm font-medium text-muted-foreground overflow-hidden cursor-pointer"
+              :disabled="uploading"
+              @click="fileInputRef?.click()"
+            >
+              <img
+                v-if="(previewUrl || authStore.user?.avatar_url) && !avatarError"
+                :src="previewUrl ?? authStore.user!.avatar_url!"
+                :alt="authStore.user?.name"
+                referrerpolicy="no-referrer"
+                class="size-full object-cover"
+                @error="avatarError = true"
+              />
+              <span v-else>{{ authStore.user?.name?.[0]?.toUpperCase() }}</span>
+              <span
+                v-if="uploading"
+                class="absolute inset-0 flex items-center justify-center bg-black/50 rounded-full"
+              >
+                <span class="size-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              </span>
+            </button>
+            <button
+              type="button"
+              class="absolute -bottom-0.5 -right-0.5 flex items-center justify-center size-5 rounded-full bg-primary text-primary-foreground shadow cursor-pointer"
+              :disabled="uploading"
+              @click="fileInputRef?.click()"
+              tabindex="-1"
+            >
+              <Camera class="size-3" />
+            </button>
+          </div>
+          <input
+            ref="fileInputRef"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            class="hidden"
+            @change="onFileChange"
+          />
           <div>
             <p class="font-medium text-foreground text-sm">{{ authStore.user?.name }}</p>
             <p class="text-xs text-muted-foreground">Google ile giriş yapıldı</p>
+            <p v-if="uploadError" class="text-xs text-destructive mt-0.5">{{ uploadError }}</p>
           </div>
         </div>
         <NuxtLink
@@ -188,14 +275,36 @@ async function save() {
         </div>
       </div>
 
+      <div>
+        <label for="settings-bio" class="block text-sm font-medium text-foreground mb-1">
+          Biyografi
+        </label>
+        <textarea
+          id="settings-bio"
+          v-model="form.bio"
+          rows="4"
+          :maxlength="BIO_MAX"
+          placeholder="Kendinden kısaca bahset..."
+          class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+        />
+        <div class="flex justify-end mt-1">
+          <span
+            class="text-xs tabular-nums"
+            :class="form.bio.length >= BIO_MAX ? 'text-destructive' : 'text-muted-foreground'"
+          >
+            {{ form.bio.length }}/{{ BIO_MAX }}
+          </span>
+        </div>
+      </div>
+
       <p v-if="error" class="text-sm text-destructive">{{ error }}</p>
 
       <Button
         type="submit"
         size="lg"
         :loading="submitting"
-        :disabled="submitting || saved"
-        :class="`w-full ${saved ? 'bg-green-600 text-white hover:opacity-100' : ''}`"
+        :disabled="submitting"
+        :class="`w-full transition-colors ${saved ? 'bg-green-600 text-white hover:opacity-100' : ''}`"
       >
         <CheckCircle v-if="saved" class="size-4" />
         <Save v-else-if="!submitting" class="size-4" />
@@ -203,7 +312,7 @@ async function save() {
       </Button>
     </form>
 
-    <div class="mt-8 pt-6 border-t border-border">
+    <div class="mt-8 pt-6 border-t border-border space-y-4">
       <button
         type="button"
         class="flex items-center gap-2 text-sm text-muted-foreground hover:text-red-600 cursor-pointer transition-colors"
@@ -212,6 +321,43 @@ async function save() {
         <LogOut class="size-4" />
         Hesaptan Çıkış Yap
       </button>
+
+      <div>
+        <button
+          v-if="!showDeleteConfirm"
+          type="button"
+          class="flex items-center gap-2 text-sm text-muted-foreground hover:text-destructive cursor-pointer transition-colors"
+          @click="showDeleteConfirm = true"
+        >
+          <Trash2 class="size-4" />
+          Hesabımı Sil
+        </button>
+
+        <div v-else class="rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-3">
+          <p class="text-sm font-medium text-destructive">Bu işlem geri alınamaz.</p>
+          <p class="text-xs text-muted-foreground">Tüm ilanlarınız ve profil bilgileriniz kalıcı olarak silinecek.</p>
+          <div class="flex gap-2">
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              :loading="deleting"
+              @click="deleteAccount"
+            >
+              Evet, hesabımı sil
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              :disabled="deleting"
+              @click="showDeleteConfirm = false"
+            >
+              İptal
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>

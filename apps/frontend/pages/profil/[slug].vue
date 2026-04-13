@@ -37,6 +37,15 @@ const memberSince = computed(() => {
 
 const avatarError = ref(false)
 
+const waUrl = computed(() => {
+  const phone = profile.value.whatsapp
+  if (!phone) return null
+  const text = encodeURIComponent(`Merhaba ${displayName.value}, seninle iletişime geçmek istedim.`)
+  const digits = phone.replace(/\D/g, "")
+  const waPhone = digits.startsWith("90") ? digits : `90${digits}`
+  return `https://wa.me/${waPhone}?text=${text}`
+})
+
 useSeoMeta({
   title: () => `${displayName.value} — Rafımdan`,
   description: () =>
@@ -90,16 +99,35 @@ useSeoMeta({
           <span v-if="profile.sold_count > 0" class="flex items-center gap-1 text-sm text-muted-foreground">
             {{ profile.sold_count }} satış
           </span>
-          <span
-            v-if="profile.whatsapp"
-            class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5"
+          <a
+            v-if="waUrl"
+            :href="waUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5 hover:bg-green-100 transition-colors cursor-pointer"
           >
             <MessageCircle class="size-3 shrink-0" />
             WhatsApp
-          </span>
+          </a>
         </div>
       </div>
     </div>
+
+    <div v-if="profile.bio">
+      <h2 class="text-base font-semibold text-foreground mb-2">Hakkında</h2>
+      <p class="text-sm text-muted-foreground leading-relaxed">{{ profile.bio }}</p>
+    </div>
+
+    <a
+      v-if="waUrl"
+      :href="waUrl"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="flex items-center justify-center gap-2 w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-lg cursor-pointer transition-colors"
+    >
+      <MessageCircle class="size-5" />
+      WhatsApp'tan Yaz
+    </a>
 
     <div>
       <h2 class="text-base font-semibold text-foreground mb-4">Aktif İlanlar</h2>

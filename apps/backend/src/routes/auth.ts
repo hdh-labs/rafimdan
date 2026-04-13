@@ -173,4 +173,82 @@ auth.patch("/me", authMiddleware, zValidator("json", updateProfileSchema), async
   }
 });
 
+// ---------------------------------------------------------------------------
+// POST /me/avatar
+// ---------------------------------------------------------------------------
+
+const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
+const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+type AllowedAvatarType = (typeof ALLOWED_AVATAR_TYPES)[number];
+
+function isAllowedAvatarType(type: string): type is AllowedAvatarType {
+  return (ALLOWED_AVATAR_TYPES as readonly string[]).includes(type);
+}
+
+auth.post("/me/avatar", authMiddleware, async (c) => {
+  try {
+    const { sub } = c.get("user");
+
+    const formData = await c.req.formData();
+    const file = formData.get("file") as File | null;
+
+    if (!file) throw new AppError("Dosya gerekli", 400, "MISSING_FILE");
+    if (!isAllowedAvatarType(file.type)) {
+      throw new AppError("Sadece JPEG, PNG veya WebP yüklenebilir", 400, "INVALID_FILE_TYPE");
+    }
+    if (file.size > MAX_AVATAR_SIZE) {
+      throw new AppError("Dosya 2 MB'dan büyük olamaz", 400, "FILE_TOO_LARGE");
+    }
+
+    const buf = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+    const isJpeg = buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+    const isPng = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
+    const isWebp = buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46
+      && buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50;
+    if (!isJpeg && !isPng && !isWebp) {
+      throw new AppError("Sadece JPEG, PNG veya WebP yüklenebilir", 400, "INVALID_FILE_TYPE");
+    }
+
+    const ext = file.type === "image/jpeg" ? "jpg" : file.type.split("/")[1]!;
+    const key = `avatars/${sub}.${ext}`;
+
+    const existingProfile = await authService.getProfile(c.env.DB, sub);
+    const oldUrl = existingProfile.avatar_url;
+
+    await c.env.STORAGE.put(key, file.stream(), {
+      httpMetadata: { contentType: file.type },
+    });
+
+    const baseUrl = c.env.STORAGE_PUBLIC_URL ?? "/api/storage";
+    const fullUrl = `${baseUrl}/${key}`;
+
+    if (oldUrl && oldUrl.startsWith(baseUrl)) {
+      const oldKey = oldUrl.slice(baseUrl.length + 1);
+      if (oldKey !== key) {
+        void c.env.STORAGE.delete(oldKey);
+      }
+    }
+
+    const profile = await authService.updateAvatar(c.env.DB, sub, fullUrl);
+    return c.json({ data: profile, status: "ok" });
+  } catch (err) {
+    return handleError(c, err);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /me
+// ---------------------------------------------------------------------------
+
+auth.delete("/me", authMiddleware, async (c) => {
+  try {
+    const { sub } = c.get("user");
+    await authService.deleteAccount(c.env.DB, c.env, sub);
+    clearRefreshCookie(c);
+    return c.json({ data: null, status: "ok" });
+  } catch (err) {
+    return handleError(c, err);
+  }
+});
+
 export default auth;

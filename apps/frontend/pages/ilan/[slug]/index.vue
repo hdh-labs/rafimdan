@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { MapPin, Eye, MessageCircle, ChevronLeft, ChevronRight, Pencil, Flag, Share2, AlertCircle } from "lucide-vue-next"
+import { MapPin, Eye, MessageCircle, ChevronLeft, ChevronRight, Pencil, Flag, Share2, AlertCircle, ArrowRight } from "lucide-vue-next"
 import { toast } from "vue-sonner"
-import type { ListingDetail } from "@rafimdan/shared"
+import type { ListingDetail, ListingListItem } from "@rafimdan/shared"
 import { apiFetch, ApiError } from "~/utils/api"
 import { CONDITION_LABELS, STATUS_LABELS, getInitials } from "~/utils/listing-constants"
 
 type DetailResp = { data: ListingDetail; status: "ok" }
+type SimilarResp = { data: { items: ListingListItem[] }; status: "ok" }
 
 const route = useRoute()
 const slug = computed(() => route.params.slug as string)
@@ -42,10 +43,12 @@ const isRequest = computed(() => listing.value.direction === "request")
 const waUrl = computed(() => {
   const phone = listing.value.seller.whatsapp
   if (!phone) return null
+  const digits = phone.replace(/\D/g, "")
+  const waPhone = digits.startsWith("90") ? digits : `90${digits}`
   const text = isRequest.value
     ? encodeURIComponent(`Merhaba, "${listing.value.title}" ilanını gördüm, yardımcı olabilir miyim?`)
     : encodeURIComponent(`Merhaba, "${listing.value.title}" ilanın hâlâ aktif mi?`)
-  return `https://wa.me/${phone}?text=${text}`
+  return `https://wa.me/${waPhone}?text=${text}`
 })
 
 const priceDisplay = computed(() => {
@@ -105,6 +108,23 @@ const memberSince = computed(() => {
 })
 
 const sellerAvatarError = ref(false)
+
+const { data: similarRes } = await useFetch<SimilarResp>(
+  () => {
+    const p = new URLSearchParams({
+      category: listing.value.category.slug,
+      city: listing.value.city,
+      limit: "5",
+      status: "active",
+    })
+    return `/api/listings?${p}`
+  },
+  { lazy: true },
+)
+
+const similarListings = computed(() =>
+  (similarRes.value?.data.items ?? []).filter((l) => l.slug !== slug.value).slice(0, 4),
+)
 
 const reportPending = ref(false)
 
@@ -380,6 +400,44 @@ async function submitReport() {
           İlanı Bildir
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- Benzer İlanlar -->
+  <div v-if="similarListings.length > 0" class="max-w-5xl mx-auto px-4 pb-10">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-base font-semibold text-foreground">
+        {{ listing.category.name }} kategorisinde benzer ilanlar
+      </h2>
+      <NuxtLink
+        :to="`/ilanlar?category=${listing.category.slug}&city=${listing.city}`"
+        class="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+      >
+        Tümünü gör
+        <ArrowRight class="size-3.5" />
+      </NuxtLink>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <ListingCard
+        v-for="item in similarListings"
+        :key="item.id"
+        :id="item.id"
+        :slug="item.slug"
+        :title="item.title"
+        :price="item.price ?? 0"
+        :price_type="item.price_type"
+        :condition="item.condition"
+        :status="item.status"
+        :cover_photo="item.cover_photo ?? undefined"
+        :city="item.city"
+        :district="item.district ?? undefined"
+        :seller="{
+          id: item.seller.id,
+          name: item.seller.display_name ?? item.seller.name,
+          avatar_url: item.seller.avatar_url ?? undefined,
+        }"
+        :created_at="item.created_at"
+      />
     </div>
   </div>
 
