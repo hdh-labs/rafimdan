@@ -1,0 +1,8 @@
+JWT_SECRET=your-jwt-secret-min-32-chars
+GOOGLE_CLIENT_ID=your-google-oauth-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=your-google-oauth-client-secret
+CORS_ORIGIN=http://localhost:3000
+STORAGE_PUBLIC_URL=http://localhost:8787/api/storage
+ADMIN_API_KEY=your-admin-api-key
+AHALI_INVITE_TOKEN=your-invite-token
+GITHUB_TOKEN=ghp_your-github-personal-access-token

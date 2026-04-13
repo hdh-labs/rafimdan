@@ -26,6 +26,8 @@ pnpm --filter @rafimdan/backend run db:migrate:local
 | 6 | ✅ | İlan ver + düzenle + ayarlar |
 | 7 | ✅ | SEO sayfaları + sitemap + robots + JSON-LD |
 | 8 | ✅ | CI/CD — GitHub Actions → CF Workers + CF Pages |
+| 9 | ✅ | Admin panel · Raporlama · Feedback widget · Favoriler |
+| 10 | ✅ | Perf audit: db.batch, Cache-Control, LCP fix, a11y, design tokens |
 
 ## Kritik Kurallar
 
