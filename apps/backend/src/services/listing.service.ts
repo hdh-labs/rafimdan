@@ -103,12 +103,18 @@ export const listingService = {
     return listingRepository.findAll(db, params);
   },
 
-  async getBySlug(db: D1Database, slug: string): Promise<ListingDetail> {
+  async getBySlug(db: D1Database, slug: string, viewerId?: string): Promise<ListingDetail> {
     const listing = await listingRepository.findBySlug(db, slug);
     if (!listing) throw new ListingNotFoundError();
-    if (listing.status === "pending" || listing.status === "rejected") throw new ListingNotFoundError();
-    await listingRepository.incrementViewCount(db, listing.id);
-    return { ...listing, view_count: listing.view_count + 1 };
+    const isOwner = viewerId !== undefined && listing.seller.id === viewerId;
+    if (!isOwner && (listing.status === "pending" || listing.status === "rejected")) {
+      throw new ListingNotFoundError();
+    }
+    if (!isOwner && listing.status === "active") {
+      await listingRepository.incrementViewCount(db, listing.id);
+      return { ...listing, view_count: listing.view_count + 1 };
+    }
+    return listing;
   },
 
   async update(
@@ -143,6 +149,14 @@ export const listingService = {
     const listing = await listingRepository.findBySlug(db, slug);
     if (!listing) throw new ListingNotFoundError();
     if (listing.seller.id !== userId) throw new ForbiddenError("Bu ilan size ait değil");
+
+    const ALLOWED_TRANSITIONS: Partial<Record<ListingStatus, ListingStatus[]>> = {
+      active: ["sold"],
+      sold:   ["active"],
+    };
+    if (!ALLOWED_TRANSITIONS[listing.status]?.includes(status)) {
+      throw new ForbiddenError("Bu durum geçişine izin verilmiyor");
+    }
 
     const updated = await listingRepository.updateStatus(db, listing.id, status);
     return updated!;
@@ -233,6 +247,13 @@ export const listingService = {
     if (!listing) throw new ListingNotFoundError();
     if (listing.seller.id !== userId) throw new ForbiddenError("Bu ilan size ait değil");
     if (listing.status !== "active") throw new ForbiddenError("Sadece aktif ilanlar yenilenebilir");
+
+    const COOLDOWN_MS = 24 * 60 * 60 * 1000;
+    const lastRefresh = new Date(listing.updated_at).getTime();
+    if (Date.now() - lastRefresh < COOLDOWN_MS) {
+      throw new ForbiddenError("İlan 24 saat içinde bir kez yenilenebilir");
+    }
+
     await listingRepository.touch(db, listing.id);
   },
 

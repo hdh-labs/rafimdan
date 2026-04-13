@@ -55,8 +55,8 @@ async function exchangeGoogleCode(
   });
 
   if (!res.ok) {
-    const text = await res.text();
-    throw new OAuthError(`Token exchange failed: ${text}`);
+    await res.text(); // consume body — detay istemciye sızdırılmıyor
+    throw new OAuthError("Google token alınamadı. Tekrar deneyin.");
   }
 
   return res.json() as Promise<GoogleTokenResponse>;

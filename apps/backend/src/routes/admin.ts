@@ -190,6 +190,10 @@ admin.get("/users", adminAuthMiddleware, async (c) => {
 admin.patch("/users/:id", adminAuthMiddleware, async (c) => {
   try {
     const id = c.req.param("id");
+    const adminId = c.get("user").sub;
+    if (id === adminId) {
+      return c.json({ error: "Kendi hesabınızı değiştiremezsiniz", status: "error", code: "SELF_MODIFY" }, 403);
+    }
     const body = await c.req.json<{ is_active?: number; is_admin?: number }>();
     const allowed: { is_active?: number; is_admin?: number } = {};
     if (typeof body.is_active === "number") allowed.is_active = body.is_active;
@@ -202,7 +206,6 @@ admin.patch("/users/:id", adminAuthMiddleware, async (c) => {
     if (body.is_active === 0) {
       await refreshTokenRepository.deleteAllByUserId(c.env.DB, id);
     }
-    const adminId = c.get("user").sub;
     if (typeof body.is_active === "number") {
       await adminLogRepository.insert(c.env.DB, {
         id: crypto.randomUUID(),

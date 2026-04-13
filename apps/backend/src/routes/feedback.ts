@@ -1,7 +1,8 @@
 import { Hono } from "hono";
 import type { HonoEnv } from "../types/env";
 import { AppError } from "../errors";
-import { authMiddleware } from "../middleware/auth";
+import { authMiddleware, optionalAuthMiddleware } from "../middleware/auth";
+import { userRepository } from "../repositories/user.repository";
 
 const feedback = new Hono<HonoEnv>();
 
@@ -29,7 +30,13 @@ const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp
 // POST /attachments — görsel yükle, R2'ye kaydet, public URL döndür
 // ---------------------------------------------------------------------------
 
-feedback.post("/attachments", authMiddleware, async (c) => {
+feedback.post("/attachments", optionalAuthMiddleware, async (c) => {
+  const user = c.get("user");
+  if (!user?.sub) {
+    const ip = c.req.header("cf-connecting-ip") ?? c.req.header("x-forwarded-for") ?? "unknown";
+    await checkAnonRateLimit(c.env.DB, ip);
+  }
+
   const contentType = c.req.header("content-type") ?? "";
   if (!contentType.includes("multipart/form-data")) {
     throw new AppError("Content-Type multipart/form-data olmalı", 400, "INVALID_CONTENT_TYPE");
@@ -46,7 +53,17 @@ feedback.post("/attachments", authMiddleware, async (c) => {
     throw new AppError("Dosya 5 MB'dan büyük olamaz", 400, "FILE_TOO_LARGE");
   }
 
-  const ext = file.type.split("/")[1] ?? "jpg";
+  const buf = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const isJpeg = buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
+  const isPng  = buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
+  const isWebp = buf[0] === 0x52 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x46
+    && buf[8] === 0x57 && buf[9] === 0x45 && buf[10] === 0x42 && buf[11] === 0x50;
+  const isGif  = buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46;
+  if (!isJpeg && !isPng && !isWebp && !isGif) {
+    throw new AppError("Sadece görsel dosyaları kabul edilir", 400, "INVALID_FILE_TYPE");
+  }
+
+  const ext = file.type === "image/jpeg" ? "jpg" : (file.type.split("/")[1] ?? "jpg");
   const key = `feedback/${crypto.randomUUID()}.${ext}`;
 
   await c.env.STORAGE.put(key, file.stream(), {
@@ -60,10 +77,45 @@ feedback.post("/attachments", authMiddleware, async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// Anonim kullanıcılar için IP tabanlı rate limit: saatte 5 feedback
+// ---------------------------------------------------------------------------
+
+const ANON_LIMIT = 5;
+const WINDOW_MS  = 60 * 60 * 1000; // 1 saat
+
+async function checkAnonRateLimit(db: D1Database, ip: string): Promise<void> {
+  const now = Date.now();
+  const row = await db
+    .prepare("SELECT count, window_start FROM feedback_rate_limit WHERE ip = ?")
+    .bind(ip)
+    .first<{ count: number; window_start: string }>();
+
+  if (!row || now - new Date(row.window_start).getTime() >= WINDOW_MS) {
+    await db
+      .prepare(
+        "INSERT INTO feedback_rate_limit (ip, count, window_start) VALUES (?, 1, ?) " +
+        "ON CONFLICT(ip) DO UPDATE SET count = 1, window_start = excluded.window_start",
+      )
+      .bind(ip, new Date(now).toISOString())
+      .run();
+    return;
+  }
+
+  if (row.count >= ANON_LIMIT) {
+    throw new AppError("Çok fazla geri bildirim gönderdiniz. Bir saat sonra tekrar deneyin.", 429, "RATE_LIMIT");
+  }
+
+  await db
+    .prepare("UPDATE feedback_rate_limit SET count = count + 1 WHERE ip = ?")
+    .bind(ip)
+    .run();
+}
+
+// ---------------------------------------------------------------------------
 // POST / — feedback gönder, GitHub issue aç
 // ---------------------------------------------------------------------------
 
-feedback.post("/", authMiddleware, async (c) => {
+feedback.post("/", optionalAuthMiddleware, async (c) => {
   const body = await c.req.json<{
     type?: string;
     description?: string;
@@ -85,7 +137,21 @@ feedback.post("/", authMiddleware, async (c) => {
   }
 
   const user = c.get("user");
-  const senderInfo = user?.sub ? `Kullanıcı ID: \`${user.sub}\`` : "Anonim";
+  if (!user?.sub) {
+    const ip = c.req.header("cf-connecting-ip") ?? c.req.header("x-forwarded-for") ?? "unknown";
+    await checkAnonRateLimit(c.env.DB, ip);
+  }
+
+  const dbUser = user?.sub ? await userRepository.findById(c.env.DB, user.sub) : null;
+  const userAgent = c.req.header("user-agent") ?? "bilinmiyor";
+
+  const senderLines = user?.sub
+    ? [
+        `**Ad:** ${dbUser?.name ?? "—"}`,
+        `**E-posta:** ${user.email ?? "—"}`,
+        `**ID:** \`${user.sub}\``,
+      ].join("\n")
+    : "**Gönderen:** Anonim";
 
   const typeLabel = FEEDBACK_TYPES[type] ?? type;
 
@@ -114,9 +180,12 @@ feedback.post("/", authMiddleware, async (c) => {
     description,
     attachmentsMd ? `\n${attachmentsMd}` : "",
     "---",
+    "### Gönderen",
+    senderLines,
+    "### Bağlam",
     safePageUrl ? `**Sayfa:** ${safePageUrl}` : "",
-    `**Gönderen:** ${senderInfo}`,
     `**Tarih:** ${new Date().toLocaleString("tr-TR", { timeZone: "Europe/Istanbul" })}`,
+    `**Tarayıcı:** \`${userAgent}\``,
   ]
     .filter(Boolean)
     .join("\n");
