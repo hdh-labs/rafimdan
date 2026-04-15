@@ -344,7 +344,7 @@ async function submitReport() {
             <span class="shrink-0 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
               {{ CONDITION_LABELS[listing.condition] }}
             </span>
-            <FavoriteButton v-if="listing.status === 'active'" :listing-id="listing.id" />
+            <FavoriteButton v-if="listing.status === 'active'" :listing-id="listing.id" :count="listing.favorites_count" />
           </div>
 
           <p
@@ -491,6 +491,7 @@ async function submitReport() {
           avatar_url: item.seller.avatar_url ?? undefined,
         }"
         :created_at="item.created_at"
+        :favorites_count="item.favorites_count"
       />
     </div>
   </div>

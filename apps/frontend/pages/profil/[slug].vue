@@ -156,6 +156,7 @@ useSeoMeta({
             avatar_url: listing.seller.avatar_url ?? undefined,
           }"
           :created_at="listing.created_at"
+          :favorites_count="listing.favorites_count"
         />
       </div>
     </div>
