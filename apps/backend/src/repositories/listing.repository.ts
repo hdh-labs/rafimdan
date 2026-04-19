@@ -42,6 +42,7 @@ function toListItem(row: ListingRowJoined): ListingListItem {
     title: row.title,
     price: row.price,
     price_type: row.price_type,
+    listing_type: row.listing_type,
     condition: row.condition,
     status: row.status,
     direction: row.direction,
@@ -72,6 +73,7 @@ function toDetail(row: ListingRowJoined): ListingDetail {
     title: row.title,
     price: row.price,
     price_type: row.price_type,
+    listing_type: row.listing_type,
     condition: row.condition,
     status: row.status,
     direction: row.direction,
@@ -130,8 +132,8 @@ export const listingRepository = {
     await db
       .prepare(
         `INSERT INTO listings
-          (id, user_id, title, description, category_id, condition, price_type, price, city, district, slug, direction)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (id, user_id, title, description, category_id, listing_type, condition, price_type, price, city, district, slug, direction)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         input.id,
@@ -139,7 +141,8 @@ export const listingRepository = {
         input.title,
         input.description ?? null,
         input.category_id,
-        input.condition,
+        input.listing_type ?? "item",
+        input.condition ?? null,
         input.price_type,
         input.price ?? null,
         input.city,
@@ -181,8 +184,12 @@ export const listingRepository = {
 
     if (params.city) { conditions.push("l.city = ?"); bindings.push(params.city); }
     if (params.district) { conditions.push("l.district = ?"); bindings.push(params.district); }
-    if (params.category) { conditions.push("c.slug = ?"); bindings.push(params.category); }
+    if (params.category) {
+      conditions.push("(c.slug = ? OR EXISTS (SELECT 1 FROM categories pc WHERE pc.id = c.parent_id AND pc.slug = ?))");
+      bindings.push(params.category, params.category);
+    }
     if (params.price_type) { conditions.push("l.price_type = ?"); bindings.push(params.price_type); }
+    if (params.listing_type) { conditions.push("l.listing_type = ?"); bindings.push(params.listing_type); }
     if (params.condition) { conditions.push("l.condition = ?"); bindings.push(params.condition); }
     if (params.direction) {
       if (Array.isArray(params.direction)) {
@@ -260,10 +267,11 @@ export const listingRepository = {
     const fields: string[] = [];
     const values: unknown[] = [];
 
+    if (input.listing_type !== undefined) { fields.push("listing_type = ?"); values.push(input.listing_type); }
     if (input.title !== undefined) { fields.push("title = ?"); values.push(input.title); }
     if (input.description !== undefined) { fields.push("description = ?"); values.push(input.description); }
     if (input.category_id !== undefined) { fields.push("category_id = ?"); values.push(input.category_id); }
-    if (input.condition !== undefined) { fields.push("condition = ?"); values.push(input.condition); }
+    if (input.condition !== undefined) { fields.push("condition = ?"); values.push(input.condition ?? null); }
     if (input.price_type !== undefined) { fields.push("price_type = ?"); values.push(input.price_type); }
     if (input.price !== undefined) { fields.push("price = ?"); values.push(input.price); }
     if (input.city !== undefined) { fields.push("city = ?"); values.push(input.city); }

@@ -19,6 +19,7 @@ export { OAUTH_PROVIDERS } from "./types/auth";
 export type { CategoryRow, Category, CategoryTree } from "./types/category";
 
 export type {
+  ListingType,
   ListingCondition,
   ListingPriceType,
   ListingStatus,
@@ -32,6 +33,7 @@ export type {
   ListingsQueryParams,
 } from "./types/listing";
 export {
+  LISTING_TYPES,
   LISTING_CONDITIONS,
   LISTING_PRICE_TYPES,
   LISTING_STATUSES,

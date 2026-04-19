@@ -1,12 +1,14 @@
+export type ListingType = "item" | "service";
 export type ListingCondition = "new" | "like_new" | "good" | "fair";
 export type ListingPriceType = "fixed" | "negotiable" | "free";
 export type ListingStatus = "active" | "sold" | "pending" | "rejected";
-export type ListingDirection = "offer" | "request" | "support";
+export type ListingDirection = "offer" | "request";
 
+export const LISTING_TYPES = ["item", "service"] as const;
 export const LISTING_CONDITIONS = ["new", "like_new", "good", "fair"] as const;
 export const LISTING_PRICE_TYPES = ["fixed", "negotiable", "free"] as const;
 export const LISTING_STATUSES = ["active", "sold", "pending", "rejected"] as const;
-export const LISTING_DIRECTIONS = ["offer", "request", "support"] as const;
+export const LISTING_DIRECTIONS = ["offer", "request"] as const;
 
 export type ListingRow = {
   id: string;
@@ -14,7 +16,8 @@ export type ListingRow = {
   title: string;
   description: string | null;
   category_id: string;
-  condition: ListingCondition;
+  listing_type: ListingType;
+  condition: ListingCondition | null;
   price_type: ListingPriceType;
   price: number | null;
   city: string;
@@ -35,8 +38,9 @@ export type ListingListItem = {
   title: string;
   price: number | null;
   price_type: ListingPriceType;
-  condition: ListingCondition;
+  condition: ListingCondition | null;
   status: ListingStatus;
+  listing_type: ListingType;
   direction: ListingDirection;
   rejection_reason: string | null;
   cover_photo: string | null;
@@ -77,10 +81,11 @@ export type ListingDetail = Omit<ListingListItem, "cover_photo" | "seller" | "di
 };
 
 export type CreateListingInput = {
+  listing_type?: ListingType;
   title: string;
   description?: string;
   category_id: string;
-  condition: ListingCondition;
+  condition?: ListingCondition;
   price_type: ListingPriceType;
   price?: number;
   city: string;
@@ -95,6 +100,7 @@ export type UpdateListingStatusInput = {
 };
 
 export type ListingsQueryParams = {
+  listing_type?: ListingType;
   city?: string;
   district?: string;
   category?: string;

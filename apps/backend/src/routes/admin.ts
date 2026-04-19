@@ -194,7 +194,7 @@ admin.patch("/users/:id", adminAuthMiddleware, async (c) => {
     if (id === adminId) {
       return c.json({ error: "Kendi hesabınızı değiştiremezsiniz", status: "error", code: "SELF_MODIFY" }, 403);
     }
-    const body = await c.req.json<{ is_active?: number; is_admin?: number }>();
+    const body = await c.req.json<{ is_active?: number; is_admin?: number; ban_reason?: string }>();
     const allowed: { is_active?: number; is_admin?: number } = {};
     if (typeof body.is_active === "number") allowed.is_active = body.is_active;
     if (typeof body.is_admin === "number") allowed.is_admin = body.is_admin;
@@ -213,7 +213,7 @@ admin.patch("/users/:id", adminAuthMiddleware, async (c) => {
         action: body.is_active === 0 ? "user_ban" : "user_unban",
         target_type: "user",
         target_id: id,
-        meta: { name: updated.name },
+        meta: { name: updated.name, ...(body.is_active === 0 && body.ban_reason ? { reason: body.ban_reason } : {}) },
       });
     }
     if (typeof body.is_admin === "number") {
