@@ -12,12 +12,13 @@ import { AppError } from "../errors";
 import { extractStorageKey } from "../lib/storage";
 
 const admin = new Hono<HonoEnv>();
+admin.use("/*", adminAuthMiddleware);
 
 function handleError(c: Parameters<MiddlewareHandler<HonoEnv>>[0], err: unknown) {
   if (err instanceof AppError) {
     return c.json({ error: err.message, status: "error", code: err.code }, err.statusCode as 400);
   }
-  throw err;
+  return c.json({ error: "Sunucu hatası", status: "error", code: "INTERNAL_ERROR" }, 500);
 }
 
 const adminAuthMiddleware: MiddlewareHandler<HonoEnv> = async (c, next) => {
@@ -48,7 +49,7 @@ const adminAuthMiddleware: MiddlewareHandler<HonoEnv> = async (c, next) => {
 // Stats
 // ---------------------------------------------------------------------------
 
-admin.get("/stats", adminAuthMiddleware, async (c) => {
+admin.get("/stats", async (c) => {
   try {
     const row = await c.env.DB.prepare(
       `SELECT
@@ -70,7 +71,7 @@ admin.get("/stats", adminAuthMiddleware, async (c) => {
 // Reports
 // ---------------------------------------------------------------------------
 
-admin.get("/reports", adminAuthMiddleware, async (c) => {
+admin.get("/reports", async (c) => {
   try {
     const statusFilter = (c.req.query("status") ?? "all") as "open" | "resolved" | "dismissed" | "all";
     const reports = await reportService.getAll(c.env.DB, statusFilter);
@@ -80,7 +81,7 @@ admin.get("/reports", adminAuthMiddleware, async (c) => {
   }
 });
 
-admin.patch("/reports/:id", adminAuthMiddleware, async (c) => {
+admin.patch("/reports/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const body = await c.req.json<{ status?: string }>();
@@ -90,6 +91,14 @@ admin.patch("/reports/:id", adminAuthMiddleware, async (c) => {
       return c.json({ error: "Geçersiz durum", status: "error", code: "INVALID_STATUS" }, 400);
     }
     await reportService.resolve(c.env.DB, id, body.status as ResolveStatus);
+    await adminLogRepository.insert(c.env.DB, {
+      id: crypto.randomUUID(),
+      admin_id: c.get("user").sub,
+      action: body.status === "resolved" ? "report_resolve" : "report_dismiss",
+      target_type: "report",
+      target_id: id,
+      meta: {},
+    });
     return c.json({ data: null, status: "ok" });
   } catch (err) {
     return handleError(c, err);
@@ -100,7 +109,7 @@ admin.patch("/reports/:id", adminAuthMiddleware, async (c) => {
 // Admin: Listings
 // ---------------------------------------------------------------------------
 
-admin.get("/listings", adminAuthMiddleware, async (c) => {
+admin.get("/listings", async (c) => {
   try {
     const status = c.req.query("status");
     const page = Number(c.req.query("page") ?? 1);
@@ -112,7 +121,7 @@ admin.get("/listings", adminAuthMiddleware, async (c) => {
   }
 });
 
-admin.patch("/listings/:slug/status", adminAuthMiddleware, async (c) => {
+admin.patch("/listings/:slug/status", async (c) => {
   try {
     const slug = c.req.param("slug");
     const body = await c.req.json<{ status?: string; reason?: string }>();
@@ -162,7 +171,7 @@ admin.patch("/listings/:slug/status", adminAuthMiddleware, async (c) => {
   }
 });
 
-admin.delete("/listings/:slug", adminAuthMiddleware, async (c) => {
+admin.delete("/listings/:slug", async (c) => {
   try {
     const slug = c.req.param("slug");
     const listing = await listingRepository.findBySlug(c.env.DB, slug);
@@ -190,7 +199,7 @@ admin.delete("/listings/:slug", adminAuthMiddleware, async (c) => {
 // Admin: Users
 // ---------------------------------------------------------------------------
 
-admin.get("/users", adminAuthMiddleware, async (c) => {
+admin.get("/users", async (c) => {
   try {
     const users = await userRepository.findAllWithStats(c.env.DB);
     const profiles = users.map(u => userRepository.toAdminProfile(u));
@@ -200,7 +209,7 @@ admin.get("/users", adminAuthMiddleware, async (c) => {
   }
 });
 
-admin.patch("/users/:id", adminAuthMiddleware, async (c) => {
+admin.patch("/users/:id", async (c) => {
   try {
     const id = c.req.param("id");
     const adminId = c.get("user").sub;
@@ -208,6 +217,17 @@ admin.patch("/users/:id", adminAuthMiddleware, async (c) => {
       return c.json({ error: "Kendi hesabınızı değiştiremezsiniz", status: "error", code: "SELF_MODIFY" }, 403);
     }
     const body = await c.req.json<{ is_active?: number; is_admin?: number; ban_reason?: string }>();
+
+    if (body.is_admin === 0 || body.is_active === 0) {
+      const target = await userRepository.findById(c.env.DB, id);
+      if (target?.is_admin === 1) {
+        const adminCount = await userRepository.countActiveAdmins(c.env.DB);
+        if (adminCount <= 1) {
+          return c.json({ error: "Sistemdeki son admin kaldırılamaz veya banlanamaz", status: "error", code: "LAST_ADMIN" }, 403);
+        }
+      }
+    }
+
     const allowed: { is_active?: number; is_admin?: number } = {};
     if (typeof body.is_active === "number") allowed.is_active = body.is_active;
     if (typeof body.is_admin === "number") allowed.is_admin = body.is_admin;
@@ -249,7 +269,7 @@ admin.patch("/users/:id", adminAuthMiddleware, async (c) => {
 // Admin: Logs
 // ---------------------------------------------------------------------------
 
-admin.get("/logs", adminAuthMiddleware, async (c) => {
+admin.get("/logs", async (c) => {
   try {
     const limit = Math.min(Number(c.req.query("limit") ?? 50), 100);
     const offset = Number(c.req.query("offset") ?? 0);

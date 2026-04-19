@@ -222,11 +222,7 @@ async function fetchUsers() {
 }
 
 function requestToggleBan(user: AdminUserProfile) {
-  if (user.is_active === 0) {
-    executeBan(user, "")
-  } else {
-    pendingBanUser.value = user
-  }
+  pendingBanUser.value = user
 }
 
 async function executeBan(user: AdminUserProfile, reason: string) {

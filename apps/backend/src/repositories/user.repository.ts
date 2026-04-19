@@ -77,6 +77,13 @@ export const userRepository = {
     return userRepository.findById(db, id);
   },
 
+  async countActiveAdmins(db: D1Database): Promise<number> {
+    const row = await db
+      .prepare("SELECT COUNT(*) as count FROM users WHERE is_admin = 1 AND is_active = 1")
+      .first<{ count: number }>();
+    return row?.count ?? 0;
+  },
+
   async deleteById(db: D1Database, id: string): Promise<void> {
     await db.prepare("DELETE FROM listings WHERE user_id = ?").bind(id).run();
     await db.prepare("DELETE FROM users WHERE id = ?").bind(id).run();
