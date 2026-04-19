@@ -178,7 +178,7 @@ auth.patch("/me", authMiddleware, zValidator("json", updateProfileSchema), async
 // POST /me/avatar
 // ---------------------------------------------------------------------------
 
-const MAX_AVATAR_SIZE = 2 * 1024 * 1024;
+const MAX_AVATAR_SIZE = 5 * 1024 * 1024;
 const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 type AllowedAvatarType = (typeof ALLOWED_AVATAR_TYPES)[number];
 
@@ -198,7 +198,7 @@ auth.post("/me/avatar", authMiddleware, async (c) => {
       throw new AppError("Sadece JPEG, PNG veya WebP yüklenebilir", 400, "INVALID_FILE_TYPE");
     }
     if (file.size > MAX_AVATAR_SIZE) {
-      throw new AppError("Dosya 2 MB'dan büyük olamaz", 400, "FILE_TOO_LARGE");
+      throw new AppError("Dosya 5 MB'dan büyük olamaz", 400, "FILE_TOO_LARGE");
     }
 
     if (!(await validateImageMagicBytes(file))) {
