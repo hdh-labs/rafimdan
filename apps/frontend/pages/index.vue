@@ -10,6 +10,13 @@ const { data: categoriesRes } = await useFetch<CategoriesData>("/api/categories"
 const listings = computed(() => listingsRes.value?.data.items ?? [])
 const categories = computed(() => categoriesRes.value?.data ?? [])
 
+useSeoMeta({
+  title: "Rafımdan — Yerel İkinci El Pazar Yeri",
+  description: "Yakınındaki ikinci el eşyaları bul, kargosuz yüz yüze al. Elektronik, mobilya, giyim ve daha fazlası — şehrinde, mahallesinde.",
+  ogTitle: "Rafımdan — Yerel İkinci El Pazar Yeri",
+  ogDescription: "Yakınındaki ikinci el eşyaları bul, kargosuz yüz yüze al. Elektronik, mobilya, giyim ve daha fazlası — şehrinde, mahallesinde.",
+})
+
 </script>
 
 <template>
