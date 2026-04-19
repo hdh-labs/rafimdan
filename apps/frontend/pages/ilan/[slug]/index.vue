@@ -142,8 +142,13 @@ const memberSince = computed(() => {
   return d.toLocaleDateString("tr-TR", { year: "numeric", month: "long" })
 })
 
+function parseUTC(dateStr: string): Date {
+  if (dateStr.endsWith("Z") || dateStr.includes("+")) return new Date(dateStr)
+  return new Date(dateStr.replace(" ", "T") + "Z")
+}
+
 function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
+  const diff = Date.now() - parseUTC(dateStr).getTime()
   const minutes = Math.floor(diff / 60_000)
   if (minutes < 1) return "az önce"
   if (minutes < 60) return `${minutes} dakika önce`
@@ -182,10 +187,22 @@ const reportPending = ref(false)
 async function share() {
   if (!import.meta.client) return
   const url = window.location.href
+  const { title, price, price_type, city, district } = listing.value
+
+  const priceText =
+    price_type === "free"
+      ? "Ücretsiz"
+      : price_type === "negotiable"
+        ? `${price?.toLocaleString("tr-TR")} ₺ (Pazarlığa açık)`
+        : `${price?.toLocaleString("tr-TR")} ₺`
+
+  const locationText = district ? `${district}, ${city}` : city
+  const text = `${priceText} · ${locationText}`
+
   if (navigator.share) {
-    await navigator.share({ title: listing.value.title, url })
+    await navigator.share({ title, text, url })
   } else {
-    await navigator.clipboard.writeText(url)
+    await navigator.clipboard.writeText(`${title}\n${text}\n${url}`)
     toast.success("Link kopyalandı.")
   }
 }
@@ -254,7 +271,7 @@ async function submitReport() {
     toast.success("Bildirimin alındı, teşekkürler.")
     showReportModal.value = false
   } catch (err) {
-    toast.error(err instanceof ApiError ? err.message : "Bir hata oluştu.")
+    toast.error(err instanceof ApiError ? err.message : "Bildirim gönderilemedi, tekrar dene")
   } finally {
     reportPending.value = false
   }
@@ -327,7 +344,7 @@ async function submitReport() {
 
           <div
             v-if="listing.status !== 'active'"
-            class="absolute inset-0 flex items-center justify-center bg-black/40"
+            class="absolute inset-0 flex items-center justify-center bg-black/40 pointer-events-none"
           >
             <span class="bg-white/90 text-foreground font-semibold px-4 py-1.5 rounded-full text-sm">
               {{ STATUS_LABELS[listing.status] }}

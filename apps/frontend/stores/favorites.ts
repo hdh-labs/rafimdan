@@ -65,7 +65,7 @@ export const useFavoritesStore = defineStore("favorites", () => {
         ids.value.delete(listingId)
       }
       ids.value = new Set(ids.value)
-      toast.error("Bir hata oluştu, tekrar dene")
+      toast.error("Favori işlemi başarısız, tekrar dene")
     } finally {
       pending.value.delete(listingId)
       pending.value = new Set(pending.value)

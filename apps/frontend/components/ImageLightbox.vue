@@ -20,11 +20,11 @@ function close() {
 }
 
 function prev() {
-  if (activeIndex.value > 0) emit("update:modelValue", activeIndex.value - 1)
+  emit("update:modelValue", (activeIndex.value - 1 + props.images.length) % props.images.length)
 }
 
 function next() {
-  if (activeIndex.value < props.images.length - 1) emit("update:modelValue", activeIndex.value + 1)
+  emit("update:modelValue", (activeIndex.value + 1) % props.images.length)
 }
 
 function onKey(e: KeyboardEvent) {
@@ -89,8 +89,7 @@ onUnmounted(() => {
         <template v-if="hasMultiple">
           <button
             type="button"
-            :disabled="activeIndex === 0"
-            class="absolute left-4 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center size-10 rounded-full bg-white/15 hover:bg-white/25 text-white backdrop-blur-sm transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+            class="absolute left-4 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center size-10 rounded-full bg-white/15 hover:bg-white/25 text-white backdrop-blur-sm transition-colors cursor-pointer"
             aria-label="Önceki fotoğraf"
             @click.stop="prev"
           >
@@ -99,8 +98,7 @@ onUnmounted(() => {
 
           <button
             type="button"
-            :disabled="activeIndex === images.length - 1"
-            class="absolute right-4 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center size-10 rounded-full bg-white/15 hover:bg-white/25 text-white backdrop-blur-sm transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+            class="absolute right-4 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center size-10 rounded-full bg-white/15 hover:bg-white/25 text-white backdrop-blur-sm transition-colors cursor-pointer"
             aria-label="Sonraki fotoğraf"
             @click.stop="next"
           >

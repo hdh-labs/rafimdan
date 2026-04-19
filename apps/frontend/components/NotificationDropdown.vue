@@ -29,8 +29,13 @@ const MESSAGES: Record<NotificationType, string> = {
   listing_rejected: "ilanın reddedildi",
 }
 
+function parseUTC(dateStr: string): Date {
+  if (dateStr.endsWith("Z") || dateStr.includes("+")) return new Date(dateStr)
+  return new Date(dateStr.replace(" ", "T") + "Z")
+}
+
 function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
+  const diff = Date.now() - parseUTC(dateStr).getTime()
   const minutes = Math.floor(diff / 60_000)
   if (minutes < 1) return "az önce"
   if (minutes < 60) return `${minutes} dk önce`
