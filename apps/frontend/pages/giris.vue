@@ -1,6 +1,11 @@
 <script setup lang="ts">
 definePageMeta({ layout: "default" })
 
+useSeoMeta({
+  title: "Giriş Yap — Rafımdan",
+  robots: "noindex, nofollow",
+})
+
 const authStore = useAuthStore()
 const route = useRoute()
 

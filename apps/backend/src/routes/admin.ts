@@ -112,8 +112,8 @@ admin.patch("/reports/:id", async (c) => {
 admin.get("/listings", async (c) => {
   try {
     const status = c.req.query("status");
-    const page = Number(c.req.query("page") ?? 1);
-    const limit = Number(c.req.query("limit") ?? 30);
+    const page = Math.max(1, Number(c.req.query("page") ?? 1));
+    const limit = Math.min(100, Math.max(1, Number(c.req.query("limit") ?? 30)));
     const result = await listingRepository.findAllAdmin(c.env.DB, { status, page, limit });
     return c.json({ data: result, status: "ok" });
   } catch (err) {

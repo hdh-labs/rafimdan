@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { LISTING_CONDITIONS, LISTING_PRICE_TYPES, LISTING_STATUSES, LISTING_DIRECTIONS, LISTING_TYPES } from "@rafimdan/shared";
+import { LISTING_CONDITIONS, LISTING_PRICE_TYPES, LISTING_STATUSES, LISTING_DIRECTIONS, LISTING_TYPES, VALID_DISTRICTS } from "@rafimdan/shared";
+
+const districtField = z.string().min(2).max(60).refine(
+  (val) => VALID_DISTRICTS.has(val),
+  { message: "Geçersiz ilçe" },
+);
 
 export const createListingSchema = z
   .object({
@@ -9,9 +14,9 @@ export const createListingSchema = z
     category_id: z.string().min(1),
     condition: z.enum(LISTING_CONDITIONS).optional(),
     price_type: z.enum(LISTING_PRICE_TYPES),
-    price: z.number().int().positive().optional(),
+    price: z.number().int().positive().max(9_999_999).optional(),
     city: z.string().min(2).max(60),
-    district: z.string().min(2).max(60).optional(),
+    district: districtField.optional(),
     direction: z.enum(LISTING_DIRECTIONS).default("offer"),
     temp_photo_keys: z.array(z.string().max(300)).max(6).optional(),
   })
@@ -39,9 +44,9 @@ export const updateListingSchema = z.object({
   category_id: z.string().min(1).optional(),
   condition: z.enum(LISTING_CONDITIONS).optional(),
   price_type: z.enum(LISTING_PRICE_TYPES).optional(),
-  price: z.number().int().positive().nullable().optional(),
+  price: z.number().int().positive().max(9_999_999).nullable().optional(),
   city: z.string().min(2).max(60).optional(),
-  district: z.string().min(2).max(60).optional(),
+  district: districtField.nullable().optional(),
   direction: z.enum(LISTING_DIRECTIONS).optional(),
 });
 

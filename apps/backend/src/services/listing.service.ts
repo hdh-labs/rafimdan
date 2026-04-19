@@ -74,6 +74,11 @@ export const listingService = {
       .map(r => r.value)
       .filter((v): v is string => v !== null);
 
+    const allTemp = await env.STORAGE.list({ prefix: `temp/${userId}/` });
+    const usedKeys = new Set(tempPhotoKeys);
+    const orphans = allTemp.objects.filter(o => !usedKeys.has(o.key));
+    void Promise.allSettled(orphans.map(o => env.STORAGE.delete(o.key)));
+
     if (photos.length > 0) {
       await listingRepository.updatePhotos(db, id, photos);
       return { ...listing, photos };

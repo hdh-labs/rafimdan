@@ -62,7 +62,7 @@ function onBlur() {
     if (!rootRef.value?.contains(document.activeElement)) {
       open.value = false
       activeIndex.value = -1
-      if (!props.modelValue) query.value = ""
+      query.value = props.modelValue || ""
     }
   }, 120)
 }

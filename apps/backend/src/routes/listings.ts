@@ -87,6 +87,16 @@ listings.post("/photos/temp", authMiddleware, async (c) => {
       return c.json({ error: "Yalnızca JPEG, PNG veya WebP formatı desteklenir", status: "error", code: "INVALID_FILE_TYPE" }, 400);
     }
 
+    const TEMP_PREFIX = `temp/${sub}/`;
+    const MAX_TEMP_PHOTOS = 12;
+    const existing = await c.env.STORAGE.list({ prefix: TEMP_PREFIX });
+    if (existing.objects.length >= MAX_TEMP_PHOTOS) {
+      return c.json(
+        { error: "Çok fazla bekleyen fotoğraf var, önce ilan oluştur", status: "error", code: "TOO_MANY_TEMP_PHOTOS" },
+        429,
+      );
+    }
+
     const ext = getImageExtension(file.type);
     const key = `temp/${sub}/${crypto.randomUUID()}.${ext}`;
     await c.env.STORAGE.put(key, file.stream(), {

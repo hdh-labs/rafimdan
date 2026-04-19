@@ -98,6 +98,10 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     const body = (await response.json().catch(() => null)) as Record<string, unknown> | null
     const msg = typeof body?.error === "string" ? body.error : `API error: ${response.status}`
     const code = (body?.code as string) ?? "UNKNOWN_ERROR"
+    if (response.status === 403 && code === "FORBIDDEN") {
+      clearToken()
+      await navigateTo("/")
+    }
     throw new ApiError(msg, response.status, code)
   }
 
