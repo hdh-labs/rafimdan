@@ -7,6 +7,7 @@ import { listingRepository } from "../repositories/listing.repository";
 import { userRepository } from "../repositories/user.repository";
 import { refreshTokenRepository } from "../repositories/refresh-token.repository";
 import { adminLogRepository } from "../repositories/admin-log.repository";
+import { notificationRepository } from "../repositories/notification.repository";
 import { AppError } from "../errors";
 import { extractStorageKey } from "../lib/storage";
 
@@ -143,6 +144,18 @@ admin.patch("/listings/:slug/status", adminAuthMiddleware, async (c) => {
         reason: reason ?? undefined,
       },
     });
+    if (updated && (status === "active" || status === "rejected")) {
+      try {
+        await notificationRepository.create(c.env.DB, {
+          id: crypto.randomUUID(),
+          user_id: updated.seller.id,
+          type: status === "active" ? "listing_approved" : "listing_rejected",
+          entity_id: updated.id,
+          entity_slug: updated.slug,
+          entity_title: updated.title,
+        })
+      } catch { /* bildirim hatası moderasyonu etkilemez */ }
+    }
     return c.json({ data: updated, status: "ok" });
   } catch (err) {
     return handleError(c, err);

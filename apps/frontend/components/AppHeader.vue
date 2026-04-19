@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, ClipboardList, User, Heart, Settings, LogOut, AlertCircle, ShieldCheck, X } from "lucide-vue-next"
+import { ChevronDown, ClipboardList, User, Heart, Settings, LogOut, AlertCircle, ShieldCheck, X, Bell } from "lucide-vue-next"
 import type { AdminStats } from "@rafimdan/shared"
 import { apiFetch } from "~/utils/api"
 
@@ -14,7 +14,10 @@ const initials = computed(
 )
 
 const menuOpen = ref(false)
+const notifOpen = ref(false)
 const avatarError = ref(false)
+
+const { notifications, unreadCount, markAllRead } = useNotifications()
 const whatsappBannerDismissed = ref(false)
 
 if (import.meta.client) {
@@ -32,10 +35,14 @@ function closeMenu() {
   menuOpen.value = false
 }
 
+function closeNotif() {
+  notifOpen.value = false
+}
+
 function onGlobalKeydown(e: KeyboardEvent) {
-  if (e.key === "Escape" && menuOpen.value) {
-    menuOpen.value = false
-    menuTriggerRef.value?.focus()
+  if (e.key === "Escape") {
+    if (menuOpen.value) { menuOpen.value = false; menuTriggerRef.value?.focus() }
+    if (notifOpen.value) notifOpen.value = false
   }
 }
 
@@ -107,6 +114,30 @@ onUnmounted(() => {
             İlan Ver
           </NuxtLink>
 
+          <!-- Bildirimler -->
+          <div class="relative" @click.stop>
+            <button
+              type="button"
+              :aria-expanded="notifOpen"
+              aria-label="Bildirimleri aç"
+              class="relative flex items-center justify-center size-8 rounded-full hover:bg-muted cursor-pointer transition-colors"
+              @click="notifOpen = !notifOpen; menuOpen = false"
+            >
+              <Bell class="size-4.5 text-muted-foreground" />
+              <span
+                v-if="unreadCount > 0"
+                class="absolute top-0.5 right-0.5 size-2 rounded-full bg-brand"
+              />
+            </button>
+            <NotificationDropdown
+              :open="notifOpen"
+              :notifications="notifications"
+              :unread-count="unreadCount"
+              @close="closeNotif"
+              @mark-all-read="markAllRead"
+            />
+          </div>
+
           <div class="relative" @click.stop>
             <button
               ref="menuTriggerRef"
@@ -114,7 +145,7 @@ onUnmounted(() => {
               aria-haspopup="menu"
               aria-label="Hesap menüsünü aç"
               class="flex items-center gap-1.5 cursor-pointer"
-              @click="menuOpen = !menuOpen"
+              @click="menuOpen = !menuOpen; notifOpen = false"
             >
               <span
                 class="inline-flex items-center justify-center size-8 rounded-full bg-muted text-sm font-medium overflow-hidden shrink-0"

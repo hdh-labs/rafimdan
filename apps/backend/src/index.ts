@@ -13,6 +13,7 @@ import favorites from "./routes/favorites";
 import storage from "./routes/storage";
 import admin from "./routes/admin";
 import feedback from "./routes/feedback";
+import notifications from "./routes/notifications";
 
 const app = new Hono<HonoEnv>();
 
@@ -36,6 +37,7 @@ app.route("/api/favorites", favorites);
 app.route("/api/storage", storage);
 app.route("/api/admin", admin);
 app.route("/api/feedback", feedback);
+app.route("/api/notifications", notifications);
 
 // ---------------------------------------------------------------------------
 // Fallback
