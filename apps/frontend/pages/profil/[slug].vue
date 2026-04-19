@@ -88,7 +88,7 @@ useSeoMeta({
           </span>
           <span class="flex items-center gap-1">
             <CalendarDays class="size-3.5 shrink-0" />
-            {{ memberSince }}'dan beri üye
+            Üyelik: {{ memberSince }}
           </span>
         </div>
         <div class="flex flex-wrap gap-3 pt-0.5">
@@ -99,16 +99,6 @@ useSeoMeta({
           <span v-if="profile.sold_count > 0" class="flex items-center gap-1 text-sm text-muted-foreground">
             {{ profile.sold_count }} satış
           </span>
-          <a
-            v-if="waUrl"
-            :href="waUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="inline-flex items-center gap-1 text-xs font-medium text-whatsapp-foreground bg-whatsapp/90 rounded-full px-2 py-0.5 hover:bg-whatsapp transition-colors cursor-pointer"
-          >
-            <MessageCircle class="size-3 shrink-0" />
-            WhatsApp
-          </a>
         </div>
       </div>
     </div>

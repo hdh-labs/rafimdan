@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { MapPin, Eye, MessageCircle, ChevronLeft, ChevronRight, Pencil, Flag, Share2, AlertCircle, ArrowRight, Clock, XCircle } from "lucide-vue-next"
+import { useSwipe } from "@vueuse/core"
 import { toast } from "vue-sonner"
 import type { ListingDetail, ListingListItem } from "@rafimdan/shared"
 import { apiFetch, ApiError } from "~/utils/api"
@@ -39,6 +40,8 @@ useSeoMeta({
 const selectedIndex = ref(0)
 const mainPhoto = computed(() => listing.value.photos[selectedIndex.value] ?? null)
 
+const lightboxIndex = ref<number | null>(null)
+
 function prevPhoto() {
   if (selectedIndex.value > 0) selectedIndex.value--
 }
@@ -47,8 +50,17 @@ function nextPhoto() {
   if (selectedIndex.value < listing.value.photos.length - 1) selectedIndex.value++
 }
 
+const galleryRef = ref<HTMLElement | null>(null)
+useSwipe(galleryRef, {
+  onSwipeEnd(_, direction) {
+    if (direction === "left") nextPhoto()
+    else if (direction === "right") prevPhoto()
+  },
+})
+
+
 const isRequest = computed(() => listing.value.direction === "request")
-const isSupport = computed(() => listing.value.direction === "support")
+const isService = computed(() => listing.value.listing_type === "service")
 
 const waUrl = computed(() => {
   const phone = listing.value.seller.whatsapp
@@ -58,8 +70,8 @@ const waUrl = computed(() => {
   let text: string
   if (isRequest.value) {
     text = encodeURIComponent(`Merhaba, "${listing.value.title}" ilanını gördüm, yardımcı olabilir miyim?`)
-  } else if (isSupport.value) {
-    text = encodeURIComponent(`Merhaba, "${listing.value.title}" destek ilanınla ilgileniyorum.`)
+  } else if (isService.value) {
+    text = encodeURIComponent(`Merhaba, "${listing.value.title}" hizmet ilanınla ilgileniyorum.`)
   } else {
     text = encodeURIComponent(`Merhaba, "${listing.value.title}" ilanın hâlâ aktif mi?`)
   }
@@ -68,13 +80,13 @@ const waUrl = computed(() => {
 
 const waButtonText = computed(() => {
   if (isRequest.value) return "Yardım Teklif Et"
-  if (isSupport.value) return "Destek Hakkında Yaz"
+  if (isService.value) return "Hizmet Hakkında Yaz"
   return "WhatsApp'tan Yaz"
 })
 
 const priceDisplay = computed(() => {
-  if (isRequest.value) return "Destek Arıyor"
-  if (isSupport.value) return "Destek Sunuyor"
+  if (isRequest.value) return isService.value ? "Hizmet Arıyor" : "Eşya Arıyor"
+  if (isService.value) return "Hizmet Sunuyor"
   const { price, price_type } = listing.value
   if (price_type === "free") return "Ücretsiz"
   const formatted = (price ?? 0).toLocaleString("tr-TR") + " ₺"
@@ -128,6 +140,22 @@ const memberSince = computed(() => {
   const d = new Date(listing.value.seller.created_at)
   return d.toLocaleDateString("tr-TR", { year: "numeric", month: "long" })
 })
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const minutes = Math.floor(diff / 60_000)
+  if (minutes < 1) return "az önce"
+  if (minutes < 60) return `${minutes} dakika önce`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} saat önce`
+  const days = Math.floor(hours / 24)
+  if (days < 7) return `${days} gün önce`
+  const weeks = Math.floor(days / 7)
+  if (weeks < 5) return `${weeks} hafta önce`
+  const months = Math.floor(days / 30)
+  if (months < 12) return `${months} ay önce`
+  return `${Math.floor(days / 365)} yıl önce`
+}
 
 const sellerAvatarError = ref(false)
 
@@ -279,14 +307,15 @@ async function submitReport() {
 
     <div class="grid md:grid-cols-[1fr_320px] gap-8">
       <div class="space-y-4">
-        <div class="relative rounded-lg overflow-hidden bg-muted aspect-[4/3]">
+        <div ref="galleryRef" class="relative rounded-lg overflow-hidden bg-muted aspect-[4/3]">
           <img
             v-if="mainPhoto"
             :src="mainPhoto"
             :alt="listing.title"
             fetchpriority="high"
             loading="eager"
-            class="size-full object-cover"
+            class="size-full object-cover cursor-zoom-in"
+            @click="lightboxIndex = selectedIndex"
           />
           <div
             v-else
@@ -307,19 +336,19 @@ async function submitReport() {
           <template v-if="listing.photos.length > 1">
             <button
               aria-label="Önceki fotoğraf"
-              class="absolute left-2 top-1/2 -translate-y-1/2 size-8 flex items-center justify-center bg-white/80 rounded-full cursor-pointer hover:bg-white transition-colors disabled:opacity-40"
+              class="absolute left-2 top-1/2 -translate-y-1/2 size-11 flex items-center justify-center bg-white/80 rounded-full cursor-pointer hover:bg-white transition-colors disabled:opacity-40"
               :disabled="selectedIndex === 0"
               @click="prevPhoto"
             >
-              <ChevronLeft class="size-4" />
+              <ChevronLeft class="size-5" />
             </button>
             <button
               aria-label="Sonraki fotoğraf"
-              class="absolute right-2 top-1/2 -translate-y-1/2 size-8 flex items-center justify-center bg-white/80 rounded-full cursor-pointer hover:bg-white transition-colors disabled:opacity-40"
+              class="absolute right-2 top-1/2 -translate-y-1/2 size-11 flex items-center justify-center bg-white/80 rounded-full cursor-pointer hover:bg-white transition-colors disabled:opacity-40"
               :disabled="selectedIndex === listing.photos.length - 1"
               @click="nextPhoto"
             >
-              <ChevronRight class="size-4" />
+              <ChevronRight class="size-5" />
             </button>
           </template>
         </div>
@@ -341,7 +370,10 @@ async function submitReport() {
         <div>
           <div class="flex items-start gap-2 flex-wrap mb-2 min-w-0">
             <h1 class="text-xl font-bold text-foreground flex-1 break-words min-w-0">{{ listing.title }}</h1>
-            <span class="shrink-0 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground">
+            <span
+              v-if="listing.condition"
+              class="shrink-0 inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-muted text-muted-foreground"
+            >
               {{ CONDITION_LABELS[listing.condition] }}
             </span>
             <FavoriteButton v-if="listing.status === 'active'" :listing-id="listing.id" :count="listing.favorites_count" />
@@ -349,7 +381,7 @@ async function submitReport() {
 
           <p
             class="text-2xl font-bold"
-            :class="isRequest || listing.price_type === 'free' ? 'text-brand' : 'text-foreground'"
+            :class="isRequest || isService || listing.price_type === 'free' ? 'text-brand' : 'text-foreground'"
           >
             {{ priceDisplay }}
           </p>
@@ -360,6 +392,9 @@ async function submitReport() {
             <span class="mx-1">·</span>
             <Eye class="size-4 shrink-0" />
             <span>{{ listing.view_count }} görüntülenme</span>
+            <span class="mx-1">·</span>
+            <Clock class="size-4 shrink-0" />
+            <span>{{ timeAgo(listing.created_at) }}</span>
           </div>
 
           <div v-if="listing.description" class="mt-4 prose prose-sm max-w-none">
@@ -425,9 +460,15 @@ async function submitReport() {
           <MessageCircle class="size-5" />
           {{ waButtonText }}
         </a>
-        <p v-else-if="!isOwner" class="text-sm text-muted-foreground text-center">
-          Satıcı iletişim bilgisi eklememişti.
-        </p>
+        <div v-else-if="!isOwner" class="text-center space-y-1.5">
+          <p class="text-sm text-muted-foreground">Satıcı henüz iletişim bilgisi eklememiş.</p>
+          <NuxtLink
+            :to="`/profil/${listing.seller.id}`"
+            class="text-xs text-brand hover:underline cursor-pointer"
+          >
+            Profili görüntüle
+          </NuxtLink>
+        </div>
 
         <button
           v-if="listing.status === 'active'"
@@ -480,6 +521,7 @@ async function submitReport() {
         :title="item.title"
         :price="item.price ?? 0"
         :price_type="item.price_type"
+        :listing_type="item.listing_type"
         :condition="item.condition"
         :status="item.status"
         :cover_photo="item.cover_photo ?? undefined"
@@ -513,6 +555,9 @@ async function submitReport() {
       </a>
     </div>
   </Teleport>
+
+  <!-- Lightbox -->
+  <ImageLightbox v-model="lightboxIndex" :images="listing.photos" />
 
   <!-- Bildir Modal -->
   <Teleport to="body">

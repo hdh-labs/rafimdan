@@ -262,6 +262,12 @@ async function deleteListing(slug: string, title: string) {
           >
             {{ listing.title }}
           </NuxtLink>
+          <p v-if="listing.status === 'pending'" class="text-xs text-muted-foreground mt-0.5">
+            İncelemede — düzenlemek için tıkla
+          </p>
+          <p v-else-if="listing.status === 'rejected'" class="text-xs text-destructive mt-0.5">
+            Reddedildi — sebep için tıkla
+          </p>
           <p class="text-xs text-muted-foreground mt-0.5">
             {{ listing.district ? `${listing.district}, ${listing.city}` : listing.city }}
           </p>
@@ -286,10 +292,10 @@ async function deleteListing(slug: string, title: string) {
                   @keydown.esc="cancelPriceEdit"
                   @blur="cancelPriceEdit"
                 />
-                <button class="text-brand hover:opacity-80 cursor-pointer" @mousedown.prevent="savePriceEdit(listing.slug)">
+                <button class="text-brand hover:opacity-80 cursor-pointer" @mousedown.prevent="savePriceEdit(listing.slug)" @touchstart.prevent="savePriceEdit(listing.slug)">
                   <Check class="size-3.5" />
                 </button>
-                <button class="text-muted-foreground hover:text-foreground cursor-pointer" @mousedown.prevent="cancelPriceEdit">
+                <button class="text-muted-foreground hover:text-foreground cursor-pointer" @mousedown.prevent="cancelPriceEdit" @touchstart.prevent="cancelPriceEdit">
                   <X class="size-3.5" />
                 </button>
               </div>
@@ -420,7 +426,11 @@ async function deleteListing(slug: string, title: string) {
     </div>
   </div>
 
-  <ImageLightbox :url="lightboxUrl" @close="lightboxUrl = null" />
+  <ImageLightbox
+    :images="lightboxUrl ? [lightboxUrl] : []"
+    :model-value="lightboxUrl !== null ? 0 : null"
+    @update:model-value="(v) => { if (v === null) lightboxUrl = null }"
+  />
 
   <!-- Delete confirm modal -->
   <Teleport to="body">
