@@ -122,7 +122,7 @@ const hasFilters = computed(
 )
 
 const activeFilterCount = computed(() =>
-  [draft.city, draft.district, draft.category, draft.price_type, draft.condition, draft.q]
+  [draft.city, draft.district, draft.category, draft.price_type, draft.condition]
     .filter(Boolean).length,
 )
 
@@ -131,6 +131,10 @@ const drawerOpen = ref(false)
 watch(drawerOpen, (open) => {
   if (!import.meta.client) return
   document.body.style.overflow = open ? "hidden" : ""
+})
+
+onUnmounted(() => {
+  if (import.meta.client) document.body.style.overflow = ""
 })
 
 function applyAndClose() {
@@ -147,6 +151,25 @@ useSeoMeta({
 
 <template>
   <div class="max-w-5xl mx-auto px-4 py-8">
+    <div class="relative mb-5">
+      <Search class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+      <input
+        v-model="draft.q"
+        type="text"
+        placeholder="Kitap, bisiklet, mobilya ara..."
+        class="w-full pl-10 pr-10 py-2.5 text-sm border border-border rounded-lg bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        @keydown.enter="applyFilters"
+      />
+      <button
+        v-if="draft.q"
+        type="button"
+        class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+        @click="draft.q = ''; applyFilters()"
+      >
+        <X class="size-4" />
+      </button>
+    </div>
+
     <div class="flex flex-col md:flex-row gap-6">
       <aside class="hidden md:block md:w-56 shrink-0 space-y-4">
         <div class="flex items-center justify-between">
@@ -165,20 +188,6 @@ useSeoMeta({
         </div>
 
         <div class="space-y-3">
-          <div>
-            <label class="text-xs font-medium text-muted-foreground mb-1 block">Arama</label>
-            <div class="relative">
-              <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-              <input
-                v-model="draft.q"
-                type="text"
-                placeholder="İlan ara..."
-                class="w-full pl-8 pr-3 py-1.5 text-sm border border-border rounded-md bg-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                @keydown.enter="applyFilters"
-              />
-            </div>
-          </div>
-
           <div>
             <label class="text-xs font-medium text-muted-foreground mb-1 block">Şehir</label>
             <CityAutocomplete v-model="draft.city" />
@@ -317,7 +326,10 @@ useSeoMeta({
               :price_type="listing.price_type"
               :condition="listing.condition"
               :status="listing.status"
+              :listing_type="listing.listing_type"
+              :direction="listing.direction"
               :cover_photo="listing.cover_photo ?? undefined"
+              :category_slug="listing.category.slug"
               :city="listing.city"
               :district="listing.district ?? undefined"
               :seller="{
@@ -385,19 +397,6 @@ useSeoMeta({
           </div>
 
           <div class="overflow-y-auto px-4 py-4 space-y-4 flex-1">
-            <div>
-              <label class="text-xs font-medium text-muted-foreground mb-1 block">Arama</label>
-              <div class="relative">
-                <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
-                <input
-                  v-model="draft.q"
-                  type="text"
-                  placeholder="İlan ara..."
-                  class="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring"
-                  @keydown.enter="applyAndClose"
-                />
-              </div>
-            </div>
             <div>
               <label class="text-xs font-medium text-muted-foreground mb-1 block">Şehir</label>
               <CityAutocomplete v-model="draft.city" />
