@@ -38,6 +38,13 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+watch(
+  () => favoritesStore.ids,
+  (ids) => {
+    listings.value = listings.value.filter((l) => ids.has(l.id))
+  },
+)
 </script>
 
 <template>
