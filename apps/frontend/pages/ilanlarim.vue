@@ -262,14 +262,12 @@ async function deleteListing(slug: string, title: string) {
           >
             {{ listing.title }}
           </NuxtLink>
-          <p v-if="listing.status === 'pending'" class="text-xs text-muted-foreground mt-0.5">
-            İncelemede — düzenlemek için tıkla
-          </p>
-          <p v-else-if="listing.status === 'rejected'" class="text-xs text-destructive mt-0.5">
-            Reddedildi — sebep için tıkla
-          </p>
-          <p class="text-xs text-muted-foreground mt-0.5">
+          <p class="text-xs text-muted-foreground mt-0.5 truncate">
             {{ listing.district ? `${listing.district}, ${listing.city}` : listing.city }}
+            <span class="mx-1">·</span>
+            <span :class="listing.age > 14 ? 'text-brand' : ''">
+              {{ listing.age === 0 ? 'Bugün' : `${listing.age} gün önce` }}
+            </span>
           </p>
           <div class="mt-1.5 flex items-center gap-1.5 flex-wrap">
             <span
@@ -301,10 +299,11 @@ async function deleteListing(slug: string, title: string) {
               </div>
               <button
                 v-else
-                class="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 cursor-pointer transition-colors"
+                class="flex items-center gap-1 text-xs text-foreground font-medium cursor-pointer group"
                 @click.stop="startPriceEdit(listing.slug, listing.price)"
               >
                 {{ listing.price ?? '?' }} ₺
+                <Pencil class="size-3 text-muted-foreground group-hover:text-foreground transition-colors" />
               </button>
             </template>
             <span v-else-if="listing.price_type === 'free'" class="text-xs text-brand font-medium">Ücretsiz</span>
@@ -314,29 +313,12 @@ async function deleteListing(slug: string, title: string) {
             <span v-else class="text-xs text-muted-foreground">
               {{ listing.price ?? '?' }} ₺
             </span>
-
-            <span
-              class="text-xs"
-              :class="listing.age > 14 ? 'text-brand' : 'text-muted-foreground'"
-            >
-              {{ listing.age === 0 ? 'Bugün' : `${listing.age} gün önce` }}
-            </span>
           </div>
           <template v-if="listing.status === 'rejected'">
-            <p class="text-xs text-destructive mt-1">
-              <span class="font-medium">Gerekçe:</span>
-              {{ listing.rejection_reason ?? 'Belirtilmemiş' }}
+            <p class="text-xs text-destructive mt-1 line-clamp-2">
+              {{ listing.rejection_reason ?? 'Gerekçe belirtilmemiş' }}
             </p>
-            <NuxtLink
-              :to="`/ilan/${listing.slug}/duzenle`"
-              class="text-xs text-foreground underline mt-0.5 inline-block"
-            >
-              Düzenle ve tekrar gönder
-            </NuxtLink>
           </template>
-          <p v-if="listing.status === 'pending'" class="text-xs text-muted-foreground mt-1">
-            Yönetici onayı bekleniyor.
-          </p>
         </div>
 
         <!-- Actions -->
