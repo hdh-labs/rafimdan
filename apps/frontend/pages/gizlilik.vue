@@ -5,7 +5,7 @@ useSeoMeta({
     "Rafımdan olarak kişisel verilerinizi nasıl topladığımızı, kullandığımızı ve koruduğumuzu öğrenin.",
 })
 
-const LAST_UPDATED = "12 Nisan 2025"
+const LAST_UPDATED = "19 Nisan 2026"
 </script>
 
 <template>

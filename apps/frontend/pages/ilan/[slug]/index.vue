@@ -43,11 +43,12 @@ const mainPhoto = computed(() => listing.value.photos[selectedIndex.value] ?? nu
 const lightboxIndex = ref<number | null>(null)
 
 function prevPhoto() {
-  if (selectedIndex.value > 0) selectedIndex.value--
+  const len = listing.value.photos.length
+  selectedIndex.value = (selectedIndex.value - 1 + len) % len
 }
 
 function nextPhoto() {
-  if (selectedIndex.value < listing.value.photos.length - 1) selectedIndex.value++
+  selectedIndex.value = (selectedIndex.value + 1) % listing.value.photos.length
 }
 
 const galleryRef = ref<HTMLElement | null>(null)
@@ -337,7 +338,6 @@ async function submitReport() {
             <button
               aria-label="Önceki fotoğraf"
               class="absolute left-2 top-1/2 -translate-y-1/2 size-11 flex items-center justify-center bg-white/80 rounded-full cursor-pointer hover:bg-white transition-colors disabled:opacity-40"
-              :disabled="selectedIndex === 0"
               @click="prevPhoto"
             >
               <ChevronLeft class="size-5" />
@@ -345,7 +345,6 @@ async function submitReport() {
             <button
               aria-label="Sonraki fotoğraf"
               class="absolute right-2 top-1/2 -translate-y-1/2 size-11 flex items-center justify-center bg-white/80 rounded-full cursor-pointer hover:bg-white transition-colors disabled:opacity-40"
-              :disabled="selectedIndex === listing.photos.length - 1"
               @click="nextPhoto"
             >
               <ChevronRight class="size-5" />
