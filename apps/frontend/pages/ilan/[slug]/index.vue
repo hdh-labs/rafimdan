@@ -79,7 +79,6 @@ useSwipe(galleryRef, {
 
 
 const isRequest = computed(() => listing.value.direction === "request")
-const isService = computed(() => listing.value.listing_type === "service")
 
 const waUrl = computed(() => {
   const phone = listing.value.seller.whatsapp
@@ -109,7 +108,7 @@ const priceDisplay = computed(() => {
   const { price, price_type } = listing.value
   if (price_type === "free") return "Ücretsiz"
   const formatted = (price ?? 0).toLocaleString("tr-TR") + " ₺"
-  if (price_type === "negotiable") return `${formatted} · Pazarlığa açık`
+  if (price_type === "negotiable") return formatted
   return formatted
 })
 
@@ -343,7 +342,7 @@ async function submitReport() {
 
     <div class="grid md:grid-cols-[1fr_320px] gap-8">
       <div class="space-y-4">
-        <div ref="galleryRef" class="relative rounded-lg overflow-hidden bg-muted aspect-[4/3]">
+        <div ref="galleryRef" class="relative rounded-lg overflow-hidden bg-muted aspect-[4/3] max-h-[480px]">
           <img
             v-if="mainPhoto"
             :src="mainPhoto"
@@ -371,6 +370,13 @@ async function submitReport() {
               {{ STATUS_LABELS[listing.status] }}
             </span>
           </div>
+
+          <span
+            v-if="listing.price_type === 'negotiable' && listing.status === 'active' && listing.direction !== 'request'"
+            class="absolute top-3 right-3 rounded-full px-2.5 py-1 text-xs font-medium bg-background/90 text-brand border border-brand/30 backdrop-blur-sm pointer-events-none"
+          >
+            Pazarlık
+          </span>
 
           <template v-if="listing.photos.length > 1">
             <button
@@ -463,13 +469,22 @@ async function submitReport() {
               <span v-else>{{ sellerInitials }}</span>
             </span>
             <div class="min-w-0">
-              <div class="flex items-center gap-1.5 flex-wrap">
-                <p class="font-medium text-foreground text-sm truncate">{{ sellerName }}</p>
-              </div>
+              <p class="font-medium text-foreground text-sm truncate">{{ sellerName }}</p>
               <p v-if="listing.seller.city" class="text-xs text-muted-foreground">
                 {{ listing.seller.city }}
               </p>
               <p class="text-xs text-muted-foreground">{{ memberSince }}'dan beri üye</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 text-center">
+            <div class="rounded-md bg-muted px-2 py-2">
+              <p class="text-sm font-semibold text-foreground">{{ listing.seller.active_count }}</p>
+              <p class="text-[11px] text-muted-foreground">Aktif ilan</p>
+            </div>
+            <div class="rounded-md bg-muted px-2 py-2">
+              <p class="text-sm font-semibold text-foreground">{{ listing.seller.sold_count }}</p>
+              <p class="text-[11px] text-muted-foreground">Satış</p>
             </div>
           </div>
 
@@ -563,9 +578,11 @@ async function submitReport() {
         :price="item.price ?? 0"
         :price_type="item.price_type"
         :listing_type="item.listing_type"
+        :direction="item.direction"
         :condition="item.condition"
         :status="item.status"
         :cover_photo="item.cover_photo ?? undefined"
+        :category_slug="item.category.slug"
         :city="item.city"
         :district="item.district ?? undefined"
         :seller="{
