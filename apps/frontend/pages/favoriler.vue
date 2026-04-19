@@ -51,8 +51,14 @@ onMounted(async () => {
       <div
         v-for="i in 4"
         :key="i"
-        class="rounded-lg border border-border bg-muted animate-pulse aspect-[3/4]"
-      />
+        class="rounded-lg border border-border overflow-hidden animate-pulse"
+      >
+        <div class="aspect-[4/3] bg-muted" />
+        <div class="p-3 space-y-2">
+          <div class="h-3.5 bg-muted rounded w-3/4" />
+          <div class="h-3 bg-muted rounded w-1/2" />
+        </div>
+      </div>
     </div>
 
     <div v-else-if="listings.length === 0" class="text-center py-20">

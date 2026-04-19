@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Upload, X, ImagePlus, MessageCircle, Loader2, RefreshCw, Star } from "lucide-vue-next"
 import { toast } from "vue-sonner"
-import type { ListingDetail, CategoryTree, ApiResponse } from "@rafimdan/shared"
+import type { ListingDetail, CategoryTree, ApiResponse, ListingType, ListingCondition, ListingPriceType } from "@rafimdan/shared"
 import { apiFetch, ApiError } from "~/utils/api"
 import { IL_NAMES, getIlceler } from "~/utils/turkey-locations"
 
@@ -13,12 +13,14 @@ const categories = computed(() => catsRes.value?.data ?? [])
 const authStore = useAuthStore()
 const route = useRoute()
 
+const initialListingType = route.query.listing_type === "service" ? "service" : "item"
+
 const form = reactive({
+  listing_type: initialListingType as ListingType,
   title: "",
   category_id: "",
-  direction: (route.query.direction === "request" ? "request" : route.query.direction === "support" ? "support" : "offer") as "offer" | "request" | "support",
-  condition: "" as "new" | "like_new" | "good" | "fair" | "",
-  price_type: "fixed" as "fixed" | "negotiable" | "free",
+  condition: "" as ListingCondition | "",
+  price_type: "fixed" as ListingPriceType,
   price: "" as number | "",
   city: IL_NAMES.includes(authStore.user?.city ?? "") ? (authStore.user?.city ?? "") : "",
   district: "",
@@ -29,6 +31,17 @@ const errors = reactive<Record<string, string>>({})
 const submitting = ref(false)
 const submitError = ref<string | null>(null)
 const pendingSubmit = ref(false)
+const submitted = ref(false)
+
+const isDirty = computed(() =>
+  !!form.title || !!form.category_id || !!form.description || photos.value?.length > 0,
+)
+
+onBeforeRouteLeave(() => {
+  if (isDirty.value && !submitted.value && !submitting.value) {
+    return window.confirm("Kaydedilmemiş değişiklikler var. Sayfadan çıkmak istediğine emin misin?")
+  }
+})
 
 const {
   photos,
@@ -52,27 +65,33 @@ watch(isUploading, (uploading) => {
 
 const ilceler = computed(() => getIlceler(form.city))
 
+const filteredCategories = computed(() =>
+  form.listing_type === "service"
+    ? categories.value.filter((c) => c.slug === "hizmet")
+    : categories.value.filter((c) => c.slug !== "hizmet"),
+)
+
 watch(() => form.city, () => {
   form.district = ""
   delete errors.city
+})
+
+watch(() => form.listing_type, () => {
+  form.category_id = ""
+  form.condition = ""
+  Object.keys(errors).forEach((k) => delete errors[k])
+})
+
+watch(() => form.price_type, (val) => {
+  if (val === "free") form.price = ""
+  delete errors.price
 })
 
 watch(() => form.title, () => { delete errors.title })
 watch(() => form.category_id, () => { delete errors.category_id })
 watch(() => form.condition, () => { delete errors.condition })
 watch(() => form.price, () => { delete errors.price })
-watch(() => form.direction, (val) => {
-  Object.keys(errors).forEach(k => delete errors[k])
-  if (val === "request" || val === "support") { form.price_type = "free"; form.price = "" }
-  if (val === "offer" && form.price_type === "free") form.price = ""
-})
-watch(() => form.price_type, (val) => {
-  if (val === "free") form.price = ""
-  delete errors.price
-})
-watch(doneKeys, (keys) => {
-  if (keys.length > 0) delete errors.photos
-})
+watch(doneKeys, (keys) => { if (keys.length > 0) delete errors.photos })
 
 const CONDITION_OPTIONS = [
   { value: "new", label: "Yeni" },
@@ -90,21 +109,24 @@ function validate(): boolean {
   else if (title.length > 100) e.title = "Başlık en fazla 100 karakter olabilir."
 
   if (!form.category_id) e.category_id = "Kategori seçiniz."
-  if (form.direction === "offer" && !form.condition) e.condition = "Ürün durumu seçiniz."
   if (!form.city) e.city = "Şehir seçiniz."
+
+  if (form.listing_type === "item" && !form.condition) {
+    e.condition = "Ürün durumu seçiniz."
+  }
 
   if (form.price_type !== "free" && form.price !== "") {
     if (Number(form.price) <= 0) e.price = "Fiyat 0'dan büyük olmalıdır."
   }
-  if (form.direction === "offer" && form.price_type !== "free") {
+  if (form.price_type !== "free") {
     if (form.price === "" || form.price === null) e.price = "Fiyat zorunludur."
   }
 
-  if (form.direction === "offer" && doneKeys.value.length === 0) {
+  if (form.listing_type === "item" && doneKeys.value.length === 0) {
     e.photos = "En az 1 fotoğraf zorunludur."
   }
 
-  Object.keys(errors).forEach(k => delete errors[k])
+  Object.keys(errors).forEach((k) => delete errors[k])
   Object.assign(errors, e)
   return Object.keys(e).length === 0
 }
@@ -113,12 +135,15 @@ async function doSubmit() {
   submitting.value = true
   try {
     const body: Record<string, unknown> = {
+      listing_type: form.listing_type,
       title: form.title.trim(),
       category_id: form.category_id,
-      price_type: form.direction !== "offer" ? "free" : form.price_type,
-      condition: form.direction !== "offer" ? "good" : form.condition,
-      direction: form.direction,
+      price_type: form.price_type,
+      direction: "offer",
       city: form.city,
+    }
+    if (form.listing_type === "item") {
+      body.condition = form.condition
     }
     if (form.district) body.district = form.district
     if (form.description.trim()) body.description = form.description.trim()
@@ -130,6 +155,7 @@ async function doSubmit() {
       body: JSON.stringify(body),
     })
 
+    submitted.value = true
     await navigateTo(`/ilan/${res.data.slug}`)
   } catch (err) {
     submitError.value = err instanceof ApiError ? err.message : "Bir hata oluştu, tekrar deneyin."
@@ -149,6 +175,11 @@ function submit() {
 
   void doSubmit()
 }
+
+const descPlaceholder = computed(() => {
+  if (form.listing_type === "service") return "Ne kadar süre ayırabilirsin, hangi şehir, nasıl iletişime geçilsin..."
+  return "Ürün durumunu, eksiklerini, buluşma tercihin yaz... (örn: Çiğdem Mah. civarı uygun)"
+})
 </script>
 
 <template>
@@ -174,55 +205,30 @@ function submit() {
           Ayarlara Git
         </NuxtLink>
       </div>
-    </ClientOnly>
 
-    <form v-if="authStore.user?.whatsapp" class="space-y-5" novalidate @submit.prevent="submit">
+      <form v-else class="space-y-5" novalidate @submit.prevent="submit">
 
-      <!-- İlan Tipi -->
+      <!-- İlan Türü -->
       <div class="grid grid-cols-2 gap-3">
         <label
           class="flex flex-col items-center gap-1.5 py-3 px-4 rounded-lg border-2 cursor-pointer transition-colors"
-          :class="form.direction === 'offer'
+          :class="form.listing_type === 'item'
             ? 'border-brand bg-brand text-brand-foreground'
             : 'border-border hover:bg-muted'"
         >
-          <input v-model="form.direction" type="radio" value="offer" class="sr-only" />
-          <span class="text-sm font-semibold">Sat / Ver</span>
+          <input v-model="form.listing_type" type="radio" value="item" class="sr-only" />
+          <span class="text-sm font-semibold">Eşya</span>
           <span class="text-xs opacity-70">Ürün veya eşya paylaş</span>
         </label>
         <label
           class="flex flex-col items-center gap-1.5 py-3 px-4 rounded-lg border-2 cursor-pointer transition-colors"
-          :class="form.direction !== 'offer'
+          :class="form.listing_type === 'service'
             ? 'border-brand bg-brand text-brand-foreground'
             : 'border-border hover:bg-muted'"
         >
-          <input
-            type="radio"
-            class="sr-only"
-            :checked="form.direction !== 'offer'"
-            @change="form.direction === 'offer' ? form.direction = 'request' : null"
-          />
-          <span class="text-sm font-semibold">Destek</span>
-          <span class="text-xs opacity-70">İhtiyaç veya yardım teklifi</span>
-        </label>
-      </div>
-
-      <!-- Destek Alt Seçeneği -->
-      <div v-if="form.direction !== 'offer'" class="flex rounded-lg border border-border overflow-hidden">
-        <label
-          class="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm cursor-pointer transition-colors"
-          :class="form.direction === 'request' ? 'bg-brand/10 text-foreground font-semibold' : 'bg-background text-muted-foreground hover:bg-muted'"
-        >
-          <input v-model="form.direction" type="radio" value="request" class="sr-only" />
-          Arıyorum
-        </label>
-        <div class="w-px bg-border" />
-        <label
-          class="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm cursor-pointer transition-colors"
-          :class="form.direction === 'support' ? 'bg-brand/10 text-foreground font-semibold' : 'bg-background text-muted-foreground hover:bg-muted'"
-        >
-          <input v-model="form.direction" type="radio" value="support" class="sr-only" />
-          Veriyorum
+          <input v-model="form.listing_type" type="radio" value="service" class="sr-only" />
+          <span class="text-sm font-semibold">Hizmet</span>
+          <span class="text-xs opacity-70">Ders, taşıma, mentörlük...</span>
         </label>
       </div>
 
@@ -236,7 +242,7 @@ function submit() {
           v-model="form.title"
           type="text"
           maxlength="100"
-          :placeholder="form.direction === 'request' ? 'Neye ihtiyacın var?' : form.direction === 'support' ? 'Ne konusunda yardım edebilirsin?' : 'Ne satıyorsun veya veriyorsun?'"
+          :placeholder="form.listing_type === 'service' ? 'Hangi hizmeti sunuyorsun?' : 'Ne satıyorsun veya veriyorsun?'"
           :class="[
             'w-full px-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 transition-colors',
             errors.title ? 'border-destructive focus:ring-destructive' : 'border-border focus:ring-ring',
@@ -259,7 +265,7 @@ function submit() {
           ]"
         >
           <option value="" disabled>Seçiniz</option>
-          <template v-for="cat in categories" :key="cat.id">
+          <template v-for="cat in filteredCategories" :key="cat.id">
             <option :value="cat.id">{{ cat.name }}</option>
             <option v-for="child in cat.children" :key="child.id" :value="child.id">
               &nbsp;&nbsp;{{ child.name }}
@@ -269,8 +275,8 @@ function submit() {
         <p v-if="errors.category_id" class="mt-1 text-xs text-destructive">{{ errors.category_id }}</p>
       </div>
 
-      <!-- Ürün Durumu -->
-      <div v-if="form.direction === 'offer'">
+      <!-- Ürün Durumu (sadece eşya) -->
+      <div v-if="form.listing_type === 'item'">
         <span id="condition-label" class="block text-sm font-medium text-foreground mb-2">
           Ürün Durumu <span class="text-destructive">*</span>
         </span>
@@ -293,15 +299,13 @@ function submit() {
       </div>
 
       <!-- Fiyat Tipi -->
-      <div v-if="form.direction !== 'support'">
+      <div>
         <span id="price-type-label" class="block text-sm font-medium text-foreground mb-2">
           Fiyat Tipi <span class="text-destructive">*</span>
         </span>
         <div role="group" aria-labelledby="price-type-label" class="grid grid-cols-3 gap-2">
           <label
-            v-for="opt in form.direction === 'offer'
-              ? [{ value: 'fixed', label: 'Sabit' }, { value: 'negotiable', label: 'Pazarlığa Açık' }, { value: 'free', label: 'Ücretsiz' }]
-              : [{ value: 'fixed', label: 'Ücretli' }, { value: 'negotiable', label: 'Pazarlığa Açık' }, { value: 'free', label: 'Ücretsiz' }]"
+            v-for="opt in [{ value: 'fixed', label: 'Sabit' }, { value: 'negotiable', label: 'Pazarlığa Açık' }, { value: 'free', label: 'Ücretsiz' }]"
             :key="opt.value"
             class="flex items-center justify-center py-2 px-3 rounded-md border text-sm cursor-pointer transition-colors"
             :class="form.price_type === opt.value
@@ -317,12 +321,8 @@ function submit() {
       <!-- Fiyat -->
       <div v-if="form.price_type !== 'free'">
         <label for="form-price" class="block text-sm font-medium text-foreground mb-1">
-          <template v-if="form.direction === 'offer'">
-            {{ form.price_type === 'negotiable' ? 'Başlangıç Fiyatı (₺)' : 'Fiyat (₺)' }} <span class="text-destructive">*</span>
-          </template>
-          <template v-else>
-            Bütçen (₺) <span class="text-muted-foreground font-normal">(opsiyonel)</span>
-          </template>
+          {{ form.price_type === 'negotiable' ? 'Başlangıç Fiyatı (₺)' : 'Fiyat (₺)' }}
+          <span class="text-destructive">*</span>
         </label>
         <input
           id="form-price"
@@ -366,7 +366,7 @@ function submit() {
           v-model="form.description"
           maxlength="2000"
           rows="4"
-          :placeholder="form.direction === 'request' ? 'Neye ihtiyacın var, ne zaman lazım, nerede buluşabilirsin...' : form.direction === 'support' ? 'Ne kadar süre ayırabilirsin, hangi şehir, nasıl iletişime geçilsin...' : 'Ürün durumunu, eksiklerini, buluşma tercihin yaz... (örn: Çiğdem Mah. civarı uygun)'"
+          :placeholder="descPlaceholder"
           class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring resize-none"
         />
         <p class="text-xs text-muted-foreground mt-1 text-right">
@@ -377,10 +377,10 @@ function submit() {
       <!-- Fotoğraflar -->
       <div>
         <div class="flex items-center justify-between mb-2">
-          <label class="block text-sm font-medium text-foreground">
+          <p class="text-sm font-medium text-foreground">
             Fotoğraflar
-            <span v-if="form.direction === 'offer'" class="text-destructive">*</span>
-          </label>
+            <span v-if="form.listing_type === 'item'" class="text-destructive">*</span>
+          </p>
           <span class="text-xs text-muted-foreground">{{ totalCount }}/{{ MAX_PHOTOS }}</span>
         </div>
 
@@ -419,14 +419,19 @@ function submit() {
             <!-- Kapak / Kapağa Al -->
             <template v-else>
               <div
-                class="absolute bottom-0 inset-x-0 text-center text-[10px] font-medium py-0.5"
-                :class="i === 0
-                  ? 'bg-black/60 text-white'
-                  : 'bg-foreground/80 text-background cursor-pointer'"
-                @click="i > 0 ? setCover(i) : null"
+                v-if="i === 0"
+                class="absolute bottom-0 inset-x-0 text-center text-[10px] font-medium py-0.5 bg-black/60 text-white"
               >
-                {{ i === 0 ? 'Kapak' : 'Kapağa Al' }}
+                Kapak
               </div>
+              <button
+                v-else
+                type="button"
+                class="absolute bottom-0 inset-x-0 text-center text-[10px] font-medium py-0.5 bg-foreground/80 text-background cursor-pointer"
+                @click="setCover(i)"
+              >
+                Kapağa Al
+              </button>
             </template>
 
             <!-- Yıldız (kapak göstergesi) -->
@@ -491,5 +496,6 @@ function submit() {
         <span v-else>Yayınla</span>
       </Button>
     </form>
+    </ClientOnly>
   </div>
 </template>

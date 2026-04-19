@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ChevronDown, ClipboardList, User, Heart, Settings, LogOut, AlertCircle, ShieldCheck } from "lucide-vue-next"
+import { ChevronDown, ClipboardList, User, Heart, Settings, LogOut, AlertCircle, ShieldCheck, X } from "lucide-vue-next"
 import type { AdminStats } from "@rafimdan/shared"
 import { apiFetch } from "~/utils/api"
 
@@ -15,6 +15,16 @@ const initials = computed(
 
 const menuOpen = ref(false)
 const avatarError = ref(false)
+const whatsappBannerDismissed = ref(false)
+
+if (import.meta.client) {
+  whatsappBannerDismissed.value = localStorage.getItem("wa-banner-dismissed") === "1"
+}
+
+function dismissWhatsappBanner() {
+  whatsappBannerDismissed.value = true
+  localStorage.setItem("wa-banner-dismissed", "1")
+}
 const pendingCount = useState<number>("admin-pending-count", () => 0)
 const menuTriggerRef = ref<HTMLButtonElement | null>(null)
 
@@ -51,7 +61,7 @@ onUnmounted(() => {
   <header class="bg-background border-b border-border">
     <ClientOnly>
       <div
-        v-if="authStore.isLoggedIn && !authStore.user?.whatsapp"
+        v-if="authStore.isLoggedIn && !authStore.user?.whatsapp && !whatsappBannerDismissed"
         class="bg-brand/5 border-b border-brand/20 px-4 py-2.5 flex items-center justify-center gap-2.5 text-sm text-foreground"
       >
         <AlertCircle class="size-4 shrink-0" />
@@ -62,6 +72,13 @@ onUnmounted(() => {
         >
           Hemen Ekle
         </NuxtLink>
+        <button
+          type="button"
+          class="ml-1 text-muted-foreground hover:text-foreground cursor-pointer transition-colors shrink-0"
+          @click="dismissWhatsappBanner"
+        >
+          <X class="size-4" />
+        </button>
       </div>
     </ClientOnly>
     <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">

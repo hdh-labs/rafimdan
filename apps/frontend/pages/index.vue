@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowRight, HandHeart } from "lucide-vue-next"
+import { ArrowRight, LayoutGrid, Clock } from "lucide-vue-next"
 import type { ListingListItem, CategoryTree, ApiResponse, PaginatedResponse } from "@rafimdan/shared"
 
 type ListingsData = ApiResponse<PaginatedResponse<ListingListItem>>
@@ -7,11 +7,8 @@ type CategoriesData = ApiResponse<CategoryTree[]>
 
 const { data: listingsRes } = await useFetch<ListingsData>("/api/listings?limit=8&page=1")
 const { data: categoriesRes } = await useFetch<CategoriesData>("/api/categories")
-const { data: communityRes } = await useFetch<ListingsData>("/api/listings?direction=request,support&limit=4&page=1")
-
 const listings = computed(() => listingsRes.value?.data.items ?? [])
 const categories = computed(() => categoriesRes.value?.data ?? [])
-const communityListings = computed(() => communityRes.value?.data.items ?? [])
 
 </script>
 
@@ -49,15 +46,31 @@ const communityListings = computed(() => communityRes.value?.data.items ?? [])
     <!-- Kategoriler -->
     <section v-if="categories.length > 0" class="space-y-4">
       <div class="flex items-center justify-between">
-        <h2 class="text-xl font-bold text-foreground">Kategoriler</h2>
+        <div class="flex items-center gap-2">
+          <LayoutGrid class="size-5 text-brand" />
+          <h2 class="text-xl font-bold text-foreground">Kategoriler</h2>
+        </div>
       </div>
       <CategoryGrid :categories="categories" />
     </section>
 
     <!-- Son İlanlar -->
-    <section v-if="listings.length > 0" class="space-y-4">
+    <section v-if="listings.length === 0" class="text-center py-12 space-y-3">
+      <p class="text-muted-foreground text-sm">Henüz ilan yok. İlk ilanı sen ver!</p>
+      <NuxtLink
+        to="/ilan-ver"
+        class="inline-flex items-center gap-1.5 px-4 py-2 bg-brand text-brand-foreground rounded-lg text-sm font-medium cursor-pointer hover:opacity-90 transition-opacity"
+      >
+        İlan Ver
+      </NuxtLink>
+    </section>
+
+    <section v-else class="space-y-4">
       <div class="flex items-center justify-between">
-        <h2 class="text-xl font-bold text-foreground">Son İlanlar</h2>
+        <div class="flex items-center gap-2">
+          <Clock class="size-5 text-brand" />
+          <h2 class="text-xl font-bold text-foreground">Son İlanlar</h2>
+        </div>
         <NuxtLink
           to="/ilanlar"
           class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
@@ -91,46 +104,6 @@ const communityListings = computed(() => communityRes.value?.data.items ?? [])
       </div>
     </section>
 
-    <!-- Ahaliye Destek Ol -->
-    <section v-if="communityListings.length > 0" class="space-y-4">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-2">
-          <HandHeart class="size-5 text-brand" />
-          <h2 class="text-xl font-bold text-foreground">Ahaliye Destek Ol</h2>
-        </div>
-        <NuxtLink
-          to="/ariyorum"
-          class="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
-        >
-          Tümünü gör
-          <ArrowRight class="size-3.5" />
-        </NuxtLink>
-      </div>
-      <p class="text-sm text-muted-foreground -mt-2">İhtiyaç ve destek ilanları — ilanı aç, WhatsApp'tan ulaş.</p>
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-        <ListingCard
-          v-for="item in communityListings"
-          :key="item.id"
-          :id="item.id"
-          :slug="item.slug"
-          :title="item.title"
-          :price="item.price ?? 0"
-          :price_type="item.price_type"
-          :condition="item.condition"
-          :status="item.status"
-          :direction="item.direction"
-          :cover_photo="item.cover_photo ?? undefined"
-          :city="item.city"
-          :district="item.district ?? undefined"
-          :seller="{
-            id: item.seller.id,
-            name: item.seller.display_name ?? item.seller.name,
-            avatar_url: item.seller.avatar_url ?? undefined,
-          }"
-          :created_at="item.created_at"
-        />
-      </div>
-    </section>
 
   </div>
 </template>

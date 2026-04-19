@@ -36,6 +36,18 @@ const total = computed(() => listingsRes.value?.data.total ?? 0)
 const currentPage = computed(() => Number(route.query.page) || 1)
 const totalPages = computed(() => Math.ceil(total.value / 20))
 
+const pageNumbers = computed(() => {
+  const total = totalPages.value
+  const cur = currentPage.value
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages: (number | "...")[] = [1]
+  if (cur > 3) pages.push("...")
+  for (let i = Math.max(2, cur - 1); i <= Math.min(total - 1, cur + 1); i++) pages.push(i)
+  if (cur < total - 2) pages.push("...")
+  pages.push(total)
+  return pages
+})
+
 const draft = reactive({
   city: (route.query.city as string) || "",
   district: (route.query.district as string) || "",
@@ -280,11 +292,14 @@ useSeoMeta({
         </div>
 
         <template v-else>
-          <div v-if="listings.length === 0" class="py-16 text-center">
-            <p class="text-muted-foreground text-sm">Sonuç bulunamadı.</p>
+          <div v-if="listings.length === 0" class="py-16 text-center space-y-2">
+            <p class="text-muted-foreground text-sm">
+              <template v-if="draft.q">"{{ draft.q }}" için sonuç bulunamadı.</template>
+              <template v-else>Bu filtrelere uygun ilan yok.</template>
+            </p>
             <button
               v-if="hasFilters"
-              class="mt-3 text-sm text-foreground underline underline-offset-2 cursor-pointer"
+              class="text-sm text-foreground underline underline-offset-2 cursor-pointer"
               @click="clearFilters"
             >
               Filtreleri temizle
@@ -317,21 +332,31 @@ useSeoMeta({
 
           <div
             v-if="totalPages > 1"
-            class="flex items-center justify-center gap-3 pt-4"
+            class="flex items-center justify-center gap-1 pt-4 flex-wrap"
           >
             <button
               :disabled="currentPage <= 1"
-              class="px-4 py-1.5 text-sm border border-border rounded-md cursor-pointer hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              class="px-3 py-1.5 text-sm border border-border rounded-md cursor-pointer hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               @click="goToPage(currentPage - 1)"
             >
               Önceki
             </button>
-            <span class="text-sm text-muted-foreground">
-              {{ currentPage }} / {{ totalPages }}
-            </span>
+            <template v-for="p in pageNumbers" :key="p">
+              <span v-if="p === '...'" class="px-2 text-sm text-muted-foreground">…</span>
+              <button
+                v-else
+                :class="p === currentPage
+                  ? 'bg-brand text-brand-foreground border-brand'
+                  : 'border-border hover:bg-muted'"
+                class="min-w-[2rem] px-2 py-1.5 text-sm border rounded-md cursor-pointer transition-colors"
+                @click="goToPage(p as number)"
+              >
+                {{ p }}
+              </button>
+            </template>
             <button
               :disabled="currentPage >= totalPages"
-              class="px-4 py-1.5 text-sm border border-border rounded-md cursor-pointer hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              class="px-3 py-1.5 text-sm border border-border rounded-md cursor-pointer hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               @click="goToPage(currentPage + 1)"
             >
               Sonraki
@@ -369,6 +394,7 @@ useSeoMeta({
                   type="text"
                   placeholder="İlan ara..."
                   class="w-full pl-8 pr-3 py-2 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                  @keydown.enter="applyAndClose"
                 />
               </div>
             </div>
