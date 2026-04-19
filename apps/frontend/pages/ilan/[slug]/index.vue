@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { MapPin, Eye, MessageCircle, ChevronLeft, ChevronRight, Pencil, Flag, Share2, AlertCircle, ArrowRight, Clock, XCircle } from "lucide-vue-next"
+import { MapPin, Eye, MessageCircle, ChevronLeft, ChevronRight, Pencil, Flag, Share2, AlertCircle, ArrowRight, Clock, XCircle, BookOpen, Monitor, Shirt, Home, Package, Dumbbell, Wrench } from "lucide-vue-next"
+import type { Component } from "vue"
 import { useSwipe } from "@vueuse/core"
 import { toast } from "vue-sonner"
 import type { ListingDetail, ListingListItem } from "@rafimdan/shared"
@@ -30,6 +31,23 @@ const listing = computed(() => listingData.value!.data)
 const isOwner = computed(() => authStore.user?.id === listing.value?.seller.id)
 const isPending = computed(() => listing.value?.status === "pending")
 const isRejected = computed(() => listing.value?.status === "rejected")
+
+const CATEGORY_ICONS: Record<string, Component> = {
+  kitap: BookOpen,
+  elektronik: Monitor,
+  giyim: Shirt,
+  "ev-yasam": Home,
+  spor: Dumbbell,
+  diger: Package,
+}
+
+const categoryIcon = computed<Component>(
+  () => listing.value.listing_type === "service"
+    ? Wrench
+    : (CATEGORY_ICONS[listing.value.category?.slug ?? ""] ?? Package)
+)
+
+const isService = computed(() => listing.value.listing_type === "service")
 
 useSeoMeta({
   title: () => `${listing.value.title} — Rafımdan`,
@@ -337,9 +355,12 @@ async function submitReport() {
           />
           <div
             v-else
-            class="size-full flex items-center justify-center text-muted-foreground text-sm"
+            class="size-full flex flex-col items-center justify-center gap-3 bg-brand/5"
           >
-            Fotoğraf yok
+            <component :is="categoryIcon" class="size-16 text-brand/25" aria-hidden="true" />
+            <span class="text-xs text-muted-foreground">
+              {{ isService ? 'Hizmet ilanı' : 'Fotoğraf eklenmemiş' }}
+            </span>
           </div>
 
           <div
