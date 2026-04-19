@@ -147,8 +147,8 @@ async function save() {
     const body: Record<string, string | null> = {}
     body.display_name = form.display_name.trim() || null
     body.whatsapp = form.whatsapp ? form.whatsapp.replace(/\s/g, "") : null
-    if (form.city) body.city = form.city
-    if (form.district) body.district = form.district
+    body.city = form.city || null
+    body.district = form.district || null
     body.bio = form.bio
 
     const res = await apiFetch<ApiResponse<UserProfile>>("/api/auth/me", {
