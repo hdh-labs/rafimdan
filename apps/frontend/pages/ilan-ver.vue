@@ -59,6 +59,12 @@ const {
 
 watch(isUploading, (uploading) => {
   if (!uploading && pendingSubmit.value) {
+    const errorCount = photos.value.filter(p => p.status === "error").length
+    if (errorCount > 0) {
+      toast.warning(`${errorCount} fotoğraf yüklenemedi. Hatalı olanları tekrar deneyebilir veya devam edebilirsin.`)
+      pendingSubmit.value = false
+      return
+    }
     pendingSubmit.value = false
     void doSubmit()
   }
@@ -450,20 +456,20 @@ const descPlaceholder = computed(() => {
             <button
               v-if="photo.status !== 'uploading'"
               type="button"
-              class="absolute top-1 right-1 size-5 rounded-full bg-black/60 flex items-center justify-center cursor-pointer"
+              class="absolute top-0.5 right-0.5 size-8 rounded-full bg-black/60 flex items-center justify-center cursor-pointer"
               @click="remove(i)"
             >
-              <X class="size-3 text-white" />
+              <X class="size-4 text-white" />
             </button>
 
             <!-- Rotate butonu -->
             <button
               v-if="photo.status === 'done'"
               type="button"
-              class="absolute top-1 left-1 size-5 rounded-full bg-black/60 flex items-center justify-center cursor-pointer"
+              class="absolute top-0.5 left-0.5 size-8 rounded-full bg-black/60 flex items-center justify-center cursor-pointer"
               @click.stop="rotate(i)"
             >
-              <RotateCw class="size-3 text-white" />
+              <RotateCw class="size-4 text-white" />
             </button>
           </div>
 
