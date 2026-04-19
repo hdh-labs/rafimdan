@@ -69,12 +69,16 @@ const moderatingSlug = ref<string | null>(null)
 const selectedListing = ref<ListingDetail | null>(null)
 const panelRejectMode = ref(false)
 const panelRejectReason = ref("")
-const lightboxUrl = ref<string | null>(null)
+const lightboxPhotos = ref<string[]>([])
+const lightboxIndex = ref<number | null>(null)
+
+const panelRef = ref<HTMLElement | null>(null)
 
 function openPanel(listing: ListingDetail) {
   selectedListing.value = listing
   panelRejectMode.value = false
   panelRejectReason.value = ""
+  nextTick(() => panelRef.value?.focus())
 }
 
 function closePanel() {
@@ -178,6 +182,8 @@ async function moderateListing(slug: string, status: "active" | "pending" | "rej
         item.rejection_reason = status === "rejected" ? (reason || null) : null
       }
     }
+    clearNuxtData(`listing-${slug}`)
+    clearNuxtData()
     fetchStats()
     fetchLogs()
     toast.success(MODERATE_MSG[status] ?? "İşlem tamamlandı.")
@@ -817,9 +823,11 @@ function formatDate(d: string) {
 
         <!-- Panel -->
         <div
+          ref="panelRef"
           role="dialog"
           aria-modal="true"
-          class="panel-drawer relative z-10 flex flex-col w-full max-w-md bg-background border-l border-border shadow-2xl"
+          tabindex="-1"
+          class="panel-drawer relative z-10 flex flex-col w-full max-w-md bg-background border-l border-border shadow-2xl outline-none"
           @keydown.esc="closePanel"
         >
           <!-- Header -->
@@ -847,7 +855,7 @@ function formatDate(d: string) {
                 :src="photo"
                 :alt="`Fotoğraf ${i + 1}`"
                 class="h-32 w-32 shrink-0 rounded-lg object-cover border border-border cursor-zoom-in hover:opacity-90 transition-opacity"
-                @click="lightboxUrl = photo"
+                @click="lightboxPhotos = selectedListing.photos; lightboxIndex = i"
               />
             </div>
             <div
@@ -1060,9 +1068,9 @@ function formatDate(d: string) {
   </Teleport>
 
   <ImageLightbox
-    :images="lightboxUrl ? [lightboxUrl] : []"
-    :model-value="lightboxUrl !== null ? 0 : null"
-    @update:model-value="(v) => { if (v === null) lightboxUrl = null }"
+    :images="lightboxPhotos"
+    :model-value="lightboxIndex"
+    @update:model-value="(v) => { lightboxIndex = v }"
   />
 
   <AdminConfirmModal
