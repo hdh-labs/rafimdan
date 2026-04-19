@@ -7,6 +7,11 @@ import { IL_NAMES, getIlceler } from "~/utils/turkey-locations"
 
 definePageMeta({ middleware: ["auth"] })
 
+useSeoMeta({
+  title: "Ayarlar — Rafımdan",
+  robots: "noindex, nofollow",
+})
+
 const authStore = useAuthStore()
 
 const BIO_MAX = 500
@@ -15,7 +20,11 @@ const form = reactive({
   display_name: authStore.user?.display_name ?? "",
   whatsapp: authStore.user?.whatsapp ?? "",
   city: IL_NAMES.includes(authStore.user?.city ?? "") ? (authStore.user?.city ?? "") : "",
-  district: authStore.user?.district ?? "",
+  district: (() => {
+    const city = IL_NAMES.includes(authStore.user?.city ?? "") ? (authStore.user?.city ?? "") : ""
+    const d = authStore.user?.district ?? ""
+    return city && getIlceler(city).includes(d) ? d : ""
+  })(),
   bio: authStore.user?.bio ?? "",
 })
 

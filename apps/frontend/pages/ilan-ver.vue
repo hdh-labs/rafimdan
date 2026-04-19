@@ -7,6 +7,11 @@ import { IL_NAMES, getIlceler } from "~/utils/turkey-locations"
 
 definePageMeta({ middleware: ["auth"] })
 
+useSeoMeta({
+  title: "İlan Ver — Rafımdan",
+  robots: "noindex, nofollow",
+})
+
 const { data: catsRes } = await useFetch<ApiResponse<CategoryTree[]>>("/api/categories")
 const categories = computed(() => catsRes.value?.data ?? [])
 
@@ -61,7 +66,11 @@ watch(isUploading, (uploading) => {
   if (!uploading && pendingSubmit.value) {
     const errorCount = photos.value.filter(p => p.status === "error").length
     if (errorCount > 0) {
-      toast.warning(`${errorCount} fotoğraf yüklenemedi. Hatalı olanları tekrar deneyebilir veya devam edebilirsin.`)
+      toast.warning(`${errorCount} fotoğraf yüklenemedi.`, {
+        description: "Hatalı olanları tekrar deneyebilir veya diğer fotoğraflarla devam edebilirsin.",
+        action: { label: "Devam et", onClick: () => void doSubmit() },
+        duration: 10000,
+      })
       pendingSubmit.value = false
       return
     }
@@ -124,6 +133,7 @@ function validate(): boolean {
 
   if (form.price_type !== "free" && form.price !== "") {
     if (Number(form.price) <= 0) e.price = "Fiyat 0'dan büyük olmalıdır."
+    else if (Number(form.price) > 9_999_999) e.price = "Fiyat 9.999.999 ₺'den fazla olamaz."
   }
   if (form.price_type !== "free") {
     if (form.price === "" || form.price === null) e.price = "Fiyat zorunludur."
@@ -336,6 +346,7 @@ const descPlaceholder = computed(() => {
           v-model.number="form.price"
           type="number"
           min="1"
+          max="9999999"
           placeholder="0"
           :class="[
             'w-full px-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-1 transition-colors',

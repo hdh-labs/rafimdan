@@ -122,8 +122,9 @@ watch(listing, (val) => {
   form.condition = (val.condition as ListingCondition) ?? ""
   form.price_type = val.price_type
   form.price = val.price ?? ""
-  form.city = IL_NAMES.includes(val.city) ? val.city : ""
-  form.district = val.district ?? ""
+  const validCity = IL_NAMES.includes(val.city) ? val.city : ""
+  form.city = validCity
+  form.district = validCity && getIlceler(validCity).includes(val.district ?? "") ? (val.district ?? "") : ""
   form.description = val.description ?? ""
   currentStatus.value = val.status
   existingPhotos.value = [...val.photos]
@@ -174,6 +175,7 @@ function validate(): boolean {
 
   if (form.price_type !== "free" && form.price !== "") {
     if (Number(form.price) <= 0) e.price = "Fiyat 0'dan büyük olmalıdır."
+    else if (Number(form.price) > 9_999_999) e.price = "Fiyat 9.999.999 ₺'den fazla olamaz."
   }
   if (form.direction === "offer" && form.price_type !== "free") {
     if (form.price === "" || form.price === null) e.price = "Fiyat zorunludur."
@@ -510,6 +512,7 @@ async function confirmDelete() {
             v-model.number="form.price"
             type="number"
             min="1"
+            max="9999999"
             :class="[
               'w-full px-3 py-2 text-sm border rounded-xl bg-background focus:outline-none focus:ring-1 transition-colors',
               errors.price ? 'border-destructive focus:ring-destructive' : 'border-border focus:ring-ring',
