@@ -75,7 +75,7 @@ auth.get("/google/callback", async (c) => {
 
     if (!code || !state) {
       return c.json(
-        { error: "Missing code or state", status: "error", code: "INVALID_CALLBACK" },
+        { error: "Geçersiz kimlik doğrulama isteği", status: "error", code: "INVALID_CALLBACK" },
         400,
       );
     }
@@ -131,7 +131,7 @@ auth.post("/refresh", async (c) => {
     const refreshToken = getCookie(c, "refresh_token");
     if (!refreshToken) {
       return c.json(
-        { error: "Refresh token is required", status: "error", code: "MISSING_TOKEN" },
+        { error: "Oturum bulunamadı, tekrar giriş yapın", status: "error", code: "MISSING_TOKEN" },
         401,
       );
     }
@@ -216,10 +216,10 @@ auth.post("/me/avatar", authMiddleware, async (c) => {
     });
 
     const baseUrl = c.env.STORAGE_PUBLIC_URL ?? "/api/storage";
-    const fullUrl = `${baseUrl}/${key}`;
+    const fullUrl = `${baseUrl}/${key}?v=${Date.now()}`;
 
     if (oldUrl && oldUrl.startsWith(baseUrl)) {
-      const oldKey = oldUrl.slice(baseUrl.length + 1);
+      const oldKey = oldUrl.split("?")[0]!.slice(baseUrl.length + 1);
       if (oldKey !== key) {
         void c.env.STORAGE.delete(oldKey);
       }
