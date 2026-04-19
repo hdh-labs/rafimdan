@@ -15,6 +15,7 @@ type FeedbackType = (typeof FEEDBACK_TYPES)[number]["value"]
 const MAX_ATTACHMENTS = 3
 const MAX_SIZE_MB = 5
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
+const MIN_DESC_LENGTH = 5
 
 const open = ref(false)
 const type = ref<FeedbackType>("bug")
@@ -258,7 +259,16 @@ async function submit() {
               placeholder="Ne gördün, ne olmasını bekliyordun, ne oldu..."
               class="w-full px-3 py-2 text-sm border border-border rounded-md bg-background resize-none focus:outline-none focus:ring-1 focus:ring-ring placeholder:text-muted-foreground"
             />
-            <p class="text-right text-xs text-muted-foreground mt-0.5 tabular-nums">{{ description.length }}/2000</p>
+            <div class="flex justify-between items-center mt-0.5">
+              <p
+                v-if="description.length > 0 && description.trim().length < MIN_DESC_LENGTH"
+                class="text-xs text-destructive tabular-nums"
+              >
+                {{ description.trim().length }}/{{ MIN_DESC_LENGTH }} karakter
+              </p>
+              <span v-else />
+              <p class="text-xs text-muted-foreground tabular-nums">{{ description.length }}/2000</p>
+            </div>
           </div>
 
           <!-- Attachments -->
@@ -317,7 +327,7 @@ async function submit() {
             type="button"
             class="flex-1"
             :loading="pending"
-            :disabled="pending || description.trim().length < 5"
+            :disabled="pending || description.trim().length < MIN_DESC_LENGTH"
             @click="submit"
           >
             Gönder
