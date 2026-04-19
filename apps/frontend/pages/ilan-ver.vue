@@ -466,7 +466,7 @@ const descPlaceholder = computed(() => {
             <span class="text-xs text-muted-foreground">Ekle</span>
             <input
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/*"
               multiple
               class="sr-only"
               @change="onFileChange"

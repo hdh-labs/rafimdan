@@ -2,10 +2,18 @@
 definePageMeta({ layout: "default" })
 
 const authStore = useAuthStore()
+const route = useRoute()
 
 if (authStore.isLoggedIn) {
   await navigateTo("/")
 }
+
+const oauthError = computed(() => {
+  const e = route.query.error
+  if (!e) return null
+  if (e === "access_denied") return "Google girişi iptal edildi."
+  return "Giriş yapılamadı. Lütfen tekrar dene."
+})
 </script>
 
 <template>
@@ -17,6 +25,10 @@ if (authStore.isLoggedIn) {
           Rafımdan hesabına giriş yap
         </p>
       </div>
+
+      <p v-if="oauthError" class="text-sm text-destructive bg-destructive/10 rounded-md px-3 py-2">
+        {{ oauthError }}
+      </p>
 
       <a
         href="/api/auth/google"

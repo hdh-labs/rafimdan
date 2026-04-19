@@ -36,12 +36,12 @@ async function handleClick(e: Event) {
         class="size-3.5 transition-all duration-150"
         :class="isFavorited ? 'fill-rose-500 text-rose-500 scale-110' : 'text-muted-foreground hover:text-rose-400'"
       />
-      <span v-if="displayCount >= 2" class="text-xs text-foreground/60 tabular-nums">{{ displayCount }}</span>
+      <span v-if="displayCount >= 1" class="text-xs text-foreground/60 tabular-nums">{{ displayCount }}</span>
     </button>
     <template #fallback>
       <span class="flex items-center gap-0.5">
         <Heart class="size-3.5 text-muted-foreground" />
-        <span v-if="(count ?? 0) >= 2" class="text-xs text-foreground/60 tabular-nums">{{ count }}</span>
+        <span v-if="(count ?? 0) >= 1" class="text-xs text-foreground/60 tabular-nums">{{ count }}</span>
       </span>
     </template>
   </ClientOnly>

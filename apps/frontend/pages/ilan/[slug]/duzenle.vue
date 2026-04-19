@@ -5,6 +5,7 @@ import type {
   ListingDetail,
   CategoryTree,
   ApiResponse,
+  ListingType,
   ListingCondition,
   ListingPriceType,
   ListingStatus,
@@ -37,6 +38,12 @@ const { data: categoriesData } = useAsyncData<CategoryTree[]>(
 
 const categories = computed(() => categoriesData.value ?? [])
 
+const filteredCategories = computed(() =>
+  form.listing_type === "service"
+    ? categories.value.filter((c) => c.slug === "hizmet")
+    : categories.value.filter((c) => c.slug !== "hizmet"),
+)
+
 const CONDITION_OPTIONS: { value: ListingCondition; label: string }[] = [
   { value: "new", label: "Yeni" },
   { value: "like_new", label: "Az Kullanılmış" },
@@ -56,10 +63,11 @@ const STATUS_OPTIONS: { value: ListingStatus; label: string }[] = [
 ]
 
 const form = reactive({
+  listing_type: "item" as ListingType,
   title: "",
   category_id: "",
   direction: "offer" as ListingDirection,
-  condition: "good" as ListingCondition,
+  condition: "" as ListingCondition | "",
   price_type: "fixed" as ListingPriceType,
   price: "" as number | "",
   city: "",
@@ -86,22 +94,30 @@ const ilceler = computed(() => getIlceler(form.city))
 const deleting = ref(false)
 const showDeleteConfirm = ref(false)
 const statusChanging = ref(false)
+const submitted = ref(false)
+
+onBeforeRouteLeave(() => {
+  if (!submitted.value && !submitting.value && listing.value) {
+    return window.confirm("Kaydedilmemiş değişiklikler var. Sayfadan çıkmak istediğine emin misin?")
+  }
+})
 const deletingPhotoIndex = ref<number | null>(null)
 const dragFromIndex = ref<number | null>(null)
 const dragOverIndex = ref<number | null>(null)
 
 watch(listing, (val) => {
   if (!val) return
+  form.listing_type = val.listing_type ?? "item"
   form.title = val.title
   form.category_id = val.category.id
-  form.direction = (val.direction as ListingDirection) ?? "offer"
-  form.condition = val.condition as ListingCondition
-  form.price_type = val.price_type as ListingPriceType
+  form.direction = val.direction ?? "offer"
+  form.condition = (val.condition as ListingCondition) ?? ""
+  form.price_type = val.price_type
   form.price = val.price ?? ""
   form.city = IL_NAMES.includes(val.city) ? val.city : ""
   form.district = val.district ?? ""
   form.description = val.description ?? ""
-  currentStatus.value = val.status as ListingStatus
+  currentStatus.value = val.status
   existingPhotos.value = [...val.photos]
 }, { immediate: true })
 
@@ -118,7 +134,7 @@ watch(() => form.city, () => {
 })
 
 watch(() => form.direction, (val) => {
-  if (val === "request" || val === "support") { form.price_type = "free"; form.price = "" }
+  if (val === "request") { form.price_type = "free"; form.price = "" }
   if (val === "offer" && form.price_type === "free") form.price = ""
 })
 
@@ -142,8 +158,11 @@ function validate(): boolean {
   else if (title.length > 100) e.title = "Başlık en fazla 100 karakter olabilir."
 
   if (!form.category_id) e.category_id = "Kategori seçiniz."
-  if (form.direction === "offer" && !form.condition) e.condition = "Ürün durumu seçiniz."
   if (!form.city) e.city = "Şehir seçiniz."
+
+  if (form.listing_type === "item" && form.direction === "offer" && !form.condition) {
+    e.condition = "Ürün durumu seçiniz."
+  }
 
   if (form.price_type !== "free" && form.price !== "") {
     if (Number(form.price) <= 0) e.price = "Fiyat 0'dan büyük olmalıdır."
@@ -152,8 +171,8 @@ function validate(): boolean {
     if (form.price === "" || form.price === null) e.price = "Fiyat zorunludur."
   }
 
-  if (form.direction === "offer" && totalPhotos.value === 0) {
-    e.photos = "Sat/Ver ilanı için en az 1 fotoğraf zorunludur."
+  if (form.listing_type === "item" && form.direction === "offer" && totalPhotos.value === 0) {
+    e.photos = "En az 1 fotoğraf zorunludur."
   }
 
   Object.assign(errors, e)
@@ -223,12 +242,15 @@ async function save() {
   submitting.value = true
   try {
     const body: Record<string, unknown> = {
+      listing_type: form.listing_type,
       title: form.title.trim(),
       category_id: form.category_id,
       direction: form.direction,
-      condition: form.condition,
-      price_type: form.direction !== "offer" ? "free" : form.price_type,
+      price_type: form.direction === "request" ? "free" : form.price_type,
       city: form.city,
+    }
+    if (form.listing_type === "item" && form.direction === "offer") {
+      body.condition = form.condition
     }
     if (form.district) body.district = form.district
     if (form.description.trim()) body.description = form.description.trim()
@@ -244,6 +266,7 @@ async function save() {
       toast.error(`${failedCount} fotoğraf yüklenemedi. Tekrar ekleyebilirsin.`)
     }
 
+    submitted.value = true
     if (currentStatus.value === "rejected") {
       toast.success("İlanınız incelemeye gönderildi.")
       await navigateTo("/ilanlarim")
@@ -365,47 +388,24 @@ async function confirmDelete() {
 
       <form class="space-y-5" novalidate @submit.prevent="save">
 
-        <!-- İlan Tipi -->
+        <!-- İlan Türü -->
         <div class="grid grid-cols-2 gap-3">
-          <button
-            type="button"
+          <label
             class="flex flex-col items-center gap-1.5 py-3 px-4 rounded-lg border-2 cursor-pointer transition-colors"
-            :class="form.direction === 'offer' ? 'border-brand bg-brand text-brand-foreground' : 'border-border hover:bg-muted'"
-            @click="form.direction = 'offer'"
+            :class="form.listing_type === 'item' ? 'border-brand bg-brand text-brand-foreground' : 'border-border hover:bg-muted'"
           >
-            <span class="text-sm font-semibold">Sat / Ver</span>
+            <input v-model="form.listing_type" type="radio" value="item" class="sr-only" />
+            <span class="text-sm font-semibold">Eşya</span>
             <span class="text-xs opacity-70">Ürün veya eşya paylaş</span>
-          </button>
-          <button
-            type="button"
+          </label>
+          <label
             class="flex flex-col items-center gap-1.5 py-3 px-4 rounded-lg border-2 cursor-pointer transition-colors"
-            :class="form.direction !== 'offer' ? 'border-brand bg-brand text-brand-foreground' : 'border-border hover:bg-muted'"
-            @click="form.direction === 'offer' && (form.direction = 'request')"
+            :class="form.listing_type === 'service' ? 'border-brand bg-brand text-brand-foreground' : 'border-border hover:bg-muted'"
           >
-            <span class="text-sm font-semibold">Destek</span>
-            <span class="text-xs opacity-70">İhtiyaç veya yardım teklifi</span>
-          </button>
-        </div>
-
-        <!-- Destek Alt Seçeneği -->
-        <div v-if="form.direction !== 'offer'" class="flex rounded-lg border border-border overflow-hidden">
-          <button
-            type="button"
-            class="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm cursor-pointer transition-colors"
-            :class="form.direction === 'request' ? 'bg-brand/10 text-foreground font-semibold' : 'bg-background text-muted-foreground hover:bg-muted'"
-            @click="form.direction = 'request'"
-          >
-            Arıyorum
-          </button>
-          <div class="w-px bg-border" />
-          <button
-            type="button"
-            class="flex-1 flex items-center justify-center gap-1.5 py-2 text-sm cursor-pointer transition-colors"
-            :class="form.direction === 'support' ? 'bg-brand/10 text-foreground font-semibold' : 'bg-background text-muted-foreground hover:bg-muted'"
-            @click="form.direction = 'support'"
-          >
-            Veriyorum
-          </button>
+            <input v-model="form.listing_type" type="radio" value="service" class="sr-only" />
+            <span class="text-sm font-semibold">Hizmet</span>
+            <span class="text-xs opacity-70">Ders, taşıma, mentörlük...</span>
+          </label>
         </div>
 
         <!-- Başlık -->
@@ -437,7 +437,7 @@ async function confirmDelete() {
               errors.category_id ? 'border-destructive focus:ring-destructive' : 'border-border focus:ring-ring',
             ]"
           >
-            <template v-for="cat in categories" :key="cat.id">
+            <template v-for="cat in filteredCategories" :key="cat.id">
               <option :value="cat.id">{{ cat.name }}</option>
               <option v-for="child in cat.children" :key="child.id" :value="child.id">
                 &nbsp;&nbsp;{{ child.name }}
@@ -448,7 +448,7 @@ async function confirmDelete() {
         </div>
 
         <!-- Ürün Durumu -->
-        <div v-if="form.direction === 'offer'">
+        <div v-if="form.listing_type === 'item' && form.direction === 'offer'">
           <label class="block text-sm font-medium text-foreground mb-2">
             Ürün Durumu <span class="text-destructive">*</span>
           </label>
@@ -471,7 +471,7 @@ async function confirmDelete() {
         </div>
 
         <!-- Fiyat Tipi -->
-        <div v-if="form.direction === 'offer'">
+        <div v-if="form.direction !== 'request'">
           <label class="block text-sm font-medium text-foreground mb-2">
             Fiyat Tipi <span class="text-destructive">*</span>
           </label>
@@ -491,14 +491,10 @@ async function confirmDelete() {
         </div>
 
         <!-- Fiyat -->
-        <div v-if="form.price_type !== 'free'">
+        <div v-if="form.direction !== 'request' && form.price_type !== 'free'">
           <label class="block text-sm font-medium text-foreground mb-1">
-            <template v-if="form.direction === 'offer'">
-              {{ form.price_type === 'negotiable' ? 'Başlangıç Fiyatı (₺)' : 'Fiyat (₺)' }} <span class="text-destructive">*</span>
-            </template>
-            <template v-else>
-              Bütçen (₺) <span class="text-muted-foreground font-normal">(opsiyonel)</span>
-            </template>
+            {{ form.price_type === 'negotiable' ? 'Başlangıç Fiyatı (₺)' : 'Fiyat (₺)' }}
+            <span class="text-destructive">*</span>
           </label>
           <input
             v-model.number="form.price"
@@ -538,7 +534,7 @@ async function confirmDelete() {
             v-model="form.description"
             maxlength="2000"
             rows="4"
-            :placeholder="form.direction === 'request' ? 'Neye ihtiyacın var, ne zaman lazım, nerede buluşabilirsin...' : form.direction === 'support' ? 'Ne kadar süre ayırabilirsin, hangi şehir, nasıl iletişime geçilsin...' : 'Ürün durumunu, eksiklerini, buluşma tercihin yaz... (örn: Çiğdem Mah. civarı uygun)'"
+            :placeholder="form.direction === 'request' ? 'Ne arıyorsun, ne zaman lazım, nerede buluşabilirsin...' : form.listing_type === 'service' ? 'Ne kadar süre ayırabilirsin, hangi şehir, nasıl iletişime geçilsin...' : 'Ürün durumunu, eksiklerini, buluşma tercihin yaz... (örn: Çiğdem Mah. civarı uygun)'"
             class="w-full px-3 py-2 text-sm border border-border rounded-xl bg-background focus:outline-none focus:ring-1 focus:ring-ring resize-none"
           />
           <p class="text-xs text-muted-foreground mt-1 text-right">
@@ -551,7 +547,7 @@ async function confirmDelete() {
           <label class="block text-sm font-medium text-foreground mb-1">
             Fotoğraflar
             <span class="font-normal text-muted-foreground">(max 6, jpeg/png/webp)</span>
-            <span v-if="form.direction === 'offer'" class="text-destructive"> *</span>
+            <span v-if="form.listing_type === 'item' && form.direction === 'offer'" class="text-destructive"> *</span>
           </label>
           <p v-if="existingPhotos.length > 1" class="text-xs text-muted-foreground mb-2">
             Sürükleyerek sırala — ilk fotoğraf kapak olarak gösterilir.
@@ -618,7 +614,7 @@ async function confirmDelete() {
               <span class="text-xs text-muted-foreground">Ekle</span>
               <input
                 type="file"
-                accept="image/jpeg,image/png,image/webp"
+                accept="image/*"
                 multiple
                 class="sr-only"
                 @change="onFileChange"

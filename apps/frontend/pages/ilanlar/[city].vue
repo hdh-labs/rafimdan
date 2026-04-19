@@ -160,12 +160,18 @@ useSeoMeta({
     <p v-if="!pending" class="text-sm text-muted-foreground -mt-2">{{ total }} ilan</p>
 
     <div v-if="pending" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-      <div v-for="i in 8" :key="i" class="rounded-lg border border-border bg-muted animate-pulse aspect-[3/4]" />
+      <div v-for="i in 8" :key="i" class="rounded-lg border border-border overflow-hidden animate-pulse">
+        <div class="aspect-[4/3] bg-muted" />
+        <div class="p-3 space-y-2">
+          <div class="h-3.5 bg-muted rounded w-3/4" />
+          <div class="h-3 bg-muted rounded w-1/2" />
+        </div>
+      </div>
     </div>
 
     <template v-else>
       <div v-if="listings.length === 0" class="py-16 text-center">
-        <p class="text-muted-foreground text-sm">{{ city }}'de sonuç bulunamadı.</p>
+        <p class="text-muted-foreground text-sm">{{ city }} için sonuç bulunamadı.</p>
         <button
           v-if="hasFilters"
           class="mt-3 text-sm text-foreground underline underline-offset-2 cursor-pointer"
