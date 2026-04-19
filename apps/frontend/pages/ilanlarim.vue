@@ -115,6 +115,7 @@ async function changeStatus(slug: string, status: ListingStatus) {
       method: "PATCH",
       body: JSON.stringify({ status }),
     })
+    clearNuxtData(`listing-${slug}`)
     toast.success(`"${item.title}" artık ${STATUS_LABELS[status].toLowerCase()} olarak işaretlendi.`)
   } catch {
     item.status = prev
@@ -236,9 +237,10 @@ async function deleteListing(slug: string, title: string) {
       <div
         v-for="listing in filteredWithAge"
         :key="listing.id"
-        class="flex items-center gap-3 p-3 rounded-lg border border-border bg-background transition-opacity"
+        class="flex flex-col rounded-lg border border-border bg-background transition-opacity"
         :class="pendingSlug === listing.slug ? 'opacity-50 pointer-events-none' : ''"
       >
+        <div class="flex items-center gap-3 p-3">
         <!-- Thumbnail -->
         <div class="shrink-0 size-16 rounded-md bg-muted overflow-hidden">
           <img
@@ -314,11 +316,6 @@ async function deleteListing(slug: string, title: string) {
               {{ listing.price ?? '?' }} ₺
             </span>
           </div>
-          <template v-if="listing.status === 'rejected'">
-            <p class="text-xs text-destructive mt-1 line-clamp-2">
-              {{ listing.rejection_reason ?? 'Gerekçe belirtilmemiş' }}
-            </p>
-          </template>
         </div>
 
         <!-- Actions -->
@@ -403,6 +400,15 @@ async function deleteListing(slug: string, title: string) {
             <Trash2 class="size-3" />
             <span class="hidden sm:inline">Sil</span>
           </Button>
+        </div>
+        </div>
+        <div v-if="listing.status === 'rejected'" class="px-3 pb-3">
+          <div class="flex items-start gap-2 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2">
+            <AlertCircle class="size-3.5 shrink-0 mt-0.5 text-destructive" />
+            <p class="text-xs text-destructive leading-relaxed">
+              <span class="font-medium">Gerekçe: </span>{{ listing.rejection_reason ?? 'Gerekçe belirtilmemiş' }}
+            </p>
+          </div>
         </div>
       </div>
     </div>

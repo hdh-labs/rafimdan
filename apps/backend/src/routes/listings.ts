@@ -31,7 +31,6 @@ listings.get("/", zValidator("query", listingsQuerySchema), async (c) => {
   try {
     const params = c.req.valid("query");
     const result = await listingService.getAll(c.env.DB, params);
-    c.header("Cache-Control", "public, max-age=30, stale-while-revalidate=60");
     return c.json({ data: result, status: "ok" });
   } catch (err) {
     return handleError(c, err);
@@ -64,7 +63,7 @@ listings.post("/photos/temp", authMiddleware, async (c) => {
     const contentType = c.req.header("content-type") ?? "";
     if (!contentType.includes("multipart/form-data")) {
       return c.json(
-        { error: "Content-Type must be multipart/form-data", status: "error", code: "INVALID_CONTENT_TYPE" },
+        { error: "Dosya yükleme formatı hatalı", status: "error", code: "INVALID_CONTENT_TYPE" },
         400,
       );
     }
@@ -78,14 +77,14 @@ listings.post("/photos/temp", authMiddleware, async (c) => {
     const MAX_FILE_SIZE = 10 * 1024 * 1024;
     const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
     if (file.size > MAX_FILE_SIZE) {
-      return c.json({ error: "File must be smaller than 10MB", status: "error", code: "FILE_TOO_LARGE" }, 400);
+      return c.json({ error: "Dosya 10 MB'dan küçük olmalı", status: "error", code: "FILE_TOO_LARGE" }, 400);
     }
     if (!ALLOWED_TYPES.includes(file.type)) {
-      return c.json({ error: "Only JPEG, PNG and WebP images are allowed", status: "error", code: "INVALID_FILE_TYPE" }, 400);
+      return c.json({ error: "Yalnızca JPEG, PNG veya WebP formatı desteklenir", status: "error", code: "INVALID_FILE_TYPE" }, 400);
     }
 
     if (!(await validateImageMagicBytes(file))) {
-      return c.json({ error: "Only JPEG, PNG and WebP images are allowed", status: "error", code: "INVALID_FILE_TYPE" }, 400);
+      return c.json({ error: "Yalnızca JPEG, PNG veya WebP formatı desteklenir", status: "error", code: "INVALID_FILE_TYPE" }, 400);
     }
 
     const ext = getImageExtension(file.type);
@@ -211,7 +210,7 @@ listings.patch("/:slug/photos", authMiddleware, async (c) => {
     const slug = c.req.param("slug");
     const body = await c.req.json<{ photos?: unknown }>();
     if (!Array.isArray(body.photos) || !body.photos.every(p => typeof p === "string")) {
-      return c.json({ error: "photos must be string[]", status: "error", code: "INVALID_INPUT" }, 400);
+      return c.json({ error: "Fotoğraf verisi hatalı", status: "error", code: "INVALID_INPUT" }, 400);
     }
     const listing = await listingService.reorderPhotos(c.env.DB, sub, slug, body.photos);
     return c.json({ data: listing, status: "ok" });
@@ -232,7 +231,7 @@ listings.post("/:slug/photos", authMiddleware, async (c) => {
     const contentType = c.req.header("content-type") ?? "";
     if (!contentType.includes("multipart/form-data")) {
       return c.json(
-        { error: "Content-Type must be multipart/form-data", status: "error", code: "INVALID_CONTENT_TYPE" },
+        { error: "Dosya yükleme formatı hatalı", status: "error", code: "INVALID_CONTENT_TYPE" },
         400,
       );
     }
