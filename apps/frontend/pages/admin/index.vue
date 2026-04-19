@@ -197,6 +197,8 @@ const users = ref<AdminUserProfile[]>([])
 const usersLoading = ref(false)
 const patchingUserId = ref<string | null>(null)
 const userSearch = ref("")
+const confirmAdminUser = ref<AdminUserProfile | null>(null)
+const pendingBanUser = ref<AdminUserProfile | null>(null)
 
 const filteredUsers = computed(() => {
   const q = userSearch.value.trim().toLowerCase()
@@ -219,13 +221,22 @@ async function fetchUsers() {
   }
 }
 
-async function toggleBan(user: AdminUserProfile) {
+function requestToggleBan(user: AdminUserProfile) {
+  if (user.is_active === 0) {
+    executeBan(user, "")
+  } else {
+    pendingBanUser.value = user
+  }
+}
+
+async function executeBan(user: AdminUserProfile, reason: string) {
+  pendingBanUser.value = null
   const is_active = user.is_active === 0 ? 1 : 0
   patchingUserId.value = user.id
   try {
     await apiFetch(`/api/admin/users/${user.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ is_active }),
+      body: JSON.stringify({ is_active, ...(is_active === 0 && reason ? { ban_reason: reason } : {}) }),
     })
     await fetchUsers()
     fetchLogs()
@@ -237,7 +248,14 @@ async function toggleBan(user: AdminUserProfile) {
   }
 }
 
-async function toggleAdmin(user: AdminUserProfile) {
+function requestToggleAdmin(user: AdminUserProfile) {
+  confirmAdminUser.value = user
+}
+
+async function executeToggleAdmin() {
+  const user = confirmAdminUser.value
+  if (!user) return
+  confirmAdminUser.value = null
   const is_admin = user.is_admin ? 0 : 1
   patchingUserId.value = user.id
   try {
@@ -452,13 +470,13 @@ function formatDate(d: string) {
     <!-- ------------------------------------------------------------------ -->
     <div v-if="activeTab === 'listings'">
       <!-- Status filter -->
-      <div class="flex items-center gap-2 mb-4">
-        <span class="text-xs text-muted-foreground">Filtre:</span>
-        <div class="flex gap-1">
+      <div class="flex items-center gap-2 mb-4 min-w-0">
+        <span class="text-xs text-muted-foreground shrink-0">Filtre:</span>
+        <div class="flex gap-1 overflow-x-auto scrollbar-hide">
           <button
             v-for="opt in STATUS_OPTIONS"
             :key="opt.value"
-            class="px-3 py-1 text-xs rounded-full border cursor-pointer transition-colors"
+            class="px-3 py-1 text-xs rounded-full border cursor-pointer transition-colors shrink-0"
             :class="listingsStatus === opt.value
               ? 'bg-brand text-brand-foreground border-brand'
               : 'border-border text-muted-foreground hover:bg-muted'"
@@ -640,7 +658,7 @@ function formatDate(d: string) {
                     :class="user.is_admin
                       ? 'text-purple-600 hover:bg-purple-50'
                       : 'text-muted-foreground hover:bg-muted'"
-                    @click="toggleAdmin(user)"
+                    @click="requestToggleAdmin(user)"
                   >
                     <Shield class="size-3.5" />
                   </button>
@@ -648,7 +666,7 @@ function formatDate(d: string) {
                     type="button"
                     :title="'Banla / Banı kaldır'"
                     class="flex items-center justify-center size-7 rounded text-destructive hover:bg-destructive/5 cursor-pointer transition-colors"
-                    @click="toggleBan(user)"
+                    @click="requestToggleBan(user)"
                   >
                     <ShieldOff class="size-3.5" />
                   </button>
@@ -696,58 +714,64 @@ function formatDate(d: string) {
         Bu kategoride rapor yok.
       </div>
 
-      <div v-else class="space-y-2">
+      <div v-else class="space-y-3">
         <div
           v-for="r in reports"
           :key="r.id"
-          class="border border-border rounded-lg p-4"
+          class="border border-border rounded-lg p-4 space-y-3"
         >
-          <div class="flex items-start justify-between gap-4">
-            <div class="min-w-0 flex-1">
-              <div class="flex items-center gap-2 flex-wrap">
-                <NuxtLink
-                  :to="`/ilan/${r.listing_slug}`"
-                  target="_blank"
-                  class="inline-flex items-center gap-1 font-medium text-sm text-foreground hover:underline cursor-pointer"
-                >
-                  {{ r.listing_title }}
-                  <ExternalLink class="size-3 shrink-0" />
-                </NuxtLink>
-                <span
-                  class="inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium"
-                  :class="REPORT_STATUS_COLORS[r.status]"
-                >
-                  {{ REPORT_STATUS_LABELS[r.status] }}
-                </span>
-              </div>
-              <p class="text-xs text-muted-foreground mt-0.5">
-                {{ r.reporter_name }} · {{ formatDate(r.created_at) }}
-                · <span class="font-medium">{{ REASON_LABELS[r.reason] ?? r.reason }}</span>
-              </p>
-              <p v-if="r.description" class="text-xs text-foreground mt-1 bg-muted/50 rounded px-2 py-1">
-                {{ r.description }}
-              </p>
-            </div>
-            <div v-if="r.status === 'open'" class="shrink-0 flex items-center gap-1.5">
-              <button
-                type="button"
-                :disabled="resolvingReportId === r.id"
-                class="flex items-center gap-1 text-xs px-2 py-1.5 rounded border border-brand/30 text-brand hover:bg-brand/5 cursor-pointer transition-colors disabled:opacity-50"
-                @click="resolveReport(r.id, 'resolved')"
-              >
-                <Check class="size-3" />
-                Çözüldü
-              </button>
-              <button
-                type="button"
-                :disabled="resolvingReportId === r.id"
-                class="flex items-center gap-1 text-xs px-2 py-1.5 rounded border border-border text-muted-foreground hover:bg-muted cursor-pointer transition-colors disabled:opacity-50"
-                @click="resolveReport(r.id, 'dismissed')"
-              >
-                <X class="size-3" />
-                Reddet
-              </button>
-            </div>
+          <!-- Başlık + durum -->
+          <div class="flex items-start justify-between gap-3">
+            <NuxtLink
+              :to="`/ilan/${r.listing_slug}`"
+              target="_blank"
+              class="inline-flex items-center gap-1.5 font-medium text-sm text-foreground hover:underline cursor-pointer min-w-0"
+            >
+              <span class="truncate">{{ r.listing_title }}</span>
+              <ExternalLink class="size-3 shrink-0" />
+            </NuxtLink>
+            <span
+              class="shrink-0 inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium"
+              :class="REPORT_STATUS_COLORS[r.status]"
+            >
+              {{ REPORT_STATUS_LABELS[r.status] }}
+            </span>
+          </div>
+
+          <!-- Meta -->
+          <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            <span>{{ r.reporter_name }}</span>
+            <span class="text-border">·</span>
+            <span>{{ formatDate(r.created_at) }}</span>
+            <span class="text-border">·</span>
+            <span class="font-medium text-foreground">{{ REASON_LABELS[r.reason] ?? r.reason }}</span>
+          </div>
+
+          <!-- Açıklama -->
+          <p v-if="r.description" class="text-xs text-foreground bg-muted/50 rounded-md px-3 py-2 leading-relaxed">
+            {{ r.description }}
+          </p>
+
+          <!-- Aksiyonlar -->
+          <div v-if="r.status === 'open'" class="flex gap-2 pt-1">
+            <button
+              type="button"
+              :disabled="resolvingReportId === r.id"
+              class="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-md border border-green-600/30 text-green-700 hover:bg-green-50 cursor-pointer transition-colors disabled:opacity-50"
+              @click="resolveReport(r.id, 'resolved')"
+            >
+              <Check class="size-3.5" />
+              Çözüldü
+            </button>
+            <button
+              type="button"
+              :disabled="resolvingReportId === r.id"
+              class="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-md border border-border text-muted-foreground hover:bg-muted cursor-pointer transition-colors disabled:opacity-50"
+              @click="resolveReport(r.id, 'dismissed')"
+            >
+              <X class="size-3.5" />
+              Reddet
+            </button>
           </div>
         </div>
       </div>
@@ -861,7 +885,7 @@ function formatDate(d: string) {
               </div>
               <div class="flex justify-between gap-4">
                 <span class="text-muted-foreground shrink-0">Ürün durumu</span>
-                <span class="text-right">{{ CONDITION_LABELS[selectedListing.condition] }}</span>
+                <span class="text-right">{{ selectedListing.condition ? CONDITION_LABELS[selectedListing.condition] : '—' }}</span>
               </div>
               <div class="flex justify-between gap-4">
                 <span class="text-muted-foreground shrink-0">Fiyat</span>
@@ -1024,7 +1048,29 @@ function formatDate(d: string) {
     </Transition>
   </Teleport>
 
-  <ImageLightbox :url="lightboxUrl" @close="lightboxUrl = null" />
+  <ImageLightbox
+    :images="lightboxUrl ? [lightboxUrl] : []"
+    :model-value="lightboxUrl !== null ? 0 : null"
+    @update:model-value="(v) => { if (v === null) lightboxUrl = null }"
+  />
+
+  <AdminConfirmModal
+    :open="!!confirmAdminUser"
+    :title="confirmAdminUser?.is_admin ? 'Admin yetkisini kaldır' : 'Admin yap'"
+    :description="confirmAdminUser?.is_admin
+      ? `${confirmAdminUser.name} kullanıcısının admin yetkisi kaldırılacak.`
+      : `${confirmAdminUser?.name} kullanıcısı admin yapılacak.`"
+    :confirm-label="confirmAdminUser?.is_admin ? 'Yetkiyi Kaldır' : 'Admin Yap'"
+    @confirm="executeToggleAdmin"
+    @cancel="confirmAdminUser = null"
+  />
+
+  <AdminBanModal
+    :open="!!pendingBanUser"
+    :user="pendingBanUser"
+    @confirm="(reason) => executeBan(pendingBanUser!, reason)"
+    @cancel="pendingBanUser = null"
+  />
 </template>
 
 <style scoped>
