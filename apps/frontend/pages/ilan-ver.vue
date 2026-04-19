@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Upload, X, ImagePlus, MessageCircle, Loader2, RefreshCw, Star } from "lucide-vue-next"
+import { Upload, X, ImagePlus, MessageCircle, Loader2, RefreshCw, Star, RotateCw } from "lucide-vue-next"
 import { toast } from "vue-sonner"
 import type { ListingDetail, CategoryTree, ApiResponse, ListingType, ListingCondition, ListingPriceType } from "@rafimdan/shared"
 import { apiFetch, ApiError } from "~/utils/api"
@@ -50,6 +50,7 @@ const {
   doneKeys,
   doneCount,
   onFileChange,
+  rotate,
   retry,
   remove,
   setCover,
@@ -453,6 +454,16 @@ const descPlaceholder = computed(() => {
               @click="remove(i)"
             >
               <X class="size-3 text-white" />
+            </button>
+
+            <!-- Rotate butonu -->
+            <button
+              v-if="photo.status === 'done'"
+              type="button"
+              class="absolute top-1 left-1 size-5 rounded-full bg-black/60 flex items-center justify-center cursor-pointer"
+              @click.stop="rotate(i)"
+            >
+              <RotateCw class="size-3 text-white" />
             </button>
           </div>
 

@@ -1,11 +1,10 @@
 import { toast } from "vue-sonner"
 import { apiFetch, ApiError } from "~/utils/api"
+import { correctAndCompress } from "~/utils/image-utils"
 import type { ApiResponse } from "@rafimdan/shared"
 
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024
 const MAX_PHOTOS = 6
-const MAX_DIMENSION = 1920
-const JPEG_QUALITY = 0.85
 
 type PhotoStatus = "uploading" | "done" | "error"
 
@@ -14,6 +13,7 @@ export type PhotoEntry = {
   previewUrl: string
   status: PhotoStatus
   tempKey: string | null
+  rotation: 0 | 90 | 180 | 270
 }
 
 export function useEagerPhotoUpload() {
@@ -28,45 +28,14 @@ export function useEagerPhotoUpload() {
   )
   const doneCount = computed(() => photos.value.filter(p => p.status === "done").length)
 
-  function compress(file: File): Promise<File> {
-    return new Promise((resolve) => {
-      const img = new Image()
-      const objectUrl = URL.createObjectURL(file)
-      img.onload = () => {
-        URL.revokeObjectURL(objectUrl)
-        let { width, height } = img
-        if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
-          if (width >= height) {
-            height = Math.round((height * MAX_DIMENSION) / width)
-            width = MAX_DIMENSION
-          } else {
-            width = Math.round((width * MAX_DIMENSION) / height)
-            height = MAX_DIMENSION
-          }
-        }
-        const canvas = document.createElement("canvas")
-        canvas.width = width
-        canvas.height = height
-        canvas.getContext("2d")!.drawImage(img, 0, 0, width, height)
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) { resolve(file); return }
-            resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" }))
-          },
-          "image/jpeg",
-          JPEG_QUALITY,
-        )
-      }
-      img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file) }
-      img.src = objectUrl
-    })
-  }
-
   async function uploadEntry(entry: PhotoEntry) {
     try {
-      const compressed = await compress(entry.file)
+      const corrected = await correctAndCompress(entry.file, entry.rotation)
+      URL.revokeObjectURL(entry.previewUrl)
+      entry.previewUrl = corrected.url
+
       const fd = new FormData()
-      fd.append("file", compressed)
+      fd.append("file", corrected.blob, entry.file.name.replace(/\.[^.]+$/, ".jpg"))
       const res = await apiFetch<ApiResponse<{ key: string }>>("/api/listings/photos/temp", {
         method: "POST",
         body: fd,
@@ -75,7 +44,7 @@ export function useEagerPhotoUpload() {
       entry.status = "done"
     } catch (err) {
       entry.status = "error"
-      toast.error(err instanceof ApiError ? err.message : "Fotoğraf yüklenemedi. Yeniden dene.")
+      toast.error(err instanceof ApiError ? err.message : "Fotoğraf yüklenemedi, tekrar dene")
     }
   }
 
@@ -95,10 +64,20 @@ export function useEagerPhotoUpload() {
         previewUrl: URL.createObjectURL(file),
         status: "uploading",
         tempKey: null,
+        rotation: 0,
       })
       void uploadEntry(photos.value.at(-1)!)
     }
     input.value = ""
+  }
+
+  function rotate(index: number) {
+    const entry = photos.value[index]
+    if (!entry || entry.status === "uploading") return
+    entry.rotation = ((entry.rotation + 90) % 360) as 0 | 90 | 180 | 270
+    entry.status = "uploading"
+    entry.tempKey = null
+    void uploadEntry(entry)
   }
 
   function retry(index: number) {
@@ -131,6 +110,7 @@ export function useEagerPhotoUpload() {
     doneKeys,
     doneCount,
     onFileChange,
+    rotate,
     retry,
     remove,
     setCover,

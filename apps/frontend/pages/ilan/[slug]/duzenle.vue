@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Save, Trash2, ImagePlus, X, Loader2 } from "lucide-vue-next"
+import { Save, Trash2, ImagePlus, X, Loader2, RotateCw } from "lucide-vue-next"
 import { toast } from "vue-sonner"
 import type {
   ListingDetail,
@@ -78,16 +78,23 @@ const form = reactive({
 const errors = reactive<Record<string, string>>({})
 const currentStatus = ref<ListingStatus>("active")
 const {
-  selectedFiles: newFiles,
+  pendingPhotos: newFiles,
   existingPhotos,
   submitting,
   submitError,
   totalPhotos,
   previewUrl,
   onFileChange,
+  rotateFile,
   removeFile: removeNewFile,
   uploadFiles,
 } = useListingPhotos()
+
+const lightboxIndex = ref<number | null>(null)
+const lightboxImages = computed(() => [
+  ...existingPhotos.value,
+  ...newFiles.value.map((_, i) => previewUrl(i)),
+])
 
 const ilceler = computed(() => getIlceler(form.city))
 
@@ -289,6 +296,8 @@ async function changeStatus(status: ListingStatus) {
       method: "PATCH",
       body: JSON.stringify({ status }),
     })
+    clearNuxtData(`listing-${slug}`)
+    clearNuxtData(`listing-edit-${slug}`)
     currentStatus.value = status
   } catch (err) {
     submitError.value = err instanceof ApiError ? err.message : "Durum değiştirilemedi."
@@ -570,7 +579,7 @@ async function confirmDelete() {
               @drop.prevent="onPhotoDrop(i)"
               @dragend="dragFromIndex = null; dragOverIndex = null"
             >
-              <img :src="url" alt="Mevcut fotoğraf" class="size-full object-cover pointer-events-none" />
+              <img :src="url" alt="Mevcut fotoğraf" class="size-full object-cover cursor-zoom-in" @click.stop="lightboxIndex = i" />
               <div
                 class="absolute bottom-0 inset-x-0 text-center text-[10px] font-medium py-0.5"
                 :class="i === 0 ? 'bg-black/60 text-white' : 'bg-foreground/80 text-background cursor-pointer'"
@@ -591,17 +600,24 @@ async function confirmDelete() {
 
             <!-- Yeni eklenen dosyalar (henüz yüklenmedi) -->
             <div
-              v-for="(file, i) in newFiles"
+              v-for="(p, i) in newFiles"
               :key="`new-${i}`"
               class="relative aspect-square rounded-lg overflow-hidden border border-dashed border-border"
             >
-              <img :src="previewUrl(file)" :alt="file.name" class="size-full object-cover" />
+              <img :src="previewUrl(i)" :alt="p.file.name" class="size-full object-cover cursor-zoom-in" @click.stop="lightboxIndex = existingPhotos.length + i" />
               <button
                 type="button"
                 class="absolute top-0.5 right-0.5 size-5 rounded-full bg-black/60 flex items-center justify-center cursor-pointer"
                 @click="removeNewFile(i)"
               >
                 <X class="size-3 text-white" />
+              </button>
+              <button
+                type="button"
+                class="absolute top-0.5 left-0.5 size-5 rounded-full bg-black/60 flex items-center justify-center cursor-pointer"
+                @click.stop="rotateFile(i)"
+              >
+                <RotateCw class="size-3 text-white" />
               </button>
             </div>
 
@@ -651,5 +667,7 @@ async function confirmDelete() {
         </div>
       </form>
     </template>
+
+    <ImageLightbox v-model="lightboxIndex" :images="lightboxImages" />
   </div>
 </template>

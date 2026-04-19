@@ -1,25 +1,28 @@
 import { toast } from "vue-sonner"
 import { apiFetch } from "~/utils/api"
+import { correctAndCompress } from "~/utils/image-utils"
 
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024
 const MAX_PHOTOS = 6
 
+type PendingPhoto = {
+  file: File
+  blob: Blob
+  url: string
+  rotation: 0 | 90 | 180 | 270
+}
+
 export function useListingPhotos(initialExistingPhotos: string[] = []) {
-  const selectedFiles = ref<File[]>([])
+  const pendingPhotos = ref<PendingPhoto[]>([])
   const existingPhotos = ref<string[]>([...initialExistingPhotos])
   const submitting = ref(false)
   const submitError = ref<string | null>(null)
   const uploadedCount = ref(0)
 
-  const previewUrls = new Map<File, string>()
+  const totalPhotos = computed(() => existingPhotos.value.length + pendingPhotos.value.length)
 
-  const totalPhotos = computed(() => existingPhotos.value.length + selectedFiles.value.length)
-
-  function previewUrl(file: File): string {
-    if (!previewUrls.has(file)) {
-      previewUrls.set(file, URL.createObjectURL(file))
-    }
-    return previewUrls.get(file)!
+  function previewUrl(index: number): string {
+    return pendingPhotos.value[index]?.url ?? ""
   }
 
   function onFileChange(e: Event) {
@@ -32,28 +35,37 @@ export function useListingPhotos(initialExistingPhotos: string[] = []) {
     }
     const valid = incoming.filter(f => f.size <= MAX_PHOTO_SIZE)
     const remaining = MAX_PHOTOS - totalPhotos.value
-    selectedFiles.value = [...selectedFiles.value, ...valid.slice(0, remaining)]
+    for (const file of valid.slice(0, remaining)) {
+      void (async () => {
+        const result = await correctAndCompress(file, 0)
+        pendingPhotos.value.push({ file, blob: result.blob, url: result.url, rotation: 0 })
+      })()
+    }
     input.value = ""
   }
 
+  async function rotateFile(index: number) {
+    const p = pendingPhotos.value[index]
+    if (!p) return
+    const newRot = ((p.rotation + 90) % 360) as 0 | 90 | 180 | 270
+    URL.revokeObjectURL(p.url)
+    const result = await correctAndCompress(p.file, newRot)
+    pendingPhotos.value[index] = { ...p, blob: result.blob, url: result.url, rotation: newRot }
+  }
+
   function removeFile(index: number) {
-    const file = selectedFiles.value[index]
-    if (file) {
-      const url = previewUrls.get(file)
-      if (url) URL.revokeObjectURL(url)
-      previewUrls.delete(file)
-    }
-    selectedFiles.value = selectedFiles.value.filter((_, i) => i !== index)
+    const p = pendingPhotos.value[index]
+    if (p) URL.revokeObjectURL(p.url)
+    pendingPhotos.value.splice(index, 1)
   }
 
   async function uploadFiles(slug: string): Promise<number> {
-    const files = selectedFiles.value
-    if (files.length === 0) return 0
+    if (pendingPhotos.value.length === 0) return 0
     uploadedCount.value = 0
     const results = await Promise.allSettled(
-      files.map(async (file) => {
+      pendingPhotos.value.map(async (p) => {
         const fd = new FormData()
-        fd.append("file", file)
+        fd.append("file", p.blob, p.file.name.replace(/\.[^.]+$/, ".jpg"))
         await apiFetch(`/api/listings/${slug}/photos`, { method: "POST", body: fd })
         uploadedCount.value++
       }),
@@ -62,12 +74,11 @@ export function useListingPhotos(initialExistingPhotos: string[] = []) {
   }
 
   onUnmounted(() => {
-    previewUrls.forEach((url) => URL.revokeObjectURL(url))
-    previewUrls.clear()
+    pendingPhotos.value.forEach(p => URL.revokeObjectURL(p.url))
   })
 
   return {
-    selectedFiles,
+    pendingPhotos,
     existingPhotos,
     submitting,
     submitError,
@@ -75,6 +86,7 @@ export function useListingPhotos(initialExistingPhotos: string[] = []) {
     totalPhotos,
     previewUrl,
     onFileChange,
+    rotateFile,
     removeFile,
     uploadFiles,
     MAX_PHOTO_SIZE,
