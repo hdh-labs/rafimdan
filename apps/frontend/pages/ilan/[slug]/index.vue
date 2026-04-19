@@ -386,15 +386,19 @@ async function submitReport() {
             {{ priceDisplay }}
           </p>
 
-          <div class="flex items-center gap-1.5 mt-2 text-sm text-muted-foreground">
-            <MapPin class="size-4 shrink-0" />
-            <span>{{ listing.district ? `${listing.district}, ${listing.city}` : listing.city }}</span>
-            <span class="mx-1">·</span>
-            <Eye class="size-4 shrink-0" />
-            <span>{{ listing.view_count }} görüntülenme</span>
-            <span class="mx-1">·</span>
-            <Clock class="size-4 shrink-0" />
-            <span>{{ timeAgo(listing.created_at) }}</span>
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-sm text-muted-foreground">
+            <span class="flex items-center gap-1">
+              <MapPin class="size-4 shrink-0" />
+              <span>{{ listing.district ? `${listing.district}, ${listing.city}` : listing.city }}</span>
+            </span>
+            <span class="flex items-center gap-1">
+              <Eye class="size-4 shrink-0" />
+              <span>{{ listing.view_count }} görüntülenme</span>
+            </span>
+            <span class="flex items-center gap-1">
+              <Clock class="size-4 shrink-0" />
+              <span>{{ timeAgo(listing.created_at) }}</span>
+            </span>
           </div>
 
           <div v-if="listing.description" class="mt-4 prose prose-sm max-w-none">

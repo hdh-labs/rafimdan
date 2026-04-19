@@ -46,8 +46,13 @@ function onGlobalKeydown(e: KeyboardEvent) {
   }
 }
 
+function closeAll() {
+  menuOpen.value = false
+  notifOpen.value = false
+}
+
 onMounted(async () => {
-  document.addEventListener("click", closeMenu)
+  document.addEventListener("click", closeAll)
   document.addEventListener("keydown", onGlobalKeydown)
   if (!authStore.user?.is_admin) return
   try {
@@ -59,7 +64,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-  document.removeEventListener("click", closeMenu)
+  document.removeEventListener("click", closeAll)
   document.removeEventListener("keydown", onGlobalKeydown)
 })
 </script>
@@ -96,7 +101,7 @@ onUnmounted(() => {
       <nav class="flex items-center gap-3">
         <NuxtLink
           to="/ilanlar"
-          class="text-sm text-muted-foreground hover:text-foreground px-2 py-1 rounded cursor-pointer transition-colors"
+          class="hidden sm:block text-sm text-muted-foreground hover:text-foreground px-2 py-1 rounded cursor-pointer transition-colors"
         >
           İlanlar
         </NuxtLink>
@@ -109,7 +114,7 @@ onUnmounted(() => {
         <template v-if="authStore.isLoggedIn">
           <NuxtLink
             to="/ilan-ver"
-            class="text-sm bg-brand text-brand-foreground px-3 py-1.5 rounded-md cursor-pointer hover:opacity-90 transition-opacity"
+            class="text-sm bg-brand text-brand-foreground px-3 py-1.5 rounded-md cursor-pointer hover:opacity-90 transition-opacity whitespace-nowrap"
           >
             İlan Ver
           </NuxtLink>
@@ -234,7 +239,7 @@ onUnmounted(() => {
         <template v-else>
           <NuxtLink
             to="/ilan-ver"
-            class="text-sm bg-brand text-brand-foreground px-3 py-1.5 rounded-md cursor-pointer hover:opacity-90 transition-opacity"
+            class="text-sm bg-brand text-brand-foreground px-3 py-1.5 rounded-md cursor-pointer hover:opacity-90 transition-opacity whitespace-nowrap"
           >
             İlan Ver
           </NuxtLink>

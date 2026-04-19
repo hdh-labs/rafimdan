@@ -54,7 +54,7 @@ async function onNotifClick(notif: AppNotification) {
       v-if="open"
       role="dialog"
       aria-label="Bildirimler"
-      class="absolute right-0 top-full mt-1.5 w-80 bg-background border border-border rounded-lg shadow-lg z-50 overflow-hidden"
+      class="absolute right-0 top-full mt-1.5 w-[min(320px,calc(100vw-1rem))] bg-background border border-border rounded-lg shadow-lg z-50 overflow-hidden"
     >
       <!-- Header -->
       <div class="flex items-center justify-between px-4 py-3 border-b border-border">
