@@ -41,7 +41,7 @@ function onKeydown(e: KeyboardEvent) {
             </button>
             <button
               type="button"
-              class="px-4 py-2 text-sm rounded-lg bg-purple-600 text-white hover:bg-purple-700 cursor-pointer transition-colors"
+              class="px-4 py-2 text-sm rounded-lg bg-brand text-brand-foreground hover:opacity-90 cursor-pointer transition-opacity"
               @click="emit('confirm')"
             >
               {{ confirmLabel ?? 'Onayla' }}

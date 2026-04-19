@@ -643,7 +643,7 @@ function formatDate(d: string) {
                   </span>
                   <span
                     v-if="user.is_admin"
-                    class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium bg-purple-50 text-purple-700 border-purple-200"
+                    class="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium bg-brand/10 text-brand border-brand/30"
                   >
                     Admin
                   </span>
@@ -656,7 +656,7 @@ function formatDate(d: string) {
                     :title="user.is_admin ? 'Admin yetkisini kaldır' : 'Admin yap'"
                     class="flex items-center justify-center size-7 rounded cursor-pointer transition-colors"
                     :class="user.is_admin
-                      ? 'text-purple-600 hover:bg-purple-50'
+                      ? 'text-brand hover:bg-brand/10'
                       : 'text-muted-foreground hover:bg-muted'"
                     @click="requestToggleAdmin(user)"
                   >
