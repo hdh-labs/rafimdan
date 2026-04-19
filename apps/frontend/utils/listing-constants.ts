@@ -1,4 +1,4 @@
-import type { ListingCondition, ListingPriceType, ListingStatus } from "@rafimdan/shared"
+import type { ListingCondition, ListingPriceType, ListingStatus, ListingType } from "@rafimdan/shared"
 
 export const CONDITION_LABELS: Record<ListingCondition, string> = {
   new: "Yeni",
@@ -32,6 +32,16 @@ export const STATUS_COLORS: Record<ListingStatus, string> = {
   sold:     "bg-muted text-muted-foreground border-border",
   pending:  "bg-muted text-muted-foreground border-border",
   rejected: "bg-destructive/10 text-destructive border-destructive/30",
+}
+
+export const LISTING_TYPE_LABELS: Record<ListingType, string> = {
+  item: "Eşya",
+  service: "Hizmet",
+}
+
+export const DIRECTION_LABELS: Record<"offer" | "request", string> = {
+  offer: "Sunuyorum",
+  request: "Arıyorum",
 }
 
 export function getInitials(name: string): string {

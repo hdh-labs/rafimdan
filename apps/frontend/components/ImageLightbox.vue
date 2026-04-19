@@ -1,23 +1,40 @@
 <script setup lang="ts">
-import { X } from "lucide-vue-next"
+import { X, ChevronLeft, ChevronRight } from "lucide-vue-next"
 
-const props = defineProps<{ url: string | null }>()
-const emit = defineEmits<{ close: [] }>()
+const props = defineProps<{
+  images: string[]
+  modelValue: number | null
+}>()
+
+const emit = defineEmits<{ "update:modelValue": [number | null] }>()
 
 const closeButtonRef = ref<HTMLButtonElement | null>(null)
 
-function onKey(e: KeyboardEvent) {
-  if (e.key === "Escape") {
-    emit("close")
-    return
-  }
-  if (e.key === "Tab") {
-    e.preventDefault()
-    closeButtonRef.value?.focus()
-  }
+const isOpen = computed(() => props.modelValue !== null)
+const activeIndex = computed(() => props.modelValue ?? 0)
+const activeUrl = computed(() => props.images[activeIndex.value] ?? null)
+const hasMultiple = computed(() => props.images.length > 1)
+
+function close() {
+  emit("update:modelValue", null)
 }
 
-watch(() => props.url, (val) => {
+function prev() {
+  if (activeIndex.value > 0) emit("update:modelValue", activeIndex.value - 1)
+}
+
+function next() {
+  if (activeIndex.value < props.images.length - 1) emit("update:modelValue", activeIndex.value + 1)
+}
+
+function onKey(e: KeyboardEvent) {
+  if (e.key === "Escape") { close(); return }
+  if (e.key === "ArrowLeft") { prev(); return }
+  if (e.key === "ArrowRight") { next(); return }
+  if (e.key === "Tab") { e.preventDefault(); closeButtonRef.value?.focus() }
+}
+
+watch(isOpen, (val) => {
   if (val) {
     window.addEventListener("keydown", onKey)
     document.body.style.overflow = "hidden"
@@ -38,12 +55,12 @@ onUnmounted(() => {
   <Teleport to="body">
     <Transition name="lb">
       <div
-        v-if="url"
+        v-if="isOpen && activeUrl"
         class="fixed inset-0 z-[60] flex items-center justify-center"
         role="dialog"
         aria-modal="true"
         aria-label="Fotoğraf görüntüleyici"
-        @click="emit('close')"
+        @click="close"
       >
         <!-- Backdrop -->
         <div class="absolute inset-0 bg-black/85 backdrop-blur-sm" />
@@ -51,27 +68,56 @@ onUnmounted(() => {
         <!-- Image -->
         <div class="relative z-10 flex items-center justify-center" @click.stop>
           <img
-            :src="url"
+            :src="activeUrl"
             alt="Tam boyut fotoğraf"
             class="lb-img max-h-[88vh] max-w-[88vw] rounded-xl object-contain shadow-2xl"
           />
         </div>
 
-        <!-- Close button -->
+        <!-- Close -->
         <button
           ref="closeButtonRef"
           type="button"
           class="absolute top-4 right-4 z-10 flex items-center justify-center size-9 rounded-full bg-white/15 hover:bg-white/25 text-white backdrop-blur-sm transition-colors cursor-pointer"
           aria-label="Kapat"
-          @click="emit('close')"
+          @click="close"
         >
           <X class="size-5" />
         </button>
 
-        <!-- Hint -->
-        <p class="absolute bottom-5 left-1/2 -translate-x-1/2 text-xs text-white/50 select-none pointer-events-none">
-          Kapatmak için tıkla veya Esc
-        </p>
+        <!-- Prev / Next -->
+        <template v-if="hasMultiple">
+          <button
+            type="button"
+            :disabled="activeIndex === 0"
+            class="absolute left-4 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center size-10 rounded-full bg-white/15 hover:bg-white/25 text-white backdrop-blur-sm transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+            aria-label="Önceki fotoğraf"
+            @click.stop="prev"
+          >
+            <ChevronLeft class="size-5" />
+          </button>
+
+          <button
+            type="button"
+            :disabled="activeIndex === images.length - 1"
+            class="absolute right-4 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center size-10 rounded-full bg-white/15 hover:bg-white/25 text-white backdrop-blur-sm transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+            aria-label="Sonraki fotoğraf"
+            @click.stop="next"
+          >
+            <ChevronRight class="size-5" />
+          </button>
+
+          <!-- Counter -->
+          <p class="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 text-xs text-white/60 select-none pointer-events-none tabular-nums">
+            {{ activeIndex + 1 }} / {{ images.length }}
+          </p>
+        </template>
+
+        <template v-else>
+          <p class="absolute bottom-5 left-1/2 -translate-x-1/2 z-10 text-xs text-white/50 select-none pointer-events-none">
+            Kapatmak için tıkla veya Esc
+          </p>
+        </template>
       </div>
     </Transition>
   </Teleport>

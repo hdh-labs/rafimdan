@@ -32,7 +32,7 @@
   --color-ring: oklch(0.53 0.14 35);
 
   /* Hata */
-  --color-destructive: oklch(0.577 0.245 27.325);
+  --color-destructive: oklch(0.55 0.23 12);
 
   /* WhatsApp brand rengi — yalnızca WhatsApp CTA butonları için */
   --color-whatsapp:            oklch(0.52 0.17 145);

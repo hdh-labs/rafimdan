@@ -2,10 +2,10 @@
 import { ImageOff, MapPin } from "lucide-vue-next"
 import { cn } from "~/utils/cn"
 import { CONDITION_LABELS, CONDITION_COLORS, getInitials } from "~/utils/listing-constants"
-import type { ListingCondition, ListingPriceType, ListingStatus, ListingDirection } from "@rafimdan/shared"
+import type { ListingCondition, ListingPriceType, ListingStatus, ListingDirection, ListingType } from "@rafimdan/shared"
 
 type PriceType = ListingPriceType
-type Condition = ListingCondition
+type Condition = ListingCondition | null
 type Direction = ListingDirection
 
 interface Seller {
@@ -24,6 +24,7 @@ interface Props {
   price_type: PriceType
   condition: Condition
   status: ListingStatus
+  listing_type?: ListingType
   direction?: Direction
   cover_photo?: string | null
   city: string
@@ -44,8 +45,10 @@ const statusLabel = computed(() => {
 })
 
 const priceDisplay = computed(() => {
-  if (props.direction === "request") return "Destek Arıyor"
-  if (props.direction === "support") return "Destek Sunuyor"
+  if (props.direction === "request") {
+    return props.listing_type === "service" ? "Hizmet Arıyor" : "Eşya Arıyor"
+  }
+  if (props.listing_type === "service") return "Hizmet Sunuyor"
   if (props.price_type === "free") return "Ücretsiz"
   const formatted = (props.price ?? 0).toLocaleString("tr-TR") + " ₺"
   if (props.price_type === "negotiable") return formatted + " · Pazarlık"
@@ -67,7 +70,7 @@ const sellerAvatarError = ref(false)
     :class="cn(
       'group relative flex flex-col rounded-xl border bg-background overflow-hidden',
       'hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200',
-      direction === 'request' ? 'border-brand/40' : direction === 'support' ? 'border-brand/20' : 'border-border',
+      direction === 'request' ? 'border-brand/40' : listing_type === 'service' ? 'border-brand/20' : 'border-border',
       isOverlaid && 'opacity-60'
     )"
   >
@@ -113,12 +116,12 @@ const sellerAvatarError = ref(false)
       <div class="flex items-center justify-between gap-2">
         <p
           class="text-sm font-bold"
-          :class="direction === 'request' || direction === 'support' || price_type === 'free' ? 'text-brand' : 'text-foreground'"
+          :class="direction === 'request' || listing_type === 'service' || price_type === 'free' ? 'text-brand' : 'text-foreground'"
         >
           {{ priceDisplay }}
         </p>
         <span
-          v-if="direction === 'offer'"
+          v-if="direction === 'offer' && listing_type === 'item' && condition"
           class="shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
           :class="CONDITION_COLORS[condition]"
         >

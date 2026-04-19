@@ -107,6 +107,12 @@ function parseMeta(raw: string | null): MetaParsed | null {
                 <span class="truncate max-w-[200px] block">
                   {{ log.meta_parsed?.name ?? log.target_id }}
                 </span>
+                <span
+                  v-if="log.meta_parsed?.reason"
+                  class="block italic text-muted-foreground/70 truncate max-w-[200px]"
+                >
+                  "{{ log.meta_parsed.reason }}"
+                </span>
               </template>
             </td>
           </tr>

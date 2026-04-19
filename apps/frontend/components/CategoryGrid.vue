@@ -17,6 +17,8 @@ import type { Component } from "vue"
 
 defineProps<{ categories: CategoryTree[] }>()
 
+const HIDDEN_SLUGS = ["spor"]
+
 const SLUG_ICONS: Record<string, Component> = {
   kitap: BookOpen,
   elektronik: Monitor,
@@ -39,10 +41,10 @@ function colorFor(_slug: string) {
 <template>
   <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
     <NuxtLink
-      v-for="cat in categories"
+      v-for="cat in categories.filter(c => !HIDDEN_SLUGS.includes(c.slug))"
       :key="cat.id"
       :to="`/ilanlar?category=${cat.slug}`"
-      class="flex flex-col items-center gap-2.5 p-4 rounded-xl bg-background border border-border hover:shadow-md hover:-translate-y-0.5 transition-all cursor-pointer text-center"
+      class="flex flex-col items-center gap-2.5 p-4 rounded-xl bg-brand/5 border border-brand/10 hover:bg-brand/10 hover:-translate-y-0.5 transition-all cursor-pointer text-center"
     >
       <span
         class="inline-flex items-center justify-center size-10 rounded-full"
