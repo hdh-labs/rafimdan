@@ -77,6 +77,8 @@ export type ListingDetail = Omit<ListingListItem, "cover_photo" | "seller" | "di
     whatsapp: string | null;
     city: string | null;
     created_at: string;
+    active_count: number;
+    sold_count: number;
   };
 };
 
@@ -93,7 +95,7 @@ export type CreateListingInput = {
   direction?: ListingDirection;
 };
 
-export type UpdateListingInput = Omit<Partial<CreateListingInput>, "price"> & { price?: number | null };
+export type UpdateListingInput = Omit<Partial<CreateListingInput>, "price" | "district"> & { price?: number | null; district?: string | null };
 
 export type UpdateListingStatusInput = {
   status: ListingStatus;
