@@ -57,19 +57,56 @@ const fileInputRef = ref<HTMLInputElement | null>(null)
 const WHATSAPP_RE = /^5\d{9}$/
 const WHATSAPP_MAX = 10
 
+const whatsappError = ref<string | null>(null)
+
 function onWhatsappInput(e: Event) {
   const raw = (e.target as HTMLInputElement).value.replace(/\D/g, "").slice(0, WHATSAPP_MAX)
   form.whatsapp = raw
   ;(e.target as HTMLInputElement).value = raw
+  if (whatsappError.value && WHATSAPP_RE.test(raw)) whatsappError.value = null
 }
 
-function onFileChange(e: Event) {
+function onWhatsappBlur() {
+  if (!form.whatsapp) { whatsappError.value = null; return }
+  whatsappError.value = WHATSAPP_RE.test(form.whatsapp)
+    ? null
+    : "5 ile başlayan 10 haneli numara girin. (örn: 5321234567)"
+}
+
+const MAX_DIMENSION = 1200
+const COMPRESS_QUALITY = 0.85
+
+function compressImage(file: File): Promise<File> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const objectUrl = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl)
+      const { width, height } = img
+      const scale = Math.min(1, MAX_DIMENSION / Math.max(width, height))
+      const canvas = document.createElement("canvas")
+      canvas.width = Math.round(width * scale)
+      canvas.height = Math.round(height * scale)
+      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height)
+      canvas.toBlob(
+        (blob) => resolve(blob ? new File([blob], file.name, { type: "image/jpeg" }) : file),
+        "image/jpeg",
+        COMPRESS_QUALITY,
+      )
+    }
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); resolve(file) }
+    img.src = objectUrl
+  })
+}
+
+async function onFileChange(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
+  const compressed = await compressImage(file)
   const prev = previewUrl.value
-  previewUrl.value = URL.createObjectURL(file)
+  previewUrl.value = URL.createObjectURL(compressed)
   if (prev) URL.revokeObjectURL(prev)
-  uploadAvatar(file)
+  uploadAvatar(compressed)
 }
 
 async function uploadAvatar(file: File) {
@@ -100,7 +137,7 @@ async function save() {
   error.value = null
 
   if (form.whatsapp && !WHATSAPP_RE.test(form.whatsapp.replace(/\s/g, ""))) {
-    error.value = "WhatsApp numarası 5 ile başlayan 10 haneli olmalıdır. (örn: 5321234567)"
+    whatsappError.value = "5 ile başlayan 10 haneli numara girin. (örn: 5321234567)"
     return
   }
 
@@ -247,10 +284,13 @@ async function save() {
             inputmode="numeric"
             placeholder="5xx xxx xx xx"
             maxlength="10"
-            class="flex-1 px-3 py-2 text-sm border border-border rounded-r-md bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+            :class="whatsappError ? 'border-destructive focus:ring-destructive' : 'border-border focus:ring-ring'"
+            class="flex-1 px-3 py-2 text-sm border rounded-r-md bg-background focus:outline-none focus:ring-1"
             @input="onWhatsappInput"
+            @blur="onWhatsappBlur"
           />
         </div>
+        <p v-if="whatsappError" class="text-xs text-destructive mt-1">{{ whatsappError }}</p>
         <div class="flex items-center justify-between mt-1">
           <p class="text-xs text-muted-foreground">
             İlan sayfasında "WhatsApp'tan Yaz" butonu aktif olur.
