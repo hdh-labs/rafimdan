@@ -2,8 +2,23 @@
 import { Trash2, ShieldOff, Shield, Loader2, ExternalLink, Check, X, RotateCcw, ChevronRight, Users, Clock, CheckCircle, ShoppingBag, Flag } from "lucide-vue-next"
 import { toast } from "vue-sonner"
 import type { ListingDetail, AdminUserProfile, AdminStats, AdminLog, Report, ReportStatus } from "@rafimdan/shared"
-import { apiFetch } from "~/utils/api"
+import { apiFetch, ApiError } from "~/utils/api"
 import { STATUS_LABELS, STATUS_COLORS, CONDITION_LABELS, PRICE_TYPE_LABELS } from "~/utils/listing-constants"
+
+const ADMIN_ERRORS: Record<string, string> = {
+  LAST_ADMIN: "Sistemdeki tek adminin durumu değiştirilemez",
+  SELF_MODIFY: "Bu işlemi kendi hesabınız üzerinde yapamazsınız",
+  NOT_FOUND: "Kayıt bulunamadı, sayfayı yenile",
+  INVALID_STATUS: "Geçersiz işlem",
+}
+
+function adminToastError(err: unknown, fallback: string) {
+  if (err instanceof ApiError) {
+    toast.error(ADMIN_ERRORS[err.code] ?? fallback)
+    return
+  }
+  toast.error(fallback)
+}
 
 definePageMeta({ middleware: ["auth", "admin"], ssr: false })
 useSeoMeta({ title: "Admin — Rafımdan" })
@@ -166,8 +181,8 @@ async function moderateListing(slug: string, status: "active" | "pending" | "rej
     fetchStats()
     fetchLogs()
     toast.success(MODERATE_MSG[status] ?? "İşlem tamamlandı.")
-  } catch {
-    toast.error("İşlem başarısız.")
+  } catch (err) {
+    adminToastError(err, "İlan durumu güncellenemedi, tekrar dene")
   } finally {
     moderatingSlug.value = null
   }
@@ -237,8 +252,8 @@ async function executeBan(user: AdminUserProfile, reason: string) {
     await fetchUsers()
     fetchLogs()
     toast.success(is_active === 0 ? "Kullanıcı banlandı." : "Ban kaldırıldı.")
-  } catch {
-    toast.error("İşlem başarısız.")
+  } catch (err) {
+    adminToastError(err, "Kullanıcı durumu güncellenemedi, tekrar dene")
   } finally {
     patchingUserId.value = null
   }
@@ -262,8 +277,8 @@ async function executeToggleAdmin() {
     await fetchUsers()
     fetchLogs()
     toast.success(is_admin ? "Admin yetkisi verildi." : "Admin yetkisi alındı.")
-  } catch {
-    toast.error("İşlem başarısız.")
+  } catch (err) {
+    adminToastError(err, "Yetki değiştirilemedi, tekrar dene")
   } finally {
     patchingUserId.value = null
   }
@@ -321,8 +336,8 @@ async function resolveReport(id: string, status: "resolved" | "dismissed") {
     })
     reports.value = reports.value.filter((r) => r.id !== id)
     toast.success(status === "resolved" ? "Rapor çözüldü olarak işaretlendi." : "Rapor reddedildi.")
-  } catch {
-    toast.error("İşlem başarısız.")
+  } catch (err) {
+    adminToastError(err, "Rapor güncellenemedi, tekrar dene")
   } finally {
     resolvingReportId.value = null
   }

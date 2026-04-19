@@ -6,11 +6,11 @@ const storage = new Hono<HonoEnv>();
 storage.get("/*", async (c) => {
   const key = c.req.path.replace(/^\/api\/storage\//, "");
   if (!key || key.includes("..") || key.startsWith("/")) {
-    return c.json({ error: "Not Found", status: "error", code: "NOT_FOUND" }, 404);
+    return c.json({ error: "Bulunamadı", status: "error", code: "NOT_FOUND" }, 404);
   }
 
   const object = await c.env.STORAGE.get(key);
-  if (!object) return c.json({ error: "Not Found", status: "error", code: "NOT_FOUND" }, 404);
+  if (!object) return c.json({ error: "Bulunamadı", status: "error", code: "NOT_FOUND" }, 404);
 
   const headers = new Headers();
   object.writeHttpMetadata(headers);

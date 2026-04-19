@@ -11,16 +11,6 @@ import { notificationRepository } from "../repositories/notification.repository"
 import { AppError } from "../errors";
 import { extractStorageKey } from "../lib/storage";
 
-const admin = new Hono<HonoEnv>();
-admin.use("/*", adminAuthMiddleware);
-
-function handleError(c: Parameters<MiddlewareHandler<HonoEnv>>[0], err: unknown) {
-  if (err instanceof AppError) {
-    return c.json({ error: err.message, status: "error", code: err.code }, err.statusCode as 400);
-  }
-  return c.json({ error: "Sunucu hatası", status: "error", code: "INTERNAL_ERROR" }, 500);
-}
-
 const adminAuthMiddleware: MiddlewareHandler<HonoEnv> = async (c, next) => {
   const authHeader = c.req.header("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
@@ -44,6 +34,16 @@ const adminAuthMiddleware: MiddlewareHandler<HonoEnv> = async (c, next) => {
   }
   return next();
 };
+
+const admin = new Hono<HonoEnv>();
+admin.use("/*", adminAuthMiddleware);
+
+function handleError(c: Parameters<MiddlewareHandler<HonoEnv>>[0], err: unknown) {
+  if (err instanceof AppError) {
+    return c.json({ error: err.message, status: "error", code: err.code }, err.statusCode as 400);
+  }
+  return c.json({ error: "Sunucu hatası", status: "error", code: "INTERNAL_ERROR" }, 500);
+}
 
 // ---------------------------------------------------------------------------
 // Stats
@@ -153,7 +153,7 @@ admin.patch("/listings/:slug/status", async (c) => {
         reason: reason ?? undefined,
       },
     });
-    if (updated && (status === "active" || status === "rejected")) {
+    if (updated && (status === "active" || status === "rejected") && updated.seller.id !== adminId) {
       try {
         await notificationRepository.create(c.env.DB, {
           id: crypto.randomUUID(),

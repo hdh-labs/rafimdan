@@ -4,7 +4,7 @@ type InsertAdminLogInput = {
   id: string;
   admin_id: string;
   action: AdminLogAction;
-  target_type: "listing" | "user";
+  target_type: "listing" | "user" | "report";
   target_id: string;
   meta?: Record<string, string | number | null | undefined> | null;
 };
