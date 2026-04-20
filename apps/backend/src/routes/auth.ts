@@ -9,6 +9,7 @@ import { AppError } from "../errors";
 import { updateProfileSchema } from "../schemas/auth.schemas";
 import { REFRESH_TOKEN_MAX_AGE_SECONDS } from "../lib/jwt";
 import { validateImageMagicBytes, getImageExtension } from "../lib/image-validation";
+import { handleError } from "../lib/handle-error";
 
 const auth = new Hono<HonoEnv>();
 
@@ -42,12 +43,6 @@ function clearRefreshCookie(c: Context<HonoEnv>): void {
   deleteCookie(c, "refresh_token", { path: "/api/auth", domain: getCookieDomain(c) });
 }
 
-function handleError(c: Context<HonoEnv>, err: unknown) {
-  if (err instanceof AppError) {
-    return c.json({ error: err.message, status: "error", code: err.code }, err.statusCode as 400);
-  }
-  throw err;
-}
 
 function getCallbackUrl(c: Context<HonoEnv>): string {
   const frontendUrl = c.env.CORS_ORIGIN || "http://localhost:3000";
@@ -94,14 +89,12 @@ auth.get("/google/callback", async (c) => {
     const frontendUrl = c.env.CORS_ORIGIN || "http://localhost:3000";
     return c.redirect(`${frontendUrl}/auth/callback`, 302);
   } catch (err) {
-    if (err instanceof AppError) {
-      const frontendUrl = c.env.CORS_ORIGIN || "http://localhost:3000";
-      return c.redirect(
-        `${frontendUrl}/auth/callback?error=${encodeURIComponent(err.message)}`,
-        302,
-      );
-    }
-    throw err;
+    const frontendUrl = c.env.CORS_ORIGIN || "http://localhost:3000";
+    const message = err instanceof AppError ? err.message : "Giriş yapılamadı, tekrar dene";
+    return c.redirect(
+      `${frontendUrl}/auth/callback?error=${encodeURIComponent(message)}`,
+      302,
+    );
   }
 });
 

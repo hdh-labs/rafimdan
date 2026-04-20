@@ -1,22 +1,14 @@
 import { Hono } from "hono";
-import type { Context } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import type { HonoEnv } from "../types/env";
 import { authMiddleware } from "../middleware/auth";
 import { favoriteService } from "../services/favorite.service";
 import { listingRepository } from "../repositories/listing.repository";
 import { notificationRepository } from "../repositories/notification.repository";
-import { AppError } from "../errors";
 import { favoriteAddSchema } from "../schemas/favorite.schemas";
+import { handleError } from "../lib/handle-error";
 
 const favorites = new Hono<HonoEnv>();
-
-function handleError(c: Context<HonoEnv>, err: unknown) {
-  if (err instanceof AppError) {
-    return c.json({ error: err.message, status: "error", code: err.code }, err.statusCode as 400);
-  }
-  throw err;
-}
 
 // ---------------------------------------------------------------------------
 // GET / — kullanıcının favori ilan ID'leri

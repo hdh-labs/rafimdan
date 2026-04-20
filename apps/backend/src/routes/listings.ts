@@ -13,15 +13,9 @@ import {
   listingsQuerySchema,
 } from "../schemas/listing.schemas";
 import { validateImageMagicBytes, getImageExtension } from "../lib/image-validation";
+import { handleError } from "../lib/handle-error";
 
 const listings = new Hono<HonoEnv>();
-
-function handleError(c: Context<HonoEnv>, err: unknown) {
-  if (err instanceof AppError) {
-    return c.json({ error: err.message, status: "error", code: err.code }, err.statusCode as 400);
-  }
-  throw err;
-}
 
 // ---------------------------------------------------------------------------
 // GET / — liste

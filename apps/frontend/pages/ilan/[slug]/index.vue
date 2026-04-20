@@ -53,6 +53,7 @@ useSeoMeta({
   title: () => `${listing.value.title} — Rafımdan`,
   description: () => listing.value.description?.slice(0, 160) ?? undefined,
   ogImage: () => listing.value.photos[0] ?? undefined,
+  robots: () => (isPending.value || isRejected.value) ? "noindex, nofollow" : undefined,
 })
 
 const selectedIndex = ref(0)
@@ -79,7 +80,6 @@ useSwipe(galleryRef, {
 
 
 const isRequest = computed(() => listing.value.direction === "request")
-const isService = computed(() => listing.value.listing_type === "service")
 
 const waUrl = computed(() => {
   const phone = listing.value.seller.whatsapp
@@ -108,12 +108,13 @@ const priceDisplay = computed(() => {
   if (isService.value) return "Hizmet Sunuyor"
   const { price, price_type } = listing.value
   if (price_type === "free") return "Ücretsiz"
+  if (price_type === "trade") return "Takas"
   const formatted = (price ?? 0).toLocaleString("tr-TR") + " ₺"
   if (price_type === "negotiable") return `${formatted} · Pazarlığa açık`
   return formatted
 })
 
-const isFree = computed(() => listing.value.price_type === "free")
+const isFree = computed(() => listing.value.price_type === "free" || listing.value.price_type === "trade")
 
 const sellerName = computed(
   () => listing.value.seller.display_name ?? listing.value.seller.name,
@@ -418,7 +419,7 @@ async function submitReport() {
 
           <p
             class="text-2xl font-bold"
-            :class="isRequest || isService || listing.price_type === 'free' ? 'text-brand' : 'text-foreground'"
+            :class="isRequest || isService || isFree ? 'text-brand' : 'text-foreground'"
           >
             {{ priceDisplay }}
           </p>
@@ -435,6 +436,13 @@ async function submitReport() {
             <span class="flex items-center gap-1">
               <Clock class="size-4 shrink-0" />
               <span>{{ timeAgo(listing.created_at) }}</span>
+            </span>
+          </div>
+
+          <div v-if="listing.meeting_type" class="mt-3">
+            <span class="inline-flex items-center gap-1.5 text-xs text-muted-foreground border border-border rounded-full px-3 py-1">
+              <MapPin class="size-3 shrink-0" />
+              {{ listing.meeting_type === 'public' ? 'Ortak yerde buluşma' : listing.meeting_type === 'from_seller' ? 'Adresimden teslim' : 'Adrese teslim' }}
             </span>
           </div>
 
