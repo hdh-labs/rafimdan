@@ -74,9 +74,17 @@ export function useEagerPhotoUpload() {
   function rotate(index: number) {
     const entry = photos.value[index]
     if (!entry || entry.status === "uploading") return
+    const oldKey = entry.tempKey
     entry.rotation = ((entry.rotation + 90) % 360) as 0 | 90 | 180 | 270
     entry.status = "uploading"
     entry.tempKey = null
+    if (oldKey) {
+      void apiFetch("/api/listings/photos/temp", {
+        method: "DELETE",
+        body: JSON.stringify({ key: oldKey }),
+        headers: { "Content-Type": "application/json" },
+      })
+    }
     void uploadEntry(entry)
   }
 
@@ -89,7 +97,15 @@ export function useEagerPhotoUpload() {
 
   function remove(index: number) {
     const entry = photos.value[index]
-    if (entry) URL.revokeObjectURL(entry.previewUrl)
+    if (!entry) return
+    URL.revokeObjectURL(entry.previewUrl)
+    if (entry.tempKey) {
+      void apiFetch("/api/listings/photos/temp", {
+        method: "DELETE",
+        body: JSON.stringify({ key: entry.tempKey }),
+        headers: { "Content-Type": "application/json" },
+      })
+    }
     photos.value.splice(index, 1)
   }
 

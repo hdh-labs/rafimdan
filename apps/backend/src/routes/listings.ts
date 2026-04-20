@@ -100,6 +100,32 @@ listings.post("/photos/temp", authMiddleware, async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// DELETE /photos/temp — rotate sırasında orphan kalan temp fotoğrafı sil
+// ---------------------------------------------------------------------------
+
+listings.delete("/photos/temp", authMiddleware, async (c) => {
+  try {
+    const { sub } = c.get("user");
+    const body = await c.req.json<{ key: string }>();
+    const key = body?.key;
+
+    if (!key || typeof key !== "string") {
+      return c.json({ error: "key gerekli", status: "error", code: "MISSING_KEY" }, 400);
+    }
+
+    const EXPECTED_PREFIX = `temp/${sub}/`;
+    if (!key.startsWith(EXPECTED_PREFIX)) {
+      return c.json({ error: "Yetkisiz işlem", status: "error", code: "FORBIDDEN" }, 403);
+    }
+
+    await c.env.STORAGE.delete(key);
+    return c.json({ status: "ok" });
+  } catch (err) {
+    return handleError(c, err);
+  }
+});
+
+// ---------------------------------------------------------------------------
 // GET /mine — kullanıcının kendi ilanları
 // ---------------------------------------------------------------------------
 
