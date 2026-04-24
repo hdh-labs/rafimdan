@@ -520,9 +520,12 @@ const descPlaceholder = computed(() => {
 
           <!-- Ekle butonu -->
           <label
-            v-if="totalCount < MAX_PHOTOS"
             class="aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-colors"
-            :class="errors.photos ? 'border-destructive' : 'border-border hover:bg-muted'"
+            :class="[
+              totalCount >= MAX_PHOTOS ? 'invisible pointer-events-none' : '',
+              errors.photos ? 'border-destructive' : 'border-border hover:bg-muted',
+            ]"
+            :aria-hidden="totalCount >= MAX_PHOTOS"
           >
             <ImagePlus class="size-6 text-muted-foreground" />
             <span class="text-xs text-muted-foreground">Ekle</span>
@@ -532,6 +535,7 @@ const descPlaceholder = computed(() => {
               multiple
               class="sr-only"
               aria-label="Fotoğraf seç"
+              :disabled="totalCount >= MAX_PHOTOS"
               @change="onFileChange"
             />
           </label>

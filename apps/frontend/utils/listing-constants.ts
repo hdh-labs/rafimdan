@@ -46,7 +46,7 @@ export const DIRECTION_LABELS: Record<"offer" | "request", string> = {
 }
 
 export const PHOTO_MAX_SIZE = 10 * 1024 * 1024
-export const PHOTO_MAX_COUNT = 6
+export const PHOTO_MAX_COUNT = 10
 
 export function getInitials(name: string): string {
   return name

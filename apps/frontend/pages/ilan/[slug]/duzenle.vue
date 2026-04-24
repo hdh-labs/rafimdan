@@ -658,8 +658,9 @@ async function confirmDelete() {
 
             <!-- Ekle butonu -->
             <label
-              v-if="totalPhotos < MAX_PHOTOS"
               class="aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-muted transition-colors"
+              :class="totalPhotos >= MAX_PHOTOS ? 'invisible pointer-events-none' : ''"
+              :aria-hidden="totalPhotos >= MAX_PHOTOS"
             >
               <ImagePlus class="size-5 text-muted-foreground" />
               <span class="text-xs text-muted-foreground">Ekle</span>
@@ -668,6 +669,7 @@ async function confirmDelete() {
                 accept="image/*"
                 multiple
                 class="sr-only"
+                :disabled="totalPhotos >= MAX_PHOTOS"
                 @change="onFileChange"
               />
             </label>

@@ -9,7 +9,7 @@ import type {
 } from "@rafimdan/shared";
 import type { PaginatedResponse } from "@rafimdan/shared";
 
-const MAX_PHOTOS = 6;
+const MAX_PHOTOS = 10;
 const PAGE_LIMIT_MAX = 50;
 
 type ListingRowJoined = ListingRow & {
