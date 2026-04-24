@@ -19,6 +19,7 @@ const cardItems = computed(() =>
     price: item.price ?? 0,
     cover_photo: item.cover_photo ?? undefined,
     district: item.district ?? undefined,
+    category_slug: item.category.slug,
     seller: {
       ...item.seller,
       avatar_url: item.seller.avatar_url ?? undefined,

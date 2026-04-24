@@ -97,6 +97,7 @@ const {
   rotateFile,
   removeFile: removeNewFile,
   uploadFiles,
+  MAX_PHOTOS,
 } = useListingPhotos()
 
 const lightboxIndex = ref<number | null>(null)
@@ -130,8 +131,9 @@ watch(listing, (val) => {
   form.condition = (val.condition as ListingCondition) ?? ""
   form.price_type = val.price_type
   form.price = val.price ?? ""
-  form.city = IL_NAMES.includes(val.city) ? val.city : ""
-  form.district = val.district ?? ""
+  const validCity = IL_NAMES.includes(val.city) ? val.city : ""
+  form.city = validCity
+  form.district = validCity && getIlceler(validCity).includes(val.district ?? "") ? (val.district ?? "") : ""
   form.description = val.description ?? ""
   form.meeting_type = (val.meeting_type as ListingMeetingType) ?? ""
   currentStatus.value = val.status
@@ -184,6 +186,7 @@ function validate(): boolean {
   const priceOptional = form.price_type === "free" || form.price_type === "trade"
   if (!priceOptional && form.price !== "") {
     if (Number(form.price) <= 0) e.price = "Fiyat 0'dan büyük olmalıdır."
+    else if (Number(form.price) > 9_999_999) e.price = "Fiyat 9.999.999 ₺'den fazla olamaz."
   }
   if (form.direction === "offer" && !priceOptional) {
     if (form.price === "" || form.price === null) e.price = "Fiyat zorunludur."
@@ -522,6 +525,7 @@ async function confirmDelete() {
             v-model.number="form.price"
             type="number"
             min="1"
+            max="9999999"
             :class="[
               'w-full px-3 py-2 text-sm border rounded-xl bg-background focus:outline-none focus:ring-1 transition-colors',
               errors.price ? 'border-destructive focus:ring-destructive' : 'border-border focus:ring-ring',
@@ -586,7 +590,7 @@ async function confirmDelete() {
         <div>
           <label class="block text-sm font-medium text-foreground mb-1">
             Fotoğraflar
-            <span class="font-normal text-muted-foreground">(max 6, jpeg/png/webp)</span>
+            <span class="text-xs text-muted-foreground font-normal">{{ totalPhotos }}/{{ MAX_PHOTOS }}</span>
             <span v-if="form.listing_type === 'item' && form.direction === 'offer'" class="text-destructive"> *</span>
           </label>
           <p v-if="existingPhotos.length > 1" class="text-xs text-muted-foreground mb-2">
@@ -621,11 +625,11 @@ async function confirmDelete() {
               <button
                 type="button"
                 :disabled="deletingPhotoIndex === i"
-                class="absolute top-0.5 right-0.5 size-5 rounded-full bg-black/60 flex items-center justify-center cursor-pointer disabled:opacity-50"
+                class="absolute top-0.5 right-0.5 size-8 rounded-full bg-black/60 flex items-center justify-center cursor-pointer disabled:opacity-50"
                 @click.stop="deleteExistingPhoto(i)"
               >
-                <Loader2 v-if="deletingPhotoIndex === i" class="size-3 text-white animate-spin" />
-                <X v-else class="size-3 text-white" />
+                <Loader2 v-if="deletingPhotoIndex === i" class="size-4 text-white animate-spin" />
+                <X v-else class="size-4 text-white" />
               </button>
             </div>
 
@@ -638,23 +642,23 @@ async function confirmDelete() {
               <img :src="previewUrl(i)" :alt="p.file.name" class="size-full object-cover cursor-zoom-in" @click.stop="lightboxIndex = existingPhotos.length + i" />
               <button
                 type="button"
-                class="absolute top-0.5 right-0.5 size-5 rounded-full bg-black/60 flex items-center justify-center cursor-pointer"
+                class="absolute top-0.5 right-0.5 size-8 rounded-full bg-black/60 flex items-center justify-center cursor-pointer"
                 @click="removeNewFile(i)"
               >
-                <X class="size-3 text-white" />
+                <X class="size-4 text-white" />
               </button>
               <button
                 type="button"
-                class="absolute top-0.5 left-0.5 size-5 rounded-full bg-black/60 flex items-center justify-center cursor-pointer"
+                class="absolute top-0.5 left-0.5 size-8 rounded-full bg-black/60 flex items-center justify-center cursor-pointer"
                 @click.stop="rotateFile(i)"
               >
-                <RotateCw class="size-3 text-white" />
+                <RotateCw class="size-4 text-white" />
               </button>
             </div>
 
             <!-- Ekle butonu -->
             <label
-              v-if="totalPhotos < 6"
+              v-if="totalPhotos < MAX_PHOTOS"
               class="aspect-square rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-muted transition-colors"
             >
               <ImagePlus class="size-5 text-muted-foreground" />

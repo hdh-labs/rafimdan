@@ -81,6 +81,8 @@ export type ListingDetail = Omit<ListingListItem, "cover_photo" | "seller" | "di
     whatsapp: string | null;
     city: string | null;
     created_at: string;
+    active_count: number;
+    sold_count: number;
   };
 };
 

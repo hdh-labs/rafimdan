@@ -225,7 +225,10 @@ useSeoMeta({
           :price_type="listing.price_type"
           :condition="listing.condition"
           :status="listing.status"
+          :listing_type="listing.listing_type"
+          :direction="listing.direction"
           :cover_photo="listing.cover_photo ?? undefined"
+          :category_slug="listing.category.slug"
           :city="listing.city"
           :district="listing.district ?? undefined"
           :seller="{

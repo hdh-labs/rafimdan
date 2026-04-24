@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ImageOff, MapPin } from "lucide-vue-next"
+import { MapPin, BookOpen, Monitor, Shirt, Home, Package, Dumbbell, Wrench } from "lucide-vue-next"
+import type { Component } from "vue"
 import { cn } from "~/utils/cn"
 import { CONDITION_LABELS, CONDITION_COLORS, getInitials } from "~/utils/listing-constants"
 import type { ListingCondition, ListingPriceType, ListingStatus, ListingDirection, ListingType } from "@rafimdan/shared"
@@ -27,6 +28,7 @@ interface Props {
   listing_type?: ListingType
   direction?: Direction
   cover_photo?: string | null
+  category_slug?: string | null
   city: string
   district?: string | null
   seller: Seller
@@ -53,7 +55,6 @@ const priceDisplay = computed(() => {
   if (props.price_type === "free") return "Ücretsiz"
   if (props.price_type === "trade") return "Takas"
   const formatted = (props.price ?? 0).toLocaleString("tr-TR") + " ₺"
-  if (props.price_type === "negotiable") return formatted + " · Pazarlık"
   return formatted
 })
 
@@ -65,6 +66,21 @@ const locationDisplay = computed(() => {
 const sellerInitials = computed(() => getInitials(props.seller.name))
 
 const sellerAvatarError = ref(false)
+
+const CATEGORY_ICONS: Record<string, Component> = {
+  kitap: BookOpen,
+  elektronik: Monitor,
+  giyim: Shirt,
+  "ev-yasam": Home,
+  spor: Dumbbell,
+  diger: Package,
+}
+
+const placeholderIcon = computed<Component>(() =>
+  props.listing_type === "service"
+    ? Wrench
+    : (CATEGORY_ICONS[props.category_slug ?? ""] ?? Package)
+)
 </script>
 
 <template>
@@ -87,10 +103,16 @@ const sellerAvatarError = ref(false)
       />
       <div
         v-else
-        class="size-full flex items-center justify-center"
+        :class="cn(
+          'size-full flex flex-col items-center justify-center gap-2',
+          listing_type === 'service' ? 'bg-brand/5' : 'bg-muted'
+        )"
         aria-hidden="true"
       >
-        <ImageOff class="size-10 text-muted-foreground/30" />
+        <component :is="placeholderIcon" class="size-10 text-muted-foreground/40" />
+        <span v-if="listing_type === 'service'" class="text-[10px] text-muted-foreground/60 font-medium uppercase tracking-wide">
+          Hizmet
+        </span>
       </div>
 
       <div
@@ -102,11 +124,17 @@ const sellerAvatarError = ref(false)
         </span>
       </div>
 
+      <span
+        v-if="price_type === 'negotiable' && status === 'active' && direction !== 'request'"
+        class="absolute top-2 right-2 rounded-full px-2 py-0.5 text-[11px] font-medium bg-background/90 text-brand border border-brand/30 backdrop-blur-sm"
+      >
+        Pazarlık
+      </span>
     </div>
 
     <!-- Bilgiler -->
     <div class="p-3 flex flex-col flex-1 gap-1.5">
-      <h3 class="text-sm font-semibold text-foreground line-clamp-2 leading-snug">
+      <h3 class="text-sm font-semibold text-foreground line-clamp-2 leading-snug h-10 overflow-hidden">
         <NuxtLink
           :to="`/ilan/${slug}`"
           class="after:absolute after:inset-0 after:z-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded-sm"

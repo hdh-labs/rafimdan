@@ -47,3 +47,6 @@ export type { FavoriteAddInput, FavoritesResponse } from "./types/favorites";
 export type { AdminLog, AdminLogAction } from "./types/admin";
 export type { Report, ReportStatus } from "./types/report";
 export type { AppNotification, NotificationType } from "./types/notification";
+
+export type { Il } from "./constants/locations";
+export { ILLER, IL_NAMES, getIlceler, VALID_DISTRICTS } from "./constants/locations";

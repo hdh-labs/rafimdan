@@ -77,7 +77,7 @@ function cancelPriceEdit() {
 
 async function savePriceEdit(slug: string) {
   const parsed = parseInt(priceInputValue.value, 10)
-  if (!parsed || parsed <= 0) { cancelPriceEdit(); return }
+  if (!parsed || parsed <= 0 || parsed > 9_999_999) { cancelPriceEdit(); return }
 
   const item = listings.value.find((l) => l.slug === slug)
   if (!item || item.price === parsed) { cancelPriceEdit(); return }
@@ -116,6 +116,7 @@ async function changeStatus(slug: string, status: ListingStatus) {
       body: JSON.stringify({ status }),
     })
     clearNuxtData(`listing-${slug}`)
+    clearNuxtData()
     toast.success(`"${item.title}" artık ${STATUS_LABELS[status].toLowerCase()} olarak işaretlendi.`)
   } catch {
     item.status = prev
@@ -287,6 +288,7 @@ async function deleteListing(slug: string, title: string) {
                   v-model="priceInputValue"
                   type="number"
                   min="1"
+                  max="9999999"
                   class="w-20 px-1.5 py-0.5 text-xs border border-ring rounded focus:outline-none"
                   @keydown.enter="savePriceEdit(listing.slug)"
                   @keydown.esc="cancelPriceEdit"
@@ -310,7 +312,7 @@ async function deleteListing(slug: string, title: string) {
             </template>
             <span v-else-if="listing.price_type === 'free'" class="text-xs text-brand font-medium">Ücretsiz</span>
             <span v-else-if="listing.price_type === 'negotiable'" class="text-xs text-muted-foreground">
-              {{ listing.price ?? '?' }} ₺ · Pazarlık
+              {{ listing.price ?? '?' }} ₺
             </span>
             <span v-else class="text-xs text-muted-foreground">
               {{ listing.price ?? '?' }} ₺

@@ -23,6 +23,8 @@ type ListingRowJoined = ListingRow & {
   seller_whatsapp: string | null;
   seller_city: string | null;
   seller_created_at: string;
+  seller_active_count: number;
+  seller_sold_count: number;
   favorites_count: number;
 };
 
@@ -93,6 +95,8 @@ function toDetail(row: ListingRowJoined): ListingDetail {
       whatsapp: row.seller_whatsapp,
       city: row.seller_city,
       created_at: row.seller_created_at,
+      active_count: row.seller_active_count,
+      sold_count: row.seller_sold_count,
     },
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -115,6 +119,8 @@ const JOIN_SQL = `
     u.whatsapp     AS seller_whatsapp,
     u.city         AS seller_city,
     u.created_at   AS seller_created_at,
+    COALESCE(seller_stats.active_count, 0) AS seller_active_count,
+    COALESCE(seller_stats.sold_count, 0)   AS seller_sold_count,
     COALESCE(fav_agg.fav_count, 0) AS favorites_count
   FROM listings l
   JOIN categories c ON c.id = l.category_id
@@ -124,6 +130,14 @@ const JOIN_SQL = `
     FROM favorites
     GROUP BY listing_id
   ) fav_agg ON fav_agg.listing_id = l.id
+  LEFT JOIN (
+    SELECT
+      user_id,
+      SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS active_count,
+      SUM(CASE WHEN status = 'sold'   THEN 1 ELSE 0 END) AS sold_count
+    FROM listings
+    GROUP BY user_id
+  ) seller_stats ON seller_stats.user_id = l.user_id
 `;
 
 export const listingRepository = {

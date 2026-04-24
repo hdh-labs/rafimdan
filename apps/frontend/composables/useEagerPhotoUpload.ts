@@ -40,6 +40,7 @@ export function useEagerPhotoUpload() {
       const res = await apiFetch<ApiResponse<{ key: string }>>("/api/listings/photos/temp", {
         method: "POST",
         body: fd,
+        signal: AbortSignal.timeout(30_000),
       })
       entry.tempKey = res.data.key
       entry.status = "done"
@@ -58,8 +59,8 @@ export function useEagerPhotoUpload() {
       toast.error(`${oversized.length} dosya 10MB sınırını aşıyor, atlandı.`)
     }
     const valid = incoming.filter(f => f.size <= MAX_PHOTO_SIZE)
-    const remaining = MAX_PHOTOS - totalCount.value
-    for (const file of valid.slice(0, remaining)) {
+    for (const file of valid) {
+      if (photos.value.length >= MAX_PHOTOS) break
       photos.value.push({
         file,
         previewUrl: URL.createObjectURL(file),
