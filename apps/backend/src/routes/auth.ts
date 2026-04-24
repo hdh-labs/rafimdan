@@ -136,13 +136,6 @@ auth.post("/logout", async (c) => {
 
 auth.post("/refresh", async (c) => {
   try {
-    const ip = c.req.header("cf-connecting-ip") ?? c.req.header("x-forwarded-for") ?? "unknown";
-    await checkRateLimit(c.env.DB, {
-      table: "auth_rate_limit",
-      key: `refresh:${ip}`,
-      ...REFRESH_RATE_LIMIT,
-      message: "Çok fazla yenileme isteği. Bir saat sonra tekrar deneyin.",
-    });
     const refreshToken = getCookie(c, "refresh_token");
     if (!refreshToken) {
       return c.json(
@@ -150,6 +143,12 @@ auth.post("/refresh", async (c) => {
         401,
       );
     }
+    await checkRateLimit(c.env.DB, {
+      table: "auth_rate_limit",
+      key: `refresh:${refreshToken.slice(-16)}`,
+      ...REFRESH_RATE_LIMIT,
+      message: "Çok fazla yenileme isteği. Bir saat sonra tekrar deneyin.",
+    });
 
     const result = await authService.refreshAccessToken(c.env.DB, c.env, refreshToken);
     setRefreshCookie(c, result.refreshToken);
