@@ -405,11 +405,19 @@ async function deleteListing(slug: string, title: string) {
         </div>
         </div>
         <div v-if="listing.status === 'rejected'" class="px-3 pb-3">
-          <div class="flex items-start gap-2 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2">
-            <AlertCircle class="size-3.5 shrink-0 mt-0.5 text-destructive" />
-            <p class="text-xs text-destructive leading-relaxed">
-              <span class="font-medium">Gerekçe: </span>{{ listing.rejection_reason ?? 'Gerekçe belirtilmemiş' }}
-            </p>
+          <div class="flex flex-col gap-1.5 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2">
+            <div class="flex items-start gap-2">
+              <AlertCircle class="size-3.5 shrink-0 mt-0.5 text-destructive" />
+              <p class="text-xs text-destructive leading-relaxed">
+                <span class="font-medium">Gerekçe: </span>{{ listing.rejection_reason ?? 'Gerekçe belirtilmemiş' }}
+              </p>
+            </div>
+            <NuxtLink
+              :to="`/ilan/${listing.slug}/duzenle`"
+              class="text-xs font-medium text-destructive underline underline-offset-2 self-end cursor-pointer"
+            >
+              Düzenle ve Yeniden Gönder →
+            </NuxtLink>
           </div>
         </div>
       </div>

@@ -4,7 +4,7 @@
     <main class="flex-1 pb-16 sm:pb-0">
       <slot />
     </main>
-    <AppFooter class="hidden sm:block" />
+    <AppFooter class="pb-16 sm:pb-0" />
     <FeedbackWidget />
     <AppBottomNav />
   </div>
