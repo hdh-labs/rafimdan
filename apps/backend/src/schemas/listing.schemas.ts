@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LISTING_CONDITIONS, LISTING_PRICE_TYPES, LISTING_STATUSES, LISTING_DIRECTIONS, LISTING_TYPES, VALID_DISTRICTS } from "@rafimdan/shared";
+import { LISTING_CONDITIONS, LISTING_PRICE_TYPES, LISTING_STATUSES, LISTING_DIRECTIONS, LISTING_TYPES, LISTING_MEETING_TYPES, VALID_DISTRICTS } from "@rafimdan/shared";
 
 const districtField = z.string().min(2).max(60).refine(
   (val) => VALID_DISTRICTS.has(val),
@@ -18,6 +18,7 @@ export const createListingSchema = z
     city: z.string().min(2).max(60),
     district: districtField.optional(),
     direction: z.enum(LISTING_DIRECTIONS).default("offer"),
+    meeting_type: z.enum(LISTING_MEETING_TYPES).optional(),
     temp_photo_keys: z.array(z.string().max(300)).max(6).optional(),
   })
   .refine(
@@ -33,30 +34,47 @@ export const createListingSchema = z
     (data) =>
       data.direction === "request" ||
       data.price_type === "free" ||
+      data.price_type === "trade" ||
       data.price !== undefined,
     { message: "Fiyat zorunlu", path: ["price"] },
   );
 
-export const updateListingSchema = z.object({
-  listing_type: z.enum(LISTING_TYPES).optional(),
-  title: z.string().min(3).max(100).optional(),
-  description: z.string().max(2000).optional(),
-  category_id: z.string().min(1).optional(),
-  condition: z.enum(LISTING_CONDITIONS).optional(),
-  price_type: z.enum(LISTING_PRICE_TYPES).optional(),
-  price: z.number().int().positive().max(9_999_999).nullable().optional(),
-  city: z.string().min(2).max(60).optional(),
-  district: districtField.nullable().optional(),
-  direction: z.enum(LISTING_DIRECTIONS).optional(),
-});
+export const updateListingSchema = z
+  .object({
+    listing_type: z.enum(LISTING_TYPES).optional(),
+    title: z.string().min(3).max(100).optional(),
+    description: z.string().max(2000).optional(),
+    category_id: z.string().min(1).optional(),
+    condition: z.enum(LISTING_CONDITIONS).optional(),
+    price_type: z.enum(LISTING_PRICE_TYPES).optional(),
+    price: z.number().int().positive().max(9_999_999).nullable().optional(),
+    city: z.string().min(2).max(60).optional(),
+    district: districtField.nullable().optional(),
+    direction: z.enum(LISTING_DIRECTIONS).optional(),
+    meeting_type: z.enum(LISTING_MEETING_TYPES).nullable().optional(),
+  })
+  .refine(
+    (data) => {
+      if (data.price_type === "free" || data.price_type === "trade") {
+        return data.price === undefined || data.price === null;
+      }
+      return true;
+    },
+    { message: "Ücretsiz veya takas ilanında fiyat belirtilemez", path: ["price"] },
+  );
 
 export const listingStatusSchema = z.object({
   status: z.enum(["active", "sold"] as const),
 });
 
 export const adminModerateSchema = z.object({
-  status: z.enum(["active", "rejected"] as const),
+  status: z.enum(["active", "pending", "rejected"] as const),
   reason: z.string().max(500).optional(),
+});
+
+export const reportSchema = z.object({
+  reason: z.enum(["spam", "fraud", "inappropriate", "wrong_category", "other"]).default("other"),
+  description: z.string().max(1000).optional(),
 });
 
 export const listingsQuerySchema = z.object({

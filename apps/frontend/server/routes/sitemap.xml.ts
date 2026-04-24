@@ -45,7 +45,7 @@ async function fetchAllListingSlugs(backendUrl: string): Promise<ListingItem[]> 
 
 export default defineEventHandler(async (event) => {
   setHeader(event, "Content-Type", "application/xml")
-  setHeader(event, "Cache-Control", "public, max-age=3600, stale-while-revalidate=300")
+  setHeader(event, "Cache-Control", "public, max-age=3600, s-maxage=3600")
 
   const config = useRuntimeConfig(event)
   const backendUrl = (config.backendUrl as string) || "http://localhost:8787"

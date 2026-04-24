@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { HonoEnv } from "../types/env";
 import { userRepository } from "../repositories/user.repository";
 import { listingService } from "../services/listing.service";
-import { AppError } from "../errors";
+import { handleError } from "../lib/handle-error";
 
 const users = new Hono<HonoEnv>();
 
@@ -33,10 +33,7 @@ users.get("/:slug", async (c) => {
       status: "ok",
     });
   } catch (err) {
-    if (err instanceof AppError) {
-      return c.json({ error: err.message, status: "error", code: err.code }, err.statusCode as 500);
-    }
-    throw err;
+    return handleError(c, err);
   }
 });
 

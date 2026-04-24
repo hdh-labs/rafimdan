@@ -23,9 +23,7 @@ import {
   TooManyPhotosError,
   NoWhatsappError,
 } from "../errors";
-
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+import { PHOTO_ALLOWED_TYPES as ALLOWED_TYPES, PHOTO_MAX_FILE_SIZE as MAX_FILE_SIZE } from "../lib/photo-config";
 
 export const listingService = {
   async create(
@@ -117,15 +115,16 @@ export const listingService = {
     const listing = await listingRepository.findBySlug(db, slug);
     if (!listing) throw new ListingNotFoundError();
     if (listing.seller.id !== userId) throw new ForbiddenError("Bu ilan size ait değil");
+    if (listing.status === "sold") throw new ForbiddenError("Satılmış ilan düzenlenemez");
 
     if (input.category_id) {
       const category = await categoryRepository.findById(db, input.category_id);
       if (!category) throw new CategoryNotFoundError();
     }
 
-    const wasRejected = listing.status === "rejected";
+    const needsModeration = listing.status === "rejected" || listing.status === "active";
     const updated = await listingRepository.update(db, listing.id, input);
-    if (wasRejected) {
+    if (needsModeration) {
       return (await listingRepository.moderate(db, listing.id, "pending", null))!;
     }
     return updated!;
@@ -217,7 +216,7 @@ export const listingService = {
     if (listing.seller.id !== userId) throw new ForbiddenError("Bu ilan size ait değil");
 
     if (index < 0 || index >= listing.photos.length) {
-      throw new ListingNotFoundError();
+      throw new AppError("Geçersiz fotoğraf sırası", 400, "INVALID_PHOTO_INDEX");
     }
 
     const photoUrl = listing.photos[index]!;
@@ -240,7 +239,11 @@ export const listingService = {
     if (listing.status !== "active") throw new ForbiddenError("Sadece aktif ilanlar yenilenebilir");
 
     const COOLDOWN_MS = 24 * 60 * 60 * 1000;
-    const lastRefresh = new Date(listing.updated_at).getTime();
+    const tsRow = await db
+      .prepare("SELECT bumped_at, updated_at FROM listings WHERE id = ?")
+      .bind(listing.id)
+      .first<{ bumped_at: string | null; updated_at: string }>();
+    const lastRefresh = new Date(tsRow?.bumped_at ?? tsRow?.updated_at ?? listing.updated_at).getTime();
     if (Date.now() - lastRefresh < COOLDOWN_MS) {
       throw new ForbiddenError("İlan 24 saat içinde bir kez yenilenebilir");
     }

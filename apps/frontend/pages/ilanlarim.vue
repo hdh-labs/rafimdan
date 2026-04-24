@@ -434,13 +434,16 @@ async function deleteListing(slug: string, title: string) {
     >
       <div
         v-if="deleteConfirmSlug"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-modal-title"
         class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/40"
         @click.self="deleteConfirmSlug = null"
         @keydown.esc.window="deleteConfirmSlug = null"
       >
         <div class="w-full sm:max-w-sm bg-background rounded-2xl sm:rounded-xl border border-border shadow-2xl p-6 space-y-4">
           <div>
-            <p class="font-semibold text-sm text-foreground">İlanı sil</p>
+            <p id="delete-modal-title" class="font-semibold text-sm text-foreground">İlanı sil</p>
             <p class="text-sm text-muted-foreground mt-1">
               "{{ listings.find(l => l.slug === deleteConfirmSlug)?.title }}" kalıcı olarak silinecek. Bu işlem geri alınamaz.
             </p>

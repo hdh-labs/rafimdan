@@ -9,6 +9,8 @@ import { AppError } from "../errors";
 import { updateProfileSchema } from "../schemas/auth.schemas";
 import { REFRESH_TOKEN_MAX_AGE_SECONDS } from "../lib/jwt";
 import { validateImageMagicBytes, getImageExtension } from "../lib/image-validation";
+import { handleError } from "../lib/handle-error";
+import { checkRateLimit } from "../lib/rate-limit";
 
 const auth = new Hono<HonoEnv>();
 
@@ -42,12 +44,6 @@ function clearRefreshCookie(c: Context<HonoEnv>): void {
   deleteCookie(c, "refresh_token", { path: "/api/auth", domain: getCookieDomain(c) });
 }
 
-function handleError(c: Context<HonoEnv>, err: unknown) {
-  if (err instanceof AppError) {
-    return c.json({ error: err.message, status: "error", code: err.code }, err.statusCode as 400);
-  }
-  throw err;
-}
 
 function getCallbackUrl(c: Context<HonoEnv>): string {
   const frontendUrl = c.env.CORS_ORIGIN || "http://localhost:3000";
@@ -58,10 +54,24 @@ function getCallbackUrl(c: Context<HonoEnv>): string {
 // GET /google — OAuth başlat
 // ---------------------------------------------------------------------------
 
+const AUTH_RATE_LIMIT = { limit: 10, windowMs: 60 * 60 * 1000 };
+const REFRESH_RATE_LIMIT = { limit: 30, windowMs: 60 * 60 * 1000 };
+
 auth.get("/google", async (c) => {
-  const callbackUrl = getCallbackUrl(c);
-  const { url } = await authService.buildGoogleAuthUrlWithState(c.env, callbackUrl);
-  return c.redirect(url, 302);
+  try {
+    const ip = c.req.header("cf-connecting-ip") ?? c.req.header("x-forwarded-for") ?? "unknown";
+    await checkRateLimit(c.env.DB, {
+      table: "auth_rate_limit",
+      key: `google:${ip}`,
+      ...AUTH_RATE_LIMIT,
+      message: "Çok fazla giriş denemesi. Bir saat sonra tekrar deneyin.",
+    });
+    const callbackUrl = getCallbackUrl(c);
+    const { url } = await authService.buildGoogleAuthUrlWithState(c.env, callbackUrl);
+    return c.redirect(url, 302);
+  } catch (err) {
+    return handleError(c, err);
+  }
 });
 
 // ---------------------------------------------------------------------------
@@ -94,14 +104,12 @@ auth.get("/google/callback", async (c) => {
     const frontendUrl = c.env.CORS_ORIGIN || "http://localhost:3000";
     return c.redirect(`${frontendUrl}/auth/callback`, 302);
   } catch (err) {
-    if (err instanceof AppError) {
-      const frontendUrl = c.env.CORS_ORIGIN || "http://localhost:3000";
-      return c.redirect(
-        `${frontendUrl}/auth/callback?error=${encodeURIComponent(err.message)}`,
-        302,
-      );
-    }
-    throw err;
+    const frontendUrl = c.env.CORS_ORIGIN || "http://localhost:3000";
+    const message = err instanceof AppError ? err.message : "Giriş yapılamadı, tekrar dene";
+    return c.redirect(
+      `${frontendUrl}/auth/callback?error=${encodeURIComponent(message)}`,
+      302,
+    );
   }
 });
 
@@ -128,6 +136,13 @@ auth.post("/logout", async (c) => {
 
 auth.post("/refresh", async (c) => {
   try {
+    const ip = c.req.header("cf-connecting-ip") ?? c.req.header("x-forwarded-for") ?? "unknown";
+    await checkRateLimit(c.env.DB, {
+      table: "auth_rate_limit",
+      key: `refresh:${ip}`,
+      ...REFRESH_RATE_LIMIT,
+      message: "Çok fazla yenileme isteği. Bir saat sonra tekrar deneyin.",
+    });
     const refreshToken = getCookie(c, "refresh_token");
     if (!refreshToken) {
       return c.json(
@@ -221,7 +236,7 @@ auth.post("/me/avatar", authMiddleware, async (c) => {
     if (oldUrl && oldUrl.startsWith(baseUrl)) {
       const oldKey = oldUrl.split("?")[0]!.slice(baseUrl.length + 1);
       if (oldKey !== key) {
-        void c.env.STORAGE.delete(oldKey);
+        try { await c.env.STORAGE.delete(oldKey); } catch { /* orphan cleanup failed */ }
       }
     }
 

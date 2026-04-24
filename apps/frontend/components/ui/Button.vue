@@ -52,6 +52,7 @@ const props = withDefaults(defineProps<Props>(), {
   <button
     :type="type"
     :disabled="disabled || loading"
+    :aria-busy="loading || undefined"
     :class="cn(buttonVariants({ variant, size }), props.class)"
   >
     <Loader2 v-if="loading" class="size-4 animate-spin" />

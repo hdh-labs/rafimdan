@@ -2,9 +2,10 @@ import { toast } from "vue-sonner"
 import { apiFetch, ApiError } from "~/utils/api"
 import { correctAndCompress } from "~/utils/image-utils"
 import type { ApiResponse } from "@rafimdan/shared"
+import { PHOTO_MAX_SIZE, PHOTO_MAX_COUNT } from "~/utils/listing-constants"
 
-const MAX_PHOTO_SIZE = 10 * 1024 * 1024
-const MAX_PHOTOS = 6
+const MAX_PHOTO_SIZE = PHOTO_MAX_SIZE
+const MAX_PHOTOS = PHOTO_MAX_COUNT
 
 type PhotoStatus = "uploading" | "done" | "error"
 
@@ -75,9 +76,19 @@ export function useEagerPhotoUpload() {
   function rotate(index: number) {
     const entry = photos.value[index]
     if (!entry || entry.status === "uploading") return
+    const oldKey = entry.tempKey
     entry.rotation = ((entry.rotation + 90) % 360) as 0 | 90 | 180 | 270
     entry.status = "uploading"
     entry.tempKey = null
+    if (oldKey) {
+      apiFetch("/api/listings/photos/temp", {
+        method: "DELETE",
+        body: JSON.stringify({ key: oldKey }),
+        headers: { "Content-Type": "application/json" },
+      }).catch(() => {
+        toast.warning("Fotoğraf temizleme başarısız")
+      })
+    }
     void uploadEntry(entry)
   }
 
@@ -90,7 +101,17 @@ export function useEagerPhotoUpload() {
 
   function remove(index: number) {
     const entry = photos.value[index]
-    if (entry) URL.revokeObjectURL(entry.previewUrl)
+    if (!entry) return
+    URL.revokeObjectURL(entry.previewUrl)
+    if (entry.tempKey) {
+      apiFetch("/api/listings/photos/temp", {
+        method: "DELETE",
+        body: JSON.stringify({ key: entry.tempKey }),
+        headers: { "Content-Type": "application/json" },
+      }).catch(() => {
+        toast.warning("Fotoğraf temizleme başarısız")
+      })
+    }
     photos.value.splice(index, 1)
   }
 

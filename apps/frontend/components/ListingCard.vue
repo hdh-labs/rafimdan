@@ -34,6 +34,7 @@ interface Props {
   seller: Seller
   created_at: string
   favorites_count?: number
+  eager?: boolean
 }
 
 const props = defineProps<Props>()
@@ -52,6 +53,7 @@ const priceDisplay = computed(() => {
   }
   if (props.listing_type === "service") return "Hizmet Sunuyor"
   if (props.price_type === "free") return "Ücretsiz"
+  if (props.price_type === "trade") return "Takas"
   const formatted = (props.price ?? 0).toLocaleString("tr-TR") + " ₺"
   return formatted
 })
@@ -97,7 +99,7 @@ const placeholderIcon = computed<Component>(() =>
         :src="cover_photo"
         :alt="title"
         class="size-full object-cover group-hover:scale-105 transition-transform duration-300"
-        loading="lazy"
+        :loading="eager ? 'eager' : 'lazy'"
       />
       <div
         v-else
@@ -144,7 +146,7 @@ const placeholderIcon = computed<Component>(() =>
       <div class="flex items-center justify-between gap-2">
         <p
           class="text-sm font-bold"
-          :class="direction === 'request' || listing_type === 'service' || price_type === 'free' ? 'text-brand' : 'text-foreground'"
+          :class="direction === 'request' || listing_type === 'service' || price_type === 'free' || price_type === 'trade' ? 'text-brand' : 'text-foreground'"
         >
           {{ priceDisplay }}
         </p>

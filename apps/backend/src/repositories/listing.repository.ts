@@ -64,6 +64,7 @@ function toListItem(row: ListingRowJoined): ListingListItem {
     updated_at: row.updated_at,
     view_count: row.view_count,
     favorites_count: row.favorites_count,
+    meeting_type: row.meeting_type ?? null,
   };
 }
 
@@ -101,6 +102,7 @@ function toDetail(row: ListingRowJoined): ListingDetail {
     updated_at: row.updated_at,
     view_count: row.view_count,
     favorites_count: row.favorites_count,
+    meeting_type: row.meeting_type ?? null,
   };
 }
 
@@ -146,8 +148,8 @@ export const listingRepository = {
     await db
       .prepare(
         `INSERT INTO listings
-          (id, user_id, title, description, category_id, listing_type, condition, price_type, price, city, district, slug, direction)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          (id, user_id, title, description, category_id, listing_type, condition, price_type, price, city, district, slug, direction, meeting_type)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .bind(
         input.id,
@@ -163,6 +165,7 @@ export const listingRepository = {
         input.district ?? null,
         input.slug,
         input.direction ?? "offer",
+        input.meeting_type ?? null,
       )
       .run();
 
@@ -291,6 +294,7 @@ export const listingRepository = {
     if (input.city !== undefined) { fields.push("city = ?"); values.push(input.city); }
     if (input.district !== undefined) { fields.push("district = ?"); values.push(input.district); }
     if (input.direction !== undefined) { fields.push("direction = ?"); values.push(input.direction); }
+    if (input.meeting_type !== undefined) { fields.push("meeting_type = ?"); values.push(input.meeting_type); }
 
     if (fields.length === 0) return listingRepository.findById(db, id);
 
@@ -348,7 +352,7 @@ export const listingRepository = {
 
   async touch(db: D1Database, id: string): Promise<void> {
     await db
-      .prepare("UPDATE listings SET updated_at = datetime('now') WHERE id = ?")
+      .prepare("UPDATE listings SET bumped_at = datetime('now'), updated_at = datetime('now') WHERE id = ?")
       .bind(id)
       .run();
   },
@@ -390,21 +394,20 @@ export const listingRepository = {
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
 
-    const countRow = await db
-      .prepare(`SELECT COUNT(*) as total FROM listings l ${where}`)
-      .bind(...bindings)
-      .first<{ total: number }>();
+    const [countResult, dataResult] = await db.batch([
+      db.prepare(`SELECT COUNT(*) as total FROM listings l ${where}`).bind(...bindings),
+      db.prepare(`${JOIN_SQL} ${where} ORDER BY l.created_at DESC LIMIT ? OFFSET ?`).bind(...bindings, limit, offset),
+    ]) as [D1Result<{ total: number }>, D1Result<ListingRowJoined>];
 
-    const rows = await db
-      .prepare(`${JOIN_SQL} ${where} ORDER BY l.created_at DESC LIMIT ? OFFSET ?`)
-      .bind(...bindings, limit, offset)
-      .all<ListingRowJoined>();
+    const countRow = countResult.results[0];
+    const rows = dataResult;
 
     return {
       items: (rows.results ?? []).map(toDetail),
       total: countRow?.total ?? 0,
       page,
       limit,
+
     };
   },
 

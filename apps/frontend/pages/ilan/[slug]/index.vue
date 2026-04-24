@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MapPin, Eye, MessageCircle, ChevronLeft, ChevronRight, Pencil, Flag, Share2, AlertCircle, ArrowRight, Clock, XCircle, BookOpen, Monitor, Shirt, Home, Package, Dumbbell, Wrench } from "lucide-vue-next"
+import { MapPin, Eye, MessageCircle, ChevronLeft, ChevronRight, Pencil, Flag, Share2, Link, AlertCircle, ArrowRight, Clock, XCircle, BookOpen, Monitor, Shirt, Home, Package, Dumbbell, Wrench, LogIn } from "lucide-vue-next"
 import type { Component } from "vue"
 import { useSwipe } from "@vueuse/core"
 import { toast } from "vue-sonner"
@@ -49,10 +49,17 @@ const categoryIcon = computed<Component>(
 
 const isService = computed(() => listing.value.listing_type === "service")
 
+const config = useRuntimeConfig()
+const siteUrl = (config.public.siteUrl as string) || "https://rafimdan.com"
+
 useSeoMeta({
   title: () => `${listing.value.title} — Rafımdan`,
-  description: () => listing.value.description?.slice(0, 160) ?? undefined,
+  ogTitle: () => `${listing.value.title} — Rafımdan`,
+  description: () => listing.value.description?.slice(0, 160) ?? `${listing.value.title} — ${listing.value.city}`,
+  ogDescription: () => listing.value.description?.slice(0, 160) ?? `${listing.value.title} — ${listing.value.city}`,
   ogImage: () => listing.value.photos[0] ?? undefined,
+  ogUrl: () => `${siteUrl}/ilan/${listing.value.slug}`,
+  robots: () => (isPending.value || isRejected.value) ? "noindex, nofollow" : undefined,
 })
 
 const selectedIndex = ref(0)
@@ -107,12 +114,13 @@ const priceDisplay = computed(() => {
   if (isService.value) return "Hizmet Sunuyor"
   const { price, price_type } = listing.value
   if (price_type === "free") return "Ücretsiz"
+  if (price_type === "trade") return "Takas"
   const formatted = (price ?? 0).toLocaleString("tr-TR") + " ₺"
   if (price_type === "negotiable") return formatted
   return formatted
 })
 
-const isFree = computed(() => listing.value.price_type === "free")
+const isFree = computed(() => listing.value.price_type === "free" || listing.value.price_type === "trade")
 
 const sellerName = computed(
   () => listing.value.seller.display_name ?? listing.value.seller.name,
@@ -120,9 +128,17 @@ const sellerName = computed(
 
 const sellerInitials = computed(() => getInitials(sellerName.value))
 
+const MEETING_TYPE_LABELS: Record<string, string> = {
+  public: "Ortak yerde buluşma",
+  from_seller: "Adresimden teslim",
+  to_buyer: "Adrese teslim",
+}
 
-const config = useRuntimeConfig()
-const siteUrl = (config.public.siteUrl as string) || "https://rafimdan.com"
+const meetingTypeLabel = computed(
+  () => listing.value.meeting_type ? (MEETING_TYPE_LABELS[listing.value.meeting_type] ?? "") : "",
+)
+
+
 
 useHead({
   script: [
@@ -139,7 +155,7 @@ useHead({
           offers: {
             "@type": "Offer",
             priceCurrency: "TRY",
-            price: listing.value.price ?? 0,
+            price: listing.value.price_type === "free" ? 0 : (listing.value.price ?? undefined),
             availability:
               listing.value.status === "active"
                 ? "https://schema.org/InStock"
@@ -201,27 +217,24 @@ const similarListings = computed(() =>
 
 const reportPending = ref(false)
 
-async function share() {
-  if (!import.meta.client) return
-  const url = window.location.href
-  const { title, price, price_type, city, district } = listing.value
-
+const whatsappShareUrl = computed(() => {
+  const { title, price, price_type, city, district, slug } = listing.value
   const priceText =
     price_type === "free"
       ? "Ücretsiz"
       : price_type === "negotiable"
         ? `${price?.toLocaleString("tr-TR")} ₺ (Pazarlığa açık)`
         : `${price?.toLocaleString("tr-TR")} ₺`
-
   const locationText = district ? `${district}, ${city}` : city
-  const text = `${priceText} · ${locationText}`
+  const url = `${siteUrl}/ilan/${slug}`
+  const text = `${title}\n${priceText} · ${locationText}\n${url}`
+  return `https://wa.me/?text=${encodeURIComponent(text)}`
+})
 
-  if (navigator.share) {
-    await navigator.share({ title, text, url })
-  } else {
-    await navigator.clipboard.writeText(`${title}\n${text}\n${url}`)
-    toast.success("Link kopyalandı.")
-  }
+async function copyLink() {
+  if (!import.meta.client) return
+  await navigator.clipboard.writeText(`${siteUrl}/ilan/${listing.value.slug}`)
+  toast.success("Link kopyalandı.")
 }
 
 
@@ -258,7 +271,7 @@ function onReportKeydown(e: KeyboardEvent) {
   if (e.key !== "Tab" || !reportModalRef.value) return
   const focusable = Array.from(
     reportModalRef.value.querySelectorAll<HTMLElement>(
-      'button, input, [tabindex]:not([tabindex="-1"])',
+      'button, input, textarea, [tabindex]:not([tabindex="-1"])',
     ),
   ).filter((el) => !el.hasAttribute("disabled"))
   if (focusable.length === 0) return
@@ -296,7 +309,7 @@ async function submitReport() {
 </script>
 
 <template>
-  <div class="max-w-5xl mx-auto px-4 py-8 pb-28 md:pb-8 overflow-x-hidden">
+  <div class="max-w-5xl mx-auto px-4 py-8 pb-28 md:pb-8">
     <div class="flex items-center justify-between mb-6">
       <NuxtLink
         to="/ilanlar"
@@ -396,7 +409,7 @@ async function submitReport() {
           </template>
         </div>
 
-        <div v-if="listing.photos.length > 1" class="flex gap-2 overflow-x-auto pb-1">
+        <div v-if="listing.photos.length > 1" class="flex gap-2 overflow-x-auto pb-1 w-full min-w-0 scroll-smooth">
           <button
             v-for="(photo, i) in listing.photos"
             :key="i"
@@ -408,6 +421,19 @@ async function submitReport() {
           >
             <img :src="photo" :alt="`Fotoğraf ${i + 1}`" class="size-full object-cover" />
           </button>
+        </div>
+
+        <div v-if="listing.photos.length > 4" class="flex items-center justify-center gap-1.5" role="tablist" aria-label="Fotoğraf seçici">
+          <button
+            v-for="(_, i) in listing.photos"
+            :key="i"
+            :aria-label="`Fotoğraf ${i + 1}`"
+            :aria-selected="i === selectedIndex"
+            role="tab"
+            class="size-2 rounded-full transition-colors cursor-pointer"
+            :class="i === selectedIndex ? 'bg-foreground' : 'bg-border hover:bg-muted-foreground'"
+            @click="selectedIndex = i"
+          />
         </div>
 
         <div>
@@ -424,24 +450,28 @@ async function submitReport() {
 
           <p
             class="text-2xl font-bold"
-            :class="isRequest || isService || listing.price_type === 'free' ? 'text-brand' : 'text-foreground'"
+            :class="isRequest || isService || isFree ? 'text-brand' : 'text-foreground'"
           >
             {{ priceDisplay }}
           </p>
 
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-sm text-muted-foreground">
-            <span class="flex items-center gap-1">
+            <span class="flex items-center gap-1 min-w-0">
               <MapPin class="size-4 shrink-0" />
-              <span>{{ listing.district ? `${listing.district}, ${listing.city}` : listing.city }}</span>
+              <span class="truncate">{{ listing.district ? `${listing.district}, ${listing.city}` : listing.city }}</span>
             </span>
-            <span class="flex items-center gap-1">
+            <span class="flex items-center gap-1 shrink-0">
               <Eye class="size-4 shrink-0" />
               <span>{{ listing.view_count }} görüntülenme</span>
             </span>
-            <span class="flex items-center gap-1">
+            <span class="flex items-center gap-1 shrink-0">
               <Clock class="size-4 shrink-0" />
               <span>{{ timeAgo(listing.created_at) }}</span>
             </span>
+          </div>
+          <div v-if="meetingTypeLabel" class="flex items-center gap-1 mt-1 text-sm text-muted-foreground">
+            <MapPin class="size-4 shrink-0" />
+            <span>{{ meetingTypeLabel }}</span>
           </div>
 
           <div v-if="listing.description" class="mt-4 prose prose-sm max-w-none">
@@ -491,7 +521,7 @@ async function submitReport() {
           <NuxtLink
             v-if="listing.seller.slug"
             :to="`/profil/${listing.seller.slug}`"
-            class="block w-full text-center text-sm border border-border rounded-md py-2 cursor-pointer hover:bg-muted transition-colors"
+            class="block w-full text-center text-sm font-medium text-foreground border border-border rounded-md py-2 cursor-pointer hover:bg-muted transition-colors"
           >
             Profili Gör
           </NuxtLink>
@@ -516,25 +546,44 @@ async function submitReport() {
           <MessageCircle class="size-5" />
           {{ waButtonText }}
         </a>
+        <NuxtLink
+          v-else-if="!isOwner && !authStore.isLoggedIn"
+          to="/giris"
+          class="flex items-center justify-center gap-2 w-full border border-border hover:bg-muted font-medium py-3 rounded-lg cursor-pointer transition-colors text-sm"
+        >
+          <LogIn class="size-4" />
+          Giriş yap ve iletişime geç
+        </NuxtLink>
         <div v-else-if="!isOwner" class="text-center space-y-1.5">
           <p class="text-sm text-muted-foreground">Satıcı henüz iletişim bilgisi eklememiş.</p>
           <NuxtLink
-            :to="`/profil/${listing.seller.id}`"
+            v-if="listing.seller.slug"
+            :to="`/profil/${listing.seller.slug}`"
             class="text-xs text-brand hover:underline cursor-pointer"
           >
             Profili görüntüle
           </NuxtLink>
         </div>
 
-        <button
-          v-if="listing.status === 'active'"
-          type="button"
-          class="flex items-center justify-center gap-2 w-full border border-border py-2.5 rounded-lg text-sm text-muted-foreground hover:bg-muted cursor-pointer transition-colors"
-          @click="share"
-        >
-          <Share2 class="size-4" />
-          İlanı Paylaş
-        </button>
+        <div v-if="listing.status === 'active'" class="grid grid-cols-2 gap-2">
+          <a
+            :href="whatsappShareUrl"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="flex items-center justify-center gap-2 border border-border py-2.5 rounded-lg text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
+          >
+            <Share2 class="size-4 text-muted-foreground" />
+            Paylaş
+          </a>
+          <button
+            type="button"
+            class="flex items-center justify-center gap-2 border border-border py-2.5 rounded-lg text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
+            @click="copyLink"
+          >
+            <Link class="size-4 text-muted-foreground" />
+            Linki Kopyala
+          </button>
+        </div>
 
         <SafeMeetingTips />
 
@@ -599,18 +648,28 @@ async function submitReport() {
   <!-- Mobil sticky CTA -->
   <Teleport to="body">
     <div
-      v-if="waUrl && !isOwner"
+      v-if="!isOwner && (waUrl || !authStore.isLoggedIn)"
       class="md:hidden fixed bottom-0 inset-x-0 z-40 bg-background border-t border-border px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
     >
       <a
+        v-if="waUrl"
         :href="waUrl"
         target="_blank"
         rel="noopener noreferrer"
+        :aria-label="`${listing.title} — ${waButtonText}`"
         class="flex items-center justify-center gap-2 w-full bg-whatsapp hover:bg-whatsapp-hover text-whatsapp-foreground font-medium py-3 rounded-lg cursor-pointer transition-colors"
       >
-        <MessageCircle class="size-5" />
+        <MessageCircle class="size-5" aria-hidden="true" />
         {{ waButtonText }}
       </a>
+      <NuxtLink
+        v-else
+        to="/giris"
+        class="flex items-center justify-center gap-2 w-full border border-border hover:bg-muted font-medium py-3 rounded-lg cursor-pointer transition-colors text-sm"
+      >
+        <LogIn class="size-4" aria-hidden="true" />
+        Giriş yap ve iletişime geç
+      </NuxtLink>
     </div>
   </Teleport>
 

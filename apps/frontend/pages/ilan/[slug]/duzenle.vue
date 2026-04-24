@@ -8,6 +8,7 @@ import type {
   ListingType,
   ListingCondition,
   ListingPriceType,
+  ListingMeetingType,
   ListingStatus,
   ListingDirection,
 } from "@rafimdan/shared"
@@ -55,6 +56,13 @@ const PRICE_TYPE_OPTIONS: { value: ListingPriceType; label: string }[] = [
   { value: "fixed", label: "Sabit" },
   { value: "negotiable", label: "Pazarlığa Açık" },
   { value: "free", label: "Ücretsiz" },
+  { value: "trade", label: "Takas" },
+]
+
+const MEETING_TYPE_OPTIONS: { value: ListingMeetingType; label: string }[] = [
+  { value: "public", label: "Ortak Yer" },
+  { value: "from_seller", label: "Adresimden" },
+  { value: "to_buyer", label: "Adrese Teslim" },
 ]
 
 const STATUS_OPTIONS: { value: ListingStatus; label: string }[] = [
@@ -73,6 +81,7 @@ const form = reactive({
   city: "",
   district: "",
   description: "",
+  meeting_type: "" as ListingMeetingType | "",
 })
 
 const errors = reactive<Record<string, string>>({})
@@ -126,6 +135,7 @@ watch(listing, (val) => {
   form.city = validCity
   form.district = validCity && getIlceler(validCity).includes(val.district ?? "") ? (val.district ?? "") : ""
   form.description = val.description ?? ""
+  form.meeting_type = (val.meeting_type as ListingMeetingType) ?? ""
   currentStatus.value = val.status
   existingPhotos.value = [...val.photos]
 }, { immediate: true })
@@ -148,7 +158,7 @@ watch(() => form.direction, (val) => {
 })
 
 watch(() => form.price_type, (val) => {
-  if (val === "free") form.price = ""
+  if (val === "free" || val === "trade") form.price = ""
   delete errors.price
 })
 
@@ -173,11 +183,12 @@ function validate(): boolean {
     e.condition = "Ürün durumu seçiniz."
   }
 
-  if (form.price_type !== "free" && form.price !== "") {
+  const priceOptional = form.price_type === "free" || form.price_type === "trade"
+  if (!priceOptional && form.price !== "") {
     if (Number(form.price) <= 0) e.price = "Fiyat 0'dan büyük olmalıdır."
     else if (Number(form.price) > 9_999_999) e.price = "Fiyat 9.999.999 ₺'den fazla olamaz."
   }
-  if (form.direction === "offer" && form.price_type !== "free") {
+  if (form.direction === "offer" && !priceOptional) {
     if (form.price === "" || form.price === null) e.price = "Fiyat zorunludur."
   }
 
@@ -185,6 +196,7 @@ function validate(): boolean {
     e.photos = "En az 1 fotoğraf zorunludur."
   }
 
+  Object.keys(errors).forEach(k => delete (errors as Record<string, string>)[k])
   Object.assign(errors, e)
   return Object.keys(e).length === 0
 }
@@ -265,6 +277,7 @@ async function save() {
     if (form.district) body.district = form.district
     if (form.description.trim()) body.description = form.description.trim()
     if (form.price !== "") body.price = Number(form.price)
+    body.meeting_type = form.meeting_type || null
 
     await apiFetch<ApiResponse<ListingDetail>>(`/api/listings/${slug}`, {
       method: "PATCH",
@@ -503,7 +516,7 @@ async function confirmDelete() {
         </div>
 
         <!-- Fiyat -->
-        <div v-if="form.direction !== 'request' && form.price_type !== 'free'">
+        <div v-if="form.direction !== 'request' && form.price_type !== 'free' && form.price_type !== 'trade'">
           <label class="block text-sm font-medium text-foreground mb-1">
             {{ form.price_type === 'negotiable' ? 'Başlangıç Fiyatı (₺)' : 'Fiyat (₺)' }}
             <span class="text-destructive">*</span>
@@ -537,6 +550,24 @@ async function confirmDelete() {
               :options="ilceler"
               :disabled="!form.city"
             />
+          </div>
+        </div>
+
+        <!-- Buluşma Tercihi -->
+        <div>
+          <span class="block text-sm font-medium text-foreground mb-2">Buluşma Tercihi</span>
+          <div class="grid grid-cols-3 gap-2">
+            <label
+              v-for="opt in MEETING_TYPE_OPTIONS"
+              :key="opt.value"
+              class="flex items-center justify-center py-2 px-3 rounded-xl border text-sm cursor-pointer transition-colors"
+              :class="form.meeting_type === opt.value
+                ? 'border-foreground bg-foreground text-background'
+                : 'border-border hover:bg-muted'"
+            >
+              <input v-model="form.meeting_type" type="radio" :value="opt.value" class="sr-only" />
+              {{ opt.label }}
+            </label>
           </div>
         </div>
 

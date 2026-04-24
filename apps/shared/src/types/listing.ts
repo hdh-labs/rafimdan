@@ -1,14 +1,16 @@
 export type ListingType = "item" | "service";
 export type ListingCondition = "new" | "like_new" | "good" | "fair";
-export type ListingPriceType = "fixed" | "negotiable" | "free";
+export type ListingPriceType = "fixed" | "negotiable" | "free" | "trade";
 export type ListingStatus = "active" | "sold" | "pending" | "rejected";
 export type ListingDirection = "offer" | "request";
+export type ListingMeetingType = "public" | "from_seller" | "to_buyer";
 
 export const LISTING_TYPES = ["item", "service"] as const;
 export const LISTING_CONDITIONS = ["new", "like_new", "good", "fair"] as const;
-export const LISTING_PRICE_TYPES = ["fixed", "negotiable", "free"] as const;
+export const LISTING_PRICE_TYPES = ["fixed", "negotiable", "free", "trade"] as const;
 export const LISTING_STATUSES = ["active", "sold", "pending", "rejected"] as const;
 export const LISTING_DIRECTIONS = ["offer", "request"] as const;
+export const LISTING_MEETING_TYPES = ["public", "from_seller", "to_buyer"] as const;
 
 export type ListingRow = {
   id: string;
@@ -28,6 +30,7 @@ export type ListingRow = {
   rejection_reason: string | null;
   slug: string;
   view_count: number;
+  meeting_type: ListingMeetingType | null;
   created_at: string;
   updated_at: string;
 };
@@ -62,6 +65,7 @@ export type ListingListItem = {
   updated_at: string;
   view_count: number;
   favorites_count: number;
+  meeting_type: ListingMeetingType | null;
 };
 
 export type ListingDetail = Omit<ListingListItem, "cover_photo" | "seller" | "direction"> & {
@@ -93,9 +97,10 @@ export type CreateListingInput = {
   city: string;
   district?: string;
   direction?: ListingDirection;
+  meeting_type?: ListingMeetingType;
 };
 
-export type UpdateListingInput = Omit<Partial<CreateListingInput>, "price" | "district"> & { price?: number | null; district?: string | null };
+export type UpdateListingInput = Omit<Partial<CreateListingInput>, "price" | "district" | "meeting_type"> & { price?: number | null; district?: string | null; meeting_type?: ListingMeetingType | null };
 
 export type UpdateListingStatusInput = {
   status: ListingStatus;
