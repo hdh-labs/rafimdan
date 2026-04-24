@@ -15,6 +15,7 @@ import { generateSlug, findUniqueSlug } from "../lib/slug";
 import { extractStorageKey } from "../lib/storage";
 import { validateImageMagicBytes, getImageExtension } from "../lib/image-validation";
 import {
+  AppError,
   ListingNotFoundError,
   ForbiddenError,
   CategoryNotFoundError,
