@@ -6,9 +6,12 @@ type CategoriesResp = { data: CategoryTree[]; status: "ok" }
 
 const route = useRoute()
 const router = useRouter()
+const config = useRuntimeConfig()
+const siteUrl = (config.public.siteUrl as string) || "https://rafimdan.com"
 const categorySlug = computed(() => route.params.slug as string)
 
-const { data: catsRes } = await useFetch<CategoriesResp>("/api/categories")
+const { data: catsRes, error: catsError } = await useFetch<CategoriesResp>("/api/categories")
+if (catsError.value) throw createError({ statusCode: 500, message: "Kategoriler yüklenemedi" })
 const categories = computed(() => catsRes.value?.data ?? [])
 
 const currentCategory = computed(() => {
@@ -46,6 +49,10 @@ useSeoMeta({
   title: () => `${currentCategory.value?.name ?? ""} İlanları — Rafımdan`,
   description: () =>
     `${currentCategory.value?.name ?? ""} kategorisindeki ikinci el ilanlar. Kargosuz, yüz yüze alışveriş.`,
+  ogTitle: () => `${currentCategory.value?.name ?? ""} İlanları — Rafımdan`,
+  ogDescription: () =>
+    `${currentCategory.value?.name ?? ""} kategorisindeki ikinci el ilanlar.`,
+  ogUrl: () => `${siteUrl}/kategori/${categorySlug.value}`,
 })
 
 </script>

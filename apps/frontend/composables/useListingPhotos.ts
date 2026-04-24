@@ -1,9 +1,10 @@
 import { toast } from "vue-sonner"
 import { apiFetch } from "~/utils/api"
 import { correctAndCompress } from "~/utils/image-utils"
+import { PHOTO_MAX_SIZE, PHOTO_MAX_COUNT } from "~/utils/listing-constants"
 
-const MAX_PHOTO_SIZE = 10 * 1024 * 1024
-const MAX_PHOTOS = 6
+const MAX_PHOTO_SIZE = PHOTO_MAX_SIZE
+const MAX_PHOTOS = PHOTO_MAX_COUNT
 
 type PendingPhoto = {
   file: File

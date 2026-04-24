@@ -18,6 +18,7 @@ export const PRICE_TYPE_LABELS: Record<ListingPriceType, string> = {
   fixed: "Sabit Fiyat",
   negotiable: "Pazarlığa Açık",
   free: "Ücretsiz",
+  trade: "Takas",
 }
 
 export const STATUS_LABELS: Record<ListingStatus, string> = {
@@ -43,6 +44,9 @@ export const DIRECTION_LABELS: Record<"offer" | "request", string> = {
   offer: "Sunuyorum",
   request: "Arıyorum",
 }
+
+export const PHOTO_MAX_SIZE = 10 * 1024 * 1024
+export const PHOTO_MAX_COUNT = 6
 
 export function getInitials(name: string): string {
   return name

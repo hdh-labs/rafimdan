@@ -172,10 +172,12 @@ onUnmounted(() => {
               v-if="menuOpen"
               role="menu"
               class="absolute right-0 top-full mt-1.5 w-44 bg-background border border-border rounded-lg shadow-md py-1 z-50"
+              @focusout="(e: FocusEvent) => { if (!($event.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null)) closeMenu() }"
             >
               <NuxtLink
                 v-if="authStore.user?.slug"
                 :to="`/profil/${authStore.user.slug}`"
+                role="menuitem"
                 class="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
                 @click="closeMenu"
               >
@@ -185,6 +187,7 @@ onUnmounted(() => {
               <div class="border-t border-border my-1" />
               <NuxtLink
                 to="/ilanlarim"
+                role="menuitem"
                 class="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
                 @click="closeMenu"
               >
@@ -193,6 +196,7 @@ onUnmounted(() => {
               </NuxtLink>
               <NuxtLink
                 to="/favoriler"
+                role="menuitem"
                 class="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
                 @click="closeMenu"
               >
@@ -201,6 +205,7 @@ onUnmounted(() => {
               </NuxtLink>
               <NuxtLink
                 to="/ayarlar"
+                role="menuitem"
                 class="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
                 @click="closeMenu"
               >
@@ -211,6 +216,7 @@ onUnmounted(() => {
                 <div class="border-t border-border my-1" />
                 <NuxtLink
                   to="/admin"
+                  role="menuitem"
                   class="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted cursor-pointer transition-colors"
                   @click="closeMenu"
                 >
@@ -226,6 +232,7 @@ onUnmounted(() => {
               </template>
               <div class="border-t border-border my-1" />
               <button
+                role="menuitem"
                 class="flex w-full items-center gap-2 px-3 py-2 text-sm text-destructive hover:bg-muted cursor-pointer transition-colors"
                 @click="authStore.logout(); closeMenu()"
               >

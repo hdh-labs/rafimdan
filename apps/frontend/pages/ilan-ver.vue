@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Upload, X, ImagePlus, MessageCircle, Loader2, RefreshCw, Star, RotateCw } from "lucide-vue-next"
 import { toast } from "vue-sonner"
-import type { ListingDetail, CategoryTree, ApiResponse, ListingType, ListingCondition, ListingPriceType } from "@rafimdan/shared"
+import type { ListingDetail, CategoryTree, ApiResponse, ListingType, ListingCondition, ListingPriceType, ListingMeetingType, ListingDirection } from "@rafimdan/shared"
 import { apiFetch, ApiError } from "~/utils/api"
 import { IL_NAMES, getIlceler } from "~/utils/turkey-locations"
 
@@ -17,6 +17,7 @@ const initialListingType = route.query.listing_type === "service" ? "service" : 
 
 const form = reactive({
   listing_type: initialListingType as ListingType,
+  direction: "offer" as ListingDirection,
   title: "",
   category_id: "",
   condition: "" as ListingCondition | "",
@@ -25,6 +26,7 @@ const form = reactive({
   city: IL_NAMES.includes(authStore.user?.city ?? "") ? (authStore.user?.city ?? "") : "",
   district: "",
   description: "",
+  meeting_type: "" as ListingMeetingType | "",
 })
 
 const errors = reactive<Record<string, string>>({})
@@ -83,8 +85,20 @@ watch(() => form.listing_type, () => {
   Object.keys(errors).forEach((k) => delete errors[k])
 })
 
+watch(() => form.direction, (dir) => {
+  if (dir === "request") {
+    form.price_type = "free"
+    form.price = ""
+    form.condition = ""
+    delete errors.price
+    delete errors.condition
+  } else {
+    form.price_type = "fixed"
+  }
+})
+
 watch(() => form.price_type, (val) => {
-  if (val === "free") form.price = ""
+  if (val === "free" || val === "trade") form.price = ""
   delete errors.price
 })
 
@@ -112,14 +126,15 @@ function validate(): boolean {
   if (!form.category_id) e.category_id = "Kategori seçiniz."
   if (!form.city) e.city = "Şehir seçiniz."
 
-  if (form.listing_type === "item" && !form.condition) {
+  if (form.listing_type === "item" && form.direction === "offer" && !form.condition) {
     e.condition = "Ürün durumu seçiniz."
   }
 
-  if (form.price_type !== "free" && form.price !== "") {
+  const priceOptional = form.direction === "request" || form.price_type === "free" || form.price_type === "trade"
+  if (!priceOptional && form.price !== "") {
     if (Number(form.price) <= 0) e.price = "Fiyat 0'dan büyük olmalıdır."
   }
-  if (form.price_type !== "free") {
+  if (!priceOptional) {
     if (form.price === "" || form.price === null) e.price = "Fiyat zorunludur."
   }
 
@@ -137,10 +152,10 @@ async function doSubmit() {
   try {
     const body: Record<string, unknown> = {
       listing_type: form.listing_type,
+      direction: form.direction,
       title: form.title.trim(),
       category_id: form.category_id,
       price_type: form.price_type,
-      direction: "offer",
       city: form.city,
     }
     if (form.listing_type === "item") {
@@ -149,6 +164,7 @@ async function doSubmit() {
     if (form.district) body.district = form.district
     if (form.description.trim()) body.description = form.description.trim()
     if (form.price !== "") body.price = Number(form.price)
+    if (form.meeting_type) body.meeting_type = form.meeting_type
     if (doneKeys.value.length > 0) body.temp_photo_keys = doneKeys.value
 
     const res = await apiFetch<ApiResponse<ListingDetail>>("/api/listings", {
@@ -188,6 +204,12 @@ const descPlaceholder = computed(() => {
     <h1 class="text-xl font-bold text-foreground mb-6">İlan Ver</h1>
 
     <ClientOnly>
+      <template #fallback>
+        <div class="py-16 flex flex-col items-center gap-3">
+          <div class="size-8 rounded-full border-2 border-brand border-t-transparent animate-spin" />
+          <p class="text-sm text-muted-foreground">Yükleniyor...</p>
+        </div>
+      </template>
       <!-- WhatsApp Gate -->
       <div v-if="!authStore.user?.whatsapp" class="py-8 flex flex-col items-center text-center gap-4">
         <div class="size-16 rounded-full bg-brand/10 flex items-center justify-center">
@@ -233,6 +255,33 @@ const descPlaceholder = computed(() => {
         </label>
       </div>
 
+      <!-- Yön (Satıyorum / Arıyorum) -->
+      <div>
+        <span id="direction-label" class="block text-sm font-medium text-foreground mb-2">Ne yapmak istiyorsun?</span>
+        <div role="group" aria-labelledby="direction-label" class="grid grid-cols-2 gap-3">
+          <label
+            class="flex flex-col items-center gap-1.5 py-3 px-4 rounded-lg border-2 cursor-pointer transition-colors"
+            :class="form.direction === 'offer'
+              ? 'border-brand bg-brand text-brand-foreground'
+              : 'border-border hover:bg-muted'"
+          >
+            <input v-model="form.direction" type="radio" value="offer" class="sr-only" />
+            <span class="text-sm font-semibold">Satıyorum / Veriyorum</span>
+            <span class="text-xs opacity-70">Eşyan veya hizmetin var</span>
+          </label>
+          <label
+            class="flex flex-col items-center gap-1.5 py-3 px-4 rounded-lg border-2 cursor-pointer transition-colors"
+            :class="form.direction === 'request'
+              ? 'border-brand bg-brand text-brand-foreground'
+              : 'border-border hover:bg-muted'"
+          >
+            <input v-model="form.direction" type="radio" value="request" class="sr-only" />
+            <span class="text-sm font-semibold">Arıyorum</span>
+            <span class="text-xs opacity-70">Almak veya bulmak istiyorsun</span>
+          </label>
+        </div>
+      </div>
+
       <!-- Başlık -->
       <div>
         <label for="form-title" class="block text-sm font-medium text-foreground mb-1">
@@ -276,8 +325,8 @@ const descPlaceholder = computed(() => {
         <p v-if="errors.category_id" class="mt-1 text-xs text-destructive">{{ errors.category_id }}</p>
       </div>
 
-      <!-- Ürün Durumu (sadece eşya) -->
-      <div v-if="form.listing_type === 'item'">
+      <!-- Ürün Durumu (sadece eşya, sadece offer) -->
+      <div v-if="form.listing_type === 'item' && form.direction === 'offer'">
         <span id="condition-label" class="block text-sm font-medium text-foreground mb-2">
           Ürün Durumu <span class="text-destructive">*</span>
         </span>
@@ -300,13 +349,13 @@ const descPlaceholder = computed(() => {
       </div>
 
       <!-- Fiyat Tipi -->
-      <div>
+      <div v-if="form.direction === 'offer'">
         <span id="price-type-label" class="block text-sm font-medium text-foreground mb-2">
           Fiyat Tipi <span class="text-destructive">*</span>
         </span>
-        <div role="group" aria-labelledby="price-type-label" class="grid grid-cols-3 gap-2">
+        <div role="group" aria-labelledby="price-type-label" class="grid grid-cols-2 sm:grid-cols-4 gap-2">
           <label
-            v-for="opt in [{ value: 'fixed', label: 'Sabit' }, { value: 'negotiable', label: 'Pazarlığa Açık' }, { value: 'free', label: 'Ücretsiz' }]"
+            v-for="opt in [{ value: 'fixed', label: 'Sabit' }, { value: 'negotiable', label: 'Pazarlığa Açık' }, { value: 'free', label: 'Ücretsiz' }, { value: 'trade', label: 'Takas' }]"
             :key="opt.value"
             class="flex items-center justify-center py-2 px-3 rounded-md border text-sm cursor-pointer transition-colors"
             :class="form.price_type === opt.value
@@ -320,7 +369,7 @@ const descPlaceholder = computed(() => {
       </div>
 
       <!-- Fiyat -->
-      <div v-if="form.price_type !== 'free'">
+      <div v-if="form.direction === 'offer' && form.price_type !== 'free' && form.price_type !== 'trade'">
         <label for="form-price" class="block text-sm font-medium text-foreground mb-1">
           {{ form.price_type === 'negotiable' ? 'Başlangıç Fiyatı (₺)' : 'Fiyat (₺)' }}
           <span class="text-destructive">*</span>
@@ -356,6 +405,24 @@ const descPlaceholder = computed(() => {
             :disabled="!form.city"
             input-id="form-district"
           />
+        </div>
+      </div>
+
+      <!-- Buluşma Tercihi -->
+      <div>
+        <span id="meeting-type-label" class="block text-sm font-medium text-foreground mb-2">Buluşma Tercihi</span>
+        <div role="group" aria-labelledby="meeting-type-label" class="grid grid-cols-3 gap-2">
+          <label
+            v-for="opt in [{ value: 'public', label: 'Ortak Yer' }, { value: 'from_seller', label: 'Adresimden' }, { value: 'to_buyer', label: 'Adrese Teslim' }]"
+            :key="opt.value"
+            class="flex items-center justify-center py-2 px-3 rounded-md border text-sm cursor-pointer transition-colors"
+            :class="form.meeting_type === opt.value
+              ? 'border-foreground bg-foreground text-background'
+              : 'border-border hover:bg-muted'"
+          >
+            <input v-model="form.meeting_type" type="radio" :value="opt.value" class="sr-only" />
+            {{ opt.label }}
+          </label>
         </div>
       </div>
 
@@ -450,20 +517,24 @@ const descPlaceholder = computed(() => {
             <button
               v-if="photo.status !== 'uploading'"
               type="button"
-              class="absolute top-1 right-1 size-5 rounded-full bg-black/60 flex items-center justify-center cursor-pointer"
+              class="absolute top-0 right-0 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer"
               @click="remove(i)"
             >
-              <X class="size-3 text-white" />
+              <span class="size-5 rounded-full bg-black/60 flex items-center justify-center">
+                <X class="size-3 text-white" />
+              </span>
             </button>
 
             <!-- Rotate butonu -->
             <button
               v-if="photo.status === 'done'"
               type="button"
-              class="absolute top-1 left-1 size-5 rounded-full bg-black/60 flex items-center justify-center cursor-pointer"
+              class="absolute top-0 left-0 min-w-[44px] min-h-[44px] flex items-center justify-center cursor-pointer"
               @click.stop="rotate(i)"
             >
-              <RotateCw class="size-3 text-white" />
+              <span class="size-5 rounded-full bg-black/60 flex items-center justify-center">
+                <RotateCw class="size-3 text-white" />
+              </span>
             </button>
           </div>
 
@@ -480,6 +551,7 @@ const descPlaceholder = computed(() => {
               accept="image/*"
               multiple
               class="sr-only"
+              aria-label="Fotoğraf seç"
               @change="onFileChange"
             />
           </label>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { X } from "lucide-vue-next"
 import type { ListingListItem, PaginatedResponse, CategoryTree } from "@rafimdan/shared"
-import { getIlceler } from "~/utils/turkey-locations"
+import { getIlceler, IL_NAMES } from "~/utils/turkey-locations"
 import { PRICE_TYPE_LABELS } from "~/utils/listing-constants"
 
 type ListingsResp = { data: PaginatedResponse<ListingListItem>; status: "ok" }
@@ -9,7 +9,13 @@ type CategoriesResp = { data: CategoryTree[]; status: "ok" }
 
 const route = useRoute()
 const router = useRouter()
+const config = useRuntimeConfig()
+const siteUrl = (config.public.siteUrl as string) || "https://rafimdan.com"
 const city = computed(() => route.params.city as string)
+
+if (!IL_NAMES.includes(route.params.city as string)) {
+  throw createError({ statusCode: 404, message: "Şehir bulunamadı" })
+}
 
 const { data: categoriesRes } = await useFetch<CategoriesResp>("/api/categories")
 const categories = computed(() => categoriesRes.value?.data ?? [])
@@ -23,7 +29,7 @@ const draft = reactive({
 
 const ilceler = computed(() => getIlceler(city.value))
 
-const { data: listingsRes, pending } = await useFetch<ListingsResp>(
+const { data: listingsRes, pending, error: listingsError } = await useFetch<ListingsResp>(
   () => {
     const p = new URLSearchParams({ city: city.value, limit: "20" })
     if (route.query.district) p.set("district", route.query.district as string)
@@ -79,6 +85,10 @@ useSeoMeta({
   title: () => `${city.value} İkinci El İlanları — Rafımdan`,
   description: () =>
     `${city.value}'deki ikinci el ilanlar. Kargosuz, ahali ile yüz yüze alışveriş.`,
+  ogTitle: () => `${city.value} İlanları — Rafımdan`,
+  ogDescription: () =>
+    `${city.value} yakınındaki ikinci el ilanlar. Kargosuz, yüz yüze alışveriş.`,
+  ogUrl: () => `${siteUrl}/ilanlar/${route.params.city as string}`,
 })
 </script>
 
@@ -96,7 +106,9 @@ useSeoMeta({
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
+      <label class="sr-only" for="filter-district">İlçe</label>
       <select
+        id="filter-district"
         v-model="draft.district"
         class="px-3 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
         @change="applyFilters"
@@ -105,7 +117,9 @@ useSeoMeta({
         <option v-for="ilce in ilceler" :key="ilce" :value="ilce">{{ ilce }}</option>
       </select>
 
+      <label class="sr-only" for="filter-category">Kategori</label>
       <select
+        id="filter-category"
         v-model="draft.category"
         class="px-3 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
         @change="applyFilters"
@@ -119,7 +133,9 @@ useSeoMeta({
         </template>
       </select>
 
+      <label class="sr-only" for="filter-price-type">Fiyat Tipi</label>
       <select
+        id="filter-price-type"
         v-model="draft.price_type"
         class="px-3 py-1.5 text-sm border border-border rounded-md bg-background focus:outline-none focus:ring-1 focus:ring-ring cursor-pointer"
         @change="applyFilters"
@@ -169,6 +185,16 @@ useSeoMeta({
       </div>
     </div>
 
+    <div v-else-if="listingsError" class="py-16 text-center space-y-2">
+      <p class="text-muted-foreground text-sm">İlanlar yüklenirken bir hata oluştu.</p>
+      <button
+        class="text-sm text-foreground underline underline-offset-2 cursor-pointer"
+        @click="() => refreshNuxtData()"
+      >
+        Tekrar dene
+      </button>
+    </div>
+
     <template v-else>
       <div v-if="listings.length === 0" class="py-16 text-center">
         <p class="text-muted-foreground text-sm">{{ city }} için sonuç bulunamadı.</p>
@@ -190,7 +216,7 @@ useSeoMeta({
 
       <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
         <ListingCard
-          v-for="listing in listings"
+          v-for="(listing, index) in listings"
           :key="listing.id"
           :id="listing.id"
           :slug="listing.slug"
@@ -209,6 +235,7 @@ useSeoMeta({
           }"
           :created_at="listing.created_at"
           :favorites_count="listing.favorites_count"
+          :eager="index < 3"
         />
       </div>
 

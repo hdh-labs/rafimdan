@@ -1,6 +1,6 @@
 import { defineStore } from "pinia"
 import { toast } from "vue-sonner"
-import { apiFetch } from "~/utils/api"
+import { apiFetch, ApiError } from "~/utils/api"
 import type { FavoritesResponse } from "@rafimdan/shared"
 
 export const useFavoritesStore = defineStore("favorites", () => {
@@ -58,14 +58,20 @@ export const useFavoritesStore = defineStore("favorites", () => {
         })
         toast.success("Favorilere eklendi")
       }
-    } catch {
-      if (wasFavorited) {
+    } catch (err) {
+      if (!wasFavorited && err instanceof ApiError && err.code === "FAVORITE_ALREADY_EXISTS") {
         ids.value.add(listingId)
+        ids.value = new Set(ids.value)
+        toast.success("Favorilere eklendi")
       } else {
-        ids.value.delete(listingId)
+        if (wasFavorited) {
+          ids.value.add(listingId)
+        } else {
+          ids.value.delete(listingId)
+        }
+        ids.value = new Set(ids.value)
+        toast.error("Favori işlemi başarısız, tekrar dene")
       }
-      ids.value = new Set(ids.value)
-      toast.error("Favori işlemi başarısız, tekrar dene")
     } finally {
       pending.value.delete(listingId)
       pending.value = new Set(pending.value)

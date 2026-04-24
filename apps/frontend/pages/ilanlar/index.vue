@@ -13,7 +13,7 @@ const router = useRouter()
 const { data: categoriesRes } = await useFetch<CategoriesResp>("/api/categories")
 const categories = computed(() => categoriesRes.value?.data ?? [])
 
-const { data: listingsRes, pending } = await useFetch<ListingsResp>(
+const { data: listingsRes, pending, error: listingsError } = await useFetch<ListingsResp>(
   () => {
     const p = new URLSearchParams()
     const q = route.query
@@ -291,6 +291,16 @@ useSeoMeta({
           />
         </div>
 
+        <div v-else-if="listingsError" class="py-16 text-center space-y-2">
+          <p class="text-muted-foreground text-sm">İlanlar yüklenirken bir hata oluştu.</p>
+          <button
+            class="text-sm text-foreground underline underline-offset-2 cursor-pointer"
+            @click="() => refreshNuxtData()"
+          >
+            Tekrar dene
+          </button>
+        </div>
+
         <template v-else>
           <div v-if="listings.length === 0" class="py-16 text-center space-y-2">
             <p class="text-muted-foreground text-sm">
@@ -308,7 +318,7 @@ useSeoMeta({
 
           <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-4">
             <ListingCard
-              v-for="listing in listings"
+              v-for="(listing, index) in listings"
               :key="listing.id"
               :id="listing.id"
               :slug="listing.slug"
@@ -327,6 +337,7 @@ useSeoMeta({
               }"
               :created_at="listing.created_at"
               :favorites_count="listing.favorites_count"
+              :eager="index < 3"
             />
           </div>
 
@@ -372,14 +383,18 @@ useSeoMeta({
     <Transition name="drawer">
       <div
         v-if="drawerOpen"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Filtreler"
         class="md:hidden fixed inset-0 z-50 flex flex-col justify-end"
         @click.self="drawerOpen = false"
+        @keydown.esc="drawerOpen = false"
       >
         <div class="absolute inset-0 bg-black/40" @click="drawerOpen = false" />
         <div class="relative bg-background rounded-t-2xl shadow-xl max-h-[85dvh] flex flex-col">
           <div class="flex items-center justify-between px-4 pt-4 pb-3 border-b border-border">
             <span class="text-sm font-semibold">Filtreler</span>
-            <button class="text-muted-foreground hover:text-foreground cursor-pointer" @click="drawerOpen = false">
+            <button class="text-muted-foreground hover:text-foreground cursor-pointer" aria-label="Filtreleri kapat" @click="drawerOpen = false">
               <X class="size-5" />
             </button>
           </div>

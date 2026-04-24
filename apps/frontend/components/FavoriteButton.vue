@@ -29,7 +29,7 @@ async function handleClick(e: Event) {
       :disabled="isPending"
       :aria-label="isFavorited ? 'Favorilerden çıkar' : 'Favorilere ekle'"
       :aria-pressed="isFavorited"
-      class="flex items-center gap-0.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-opacity relative z-10"
+      class="flex items-center gap-0.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-opacity relative z-10 p-1.5 -m-1.5 rounded"
       @click="handleClick"
     >
       <Heart

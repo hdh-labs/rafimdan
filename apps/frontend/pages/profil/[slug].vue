@@ -11,11 +11,13 @@ type ProfileResp = {
 }
 
 const route = useRoute()
+const config = useRuntimeConfig()
+const siteUrl = (config.public.siteUrl as string) || "https://rafimdan.com"
 const slug = computed(() => route.params.slug as string)
 
-const { data: res, error } = await useFetch<ProfileResp>(() => `/api/users/${slug.value}`)
+const { data: res, pending, error } = await useFetch<ProfileResp>(() => `/api/users/${slug.value}`)
 
-if (error.value || !res.value) {
+if (error.value || (!pending.value && !res.value)) {
   throw createError({ statusCode: 404, message: "Kullanıcı bulunamadı" })
 }
 
@@ -50,11 +52,36 @@ useSeoMeta({
   title: () => `${displayName.value} — Rafımdan`,
   description: () =>
     `${displayName.value} kullanıcısının Rafımdan'daki ${listings.value.length} aktif ilanı.`,
+  ogImage: () => profile.value.avatar_url ?? undefined,
+  ogUrl: () => `${siteUrl}/profil/${slug.value}`,
 })
 </script>
 
 <template>
   <div class="max-w-5xl mx-auto px-4 py-8 space-y-8">
+
+    <!-- Loading skeleton -->
+    <template v-if="pending">
+      <div class="flex items-start gap-4 animate-pulse">
+        <div class="size-16 rounded-full bg-muted shrink-0" />
+        <div class="space-y-2 flex-1 pt-1">
+          <div class="h-5 bg-muted rounded w-40" />
+          <div class="h-3.5 bg-muted rounded w-28" />
+          <div class="h-3.5 bg-muted rounded w-20" />
+        </div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        <div v-for="i in 4" :key="i" class="rounded-lg border border-border overflow-hidden animate-pulse">
+          <div class="aspect-[4/3] bg-muted" />
+          <div class="p-3 space-y-2">
+            <div class="h-3.5 bg-muted rounded w-3/4" />
+            <div class="h-3 bg-muted rounded w-1/2" />
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <template v-else>
     <div class="flex items-start gap-4">
       <span
         class="inline-flex shrink-0 items-center justify-center size-16 rounded-full bg-muted text-lg font-semibold text-muted-foreground overflow-hidden"
@@ -150,5 +177,6 @@ useSeoMeta({
         />
       </div>
     </div>
+    </template>
   </div>
 </template>

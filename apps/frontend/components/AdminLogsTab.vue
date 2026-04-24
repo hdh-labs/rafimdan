@@ -141,7 +141,7 @@ function formatRelative(iso: string): string {
                 <template v-if="log.target_type === 'listing'">
                   <NuxtLink
                     v-if="log.meta_parsed?.slug"
-                    :to="`/ilanlar/${log.meta_parsed.slug}`"
+                    :to="`/ilan/${log.meta_parsed.slug}`"
                     class="font-medium text-foreground hover:underline truncate max-w-[220px] block"
                   >
                     {{ log.meta_parsed.title ?? log.target_id }}
@@ -210,7 +210,7 @@ function formatRelative(iso: string): string {
             <template v-if="log.target_type === 'listing'">
               <NuxtLink
                 v-if="log.meta_parsed?.slug"
-                :to="`/ilanlar/${log.meta_parsed.slug}`"
+                :to="`/ilan/${log.meta_parsed.slug}`"
                 class="font-medium text-foreground hover:underline line-clamp-1"
               >
                 {{ log.meta_parsed.title ?? log.target_id }}

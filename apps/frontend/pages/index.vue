@@ -5,10 +5,11 @@ import type { ListingListItem, CategoryTree, ApiResponse, PaginatedResponse } fr
 type ListingsData = ApiResponse<PaginatedResponse<ListingListItem>>
 type CategoriesData = ApiResponse<CategoryTree[]>
 
-const { data: listingsRes } = await useFetch<ListingsData>("/api/listings?limit=8&page=1")
+const { data: listingsRes, pending: listingsPending, error: listingsError } = await useFetch<ListingsData>("/api/listings?limit=8&page=1")
 const { data: categoriesRes } = await useFetch<CategoriesData>("/api/categories")
 const listings = computed(() => listingsRes.value?.data.items ?? [])
 const categories = computed(() => categoriesRes.value?.data ?? [])
+const fetchFailed = computed(() => !!listingsError.value)
 
 useSeoMeta({
   title: "Rafımdan — Yerel İkinci El Pazar Yeri",
@@ -62,7 +63,25 @@ useSeoMeta({
     </section>
 
     <!-- Son İlanlar -->
-    <section v-if="listings.length === 0" class="text-center py-12 space-y-3">
+    <section v-if="fetchFailed" class="text-center py-12 space-y-3">
+      <p class="text-muted-foreground text-sm">İlanlar yüklenirken bir hata oluştu. Sayfayı yenileyin.</p>
+    </section>
+    <section v-else-if="listingsPending" class="space-y-4">
+      <div class="flex items-center gap-2">
+        <Clock class="size-5 text-brand" />
+        <h2 class="text-xl font-bold text-foreground">Son İlanlar</h2>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+        <div v-for="i in 6" :key="i" class="rounded-lg border border-border overflow-hidden animate-pulse">
+          <div class="aspect-[4/3] bg-muted" />
+          <div class="p-3 space-y-2">
+            <div class="h-3.5 bg-muted rounded w-3/4" />
+            <div class="h-3 bg-muted rounded w-1/2" />
+          </div>
+        </div>
+      </div>
+    </section>
+    <section v-else-if="listings.length === 0" class="text-center py-12 space-y-3">
       <p class="text-muted-foreground text-sm">Henüz ilan yok. İlk ilanı sen ver!</p>
       <NuxtLink
         to="/ilan-ver"
@@ -88,7 +107,7 @@ useSeoMeta({
       </div>
       <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
         <ListingCard
-          v-for="listing in listings"
+          v-for="(listing, index) in listings"
           :key="listing.id"
           :id="listing.id"
           :slug="listing.slug"
@@ -107,6 +126,7 @@ useSeoMeta({
           }"
           :created_at="listing.created_at"
           :favorites_count="listing.favorites_count"
+          :eager="index < 3"
         />
       </div>
     </section>
