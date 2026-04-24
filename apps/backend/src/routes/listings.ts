@@ -11,9 +11,12 @@ import {
   updateListingSchema,
   listingStatusSchema,
   listingsQuerySchema,
+  reportSchema,
 } from "../schemas/listing.schemas";
 import { validateImageMagicBytes, getImageExtension } from "../lib/image-validation";
 import { handleError } from "../lib/handle-error";
+import { PHOTO_ALLOWED_TYPES, PHOTO_MAX_FILE_SIZE } from "../lib/photo-config";
+import { checkRateLimit } from "../lib/rate-limit";
 
 const listings = new Hono<HonoEnv>();
 
@@ -25,6 +28,7 @@ listings.get("/", zValidator("query", listingsQuerySchema), async (c) => {
   try {
     const params = c.req.valid("query");
     const result = await listingService.getAll(c.env.DB, params);
+    c.header("Cache-Control", "public, max-age=30, s-maxage=60");
     return c.json({ data: result, status: "ok" });
   } catch (err) {
     return handleError(c, err);
@@ -38,6 +42,13 @@ listings.get("/", zValidator("query", listingsQuerySchema), async (c) => {
 listings.post("/", authMiddleware, zValidator("json", createListingSchema), async (c) => {
   try {
     const { sub } = c.get("user");
+    await checkRateLimit(c.env.DB, {
+      table: "listing_rate_limit",
+      key: `create:${sub}`,
+      limit: 10,
+      windowMs: 60 * 60 * 1000,
+      message: "Saatte en fazla 10 ilan oluşturabilirsiniz",
+    });
     const { temp_photo_keys, ...body } = c.req.valid("json");
     const listing = await listingService.create(c.env.DB, c.env, sub, body, temp_photo_keys);
     return c.json({ data: listing, status: "ok" }, 201);
@@ -53,6 +64,13 @@ listings.post("/", authMiddleware, zValidator("json", createListingSchema), asyn
 listings.post("/photos/temp", authMiddleware, async (c) => {
   try {
     const { sub } = c.get("user");
+    await checkRateLimit(c.env.DB, {
+      table: "listing_rate_limit",
+      key: `photo:${sub}`,
+      limit: 60,
+      windowMs: 60 * 60 * 1000,
+      message: "Saatte en fazla 60 fotoğraf yükleyebilirsiniz",
+    });
 
     const contentType = c.req.header("content-type") ?? "";
     if (!contentType.includes("multipart/form-data")) {
@@ -68,12 +86,10 @@ listings.post("/photos/temp", authMiddleware, async (c) => {
       return c.json({ error: "Dosya gerekli", status: "error", code: "MISSING_FILE" }, 400);
     }
 
-    const MAX_FILE_SIZE = 10 * 1024 * 1024;
-    const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
-    if (file.size > MAX_FILE_SIZE) {
+    if (file.size > PHOTO_MAX_FILE_SIZE) {
       return c.json({ error: "Dosya 10 MB'dan küçük olmalı", status: "error", code: "FILE_TOO_LARGE" }, 400);
     }
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    if (!(PHOTO_ALLOWED_TYPES as readonly string[]).includes(file.type)) {
       return c.json({ error: "Yalnızca JPEG, PNG veya WebP formatı desteklenir", status: "error", code: "INVALID_FILE_TYPE" }, 400);
     }
 
@@ -142,6 +158,13 @@ listings.get("/:slug", optionalAuthMiddleware, async (c) => {
     const slug = c.req.param("slug");
     const viewerId = c.get("user")?.sub;
     const listing = await listingService.getBySlug(c.env.DB, slug, viewerId);
+    if (!viewerId) {
+      c.header("Cache-Control", "public, max-age=20, s-maxage=30");
+      return c.json({
+        data: { ...listing, seller: { ...listing.seller, whatsapp: null } },
+        status: "ok",
+      });
+    }
     return c.json({ data: listing, status: "ok" });
   } catch (err) {
     return handleError(c, err);
@@ -293,16 +316,12 @@ listings.delete("/:slug/photos/:index", authMiddleware, async (c) => {
 // POST /:slug/report — bildir
 // ---------------------------------------------------------------------------
 
-listings.post("/:slug/report", authMiddleware, async (c) => {
+listings.post("/:slug/report", authMiddleware, zValidator("json", reportSchema), async (c) => {
   try {
     const { sub } = c.get("user");
     const slug = c.req.param("slug");
-    const body = await c.req.json<{ reason?: string; description?: string }>();
-    const reason = body?.reason ?? "other";
-    const description = typeof body?.description === "string"
-      ? body.description.slice(0, 1000)
-      : null;
-    await reportService.report(c.env.DB, sub, slug, reason, description);
+    const { reason, description } = c.req.valid("json");
+    await reportService.report(c.env.DB, sub, slug, reason, description ?? null);
     return c.json({ data: null, status: "ok" }, 201);
   } catch (err) {
     return handleError(c, err);

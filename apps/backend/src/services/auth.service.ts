@@ -67,15 +67,19 @@ async function fetchGoogleUserInfo(accessToken: string): Promise<GoogleUserInfo>
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
-  if (!res.ok) throw new OAuthError("Failed to fetch Google user info");
+  if (!res.ok) throw new OAuthError("Google hesabı bilgileri alınamadı. Tekrar deneyin.");
 
   const data = (await res.json()) as Record<string, unknown>;
+  const id = typeof data["id"] === "string" ? data["id"] : null;
+  const email = typeof data["email"] === "string" ? data["email"] : null;
+
+  if (!id || !email) throw new OAuthError("Google hesabı bilgileri eksik. Tekrar deneyin.");
 
   return {
-    id: data["id"] as string,
-    email: data["email"] as string,
-    name: (data["name"] as string | null) ?? (data["email"] as string).split("@")[0]!,
-    picture: (data["picture"] as string | null) ?? null,
+    id,
+    email,
+    name: typeof data["name"] === "string" ? data["name"] : email.split("@")[0]!,
+    picture: typeof data["picture"] === "string" ? data["picture"] : null,
   };
 }
 
@@ -239,6 +243,11 @@ export const authService = {
       catch { return []; }
     });
     await Promise.allSettled(photoKeys.map(key => env.STORAGE.delete(key)));
+
+    if (user.avatar_url) {
+      const avatarKey = extractStorageKey(user.avatar_url.split("?")[0]!, bucketBase);
+      try { await env.STORAGE.delete(avatarKey); } catch { /* cleanup failed */ }
+    }
 
     await refreshTokenRepository.deleteAllByUserId(db, userId);
     await userRepository.deleteById(db, userId);

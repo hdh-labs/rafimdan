@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import type { HonoEnv } from "../types/env";
 import { AppError } from "../errors";
+import { handleError } from "../lib/handle-error";
 import { authMiddleware, optionalAuthMiddleware } from "../middleware/auth";
 import { userRepository } from "../repositories/user.repository";
 import { validateImageMagicBytes, getImageExtension } from "../lib/image-validation";
@@ -32,43 +33,47 @@ const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp
 // ---------------------------------------------------------------------------
 
 feedback.post("/attachments", optionalAuthMiddleware, async (c) => {
-  const user = c.get("user");
-  if (!user?.sub) {
-    const ip = c.req.header("cf-connecting-ip") ?? c.req.header("x-forwarded-for") ?? "unknown";
-    await checkAnonRateLimit(c.env.DB, ip);
+  try {
+    const user = c.get("user");
+    if (!user?.sub) {
+      const ip = c.req.header("cf-connecting-ip") ?? c.req.header("x-forwarded-for") ?? "unknown";
+      await checkAnonRateLimit(c.env.DB, ip);
+    }
+
+    const contentType = c.req.header("content-type") ?? "";
+    if (!contentType.includes("multipart/form-data")) {
+      throw new AppError("Content-Type multipart/form-data olmalı", 400, "INVALID_CONTENT_TYPE");
+    }
+
+    const formData = await c.req.formData();
+    const file = formData.get("file") as File | null;
+
+    if (!file) throw new AppError("Dosya gerekli", 400, "MISSING_FILE");
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      throw new AppError("Sadece görsel dosyaları kabul edilir", 400, "INVALID_FILE_TYPE");
+    }
+    if (file.size > MAX_ATTACHMENT_SIZE) {
+      throw new AppError("Dosya 5 MB'dan büyük olamaz", 400, "FILE_TOO_LARGE");
+    }
+
+    if (!(await validateImageMagicBytes(file))) {
+      throw new AppError("Sadece görsel dosyaları kabul edilir", 400, "INVALID_FILE_TYPE");
+    }
+
+    const ext = getImageExtension(file.type);
+    const key = `feedback/${crypto.randomUUID()}.${ext}`;
+
+    await c.env.STORAGE.put(key, file.stream(), {
+      httpMetadata: { contentType: file.type },
+    });
+
+    const baseUrl = c.env.STORAGE_PUBLIC_URL ?? "";
+    const url = `${baseUrl}/${key}`;
+
+    return c.json({ data: { url }, status: "ok" }, 201);
+  } catch (err) {
+    return handleError(c, err);
   }
-
-  const contentType = c.req.header("content-type") ?? "";
-  if (!contentType.includes("multipart/form-data")) {
-    throw new AppError("Content-Type multipart/form-data olmalı", 400, "INVALID_CONTENT_TYPE");
-  }
-
-  const formData = await c.req.formData();
-  const file = formData.get("file") as File | null;
-
-  if (!file) throw new AppError("Dosya gerekli", 400, "MISSING_FILE");
-  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-    throw new AppError("Sadece görsel dosyaları kabul edilir", 400, "INVALID_FILE_TYPE");
-  }
-  if (file.size > MAX_ATTACHMENT_SIZE) {
-    throw new AppError("Dosya 5 MB'dan büyük olamaz", 400, "FILE_TOO_LARGE");
-  }
-
-  if (!(await validateImageMagicBytes(file))) {
-    throw new AppError("Sadece görsel dosyaları kabul edilir", 400, "INVALID_FILE_TYPE");
-  }
-
-  const ext = getImageExtension(file.type);
-  const key = `feedback/${crypto.randomUUID()}.${ext}`;
-
-  await c.env.STORAGE.put(key, file.stream(), {
-    httpMetadata: { contentType: file.type },
-  });
-
-  const baseUrl = c.env.STORAGE_PUBLIC_URL ?? "";
-  const url = `${baseUrl}/${key}`;
-
-  return c.json({ data: { url }, status: "ok" }, 201);
 });
 
 // ---------------------------------------------------------------------------

@@ -22,6 +22,7 @@ export type {
   ListingType,
   ListingCondition,
   ListingPriceType,
+  ListingMeetingType,
   ListingStatus,
   ListingDirection,
   ListingRow,
@@ -38,6 +39,7 @@ export {
   LISTING_PRICE_TYPES,
   LISTING_STATUSES,
   LISTING_DIRECTIONS,
+  LISTING_MEETING_TYPES,
 } from "./types/listing";
 
 export type { FavoriteAddInput, FavoritesResponse } from "./types/favorites";

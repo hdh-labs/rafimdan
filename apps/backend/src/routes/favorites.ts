@@ -7,6 +7,7 @@ import { listingRepository } from "../repositories/listing.repository";
 import { notificationRepository } from "../repositories/notification.repository";
 import { favoriteAddSchema } from "../schemas/favorite.schemas";
 import { handleError } from "../lib/handle-error";
+import { checkRateLimit } from "../lib/rate-limit";
 
 const favorites = new Hono<HonoEnv>();
 
@@ -31,6 +32,13 @@ favorites.get("/", authMiddleware, async (c) => {
 favorites.post("/", authMiddleware, zValidator("json", favoriteAddSchema), async (c) => {
   try {
     const { sub } = c.get("user");
+    await checkRateLimit(c.env.DB, {
+      table: "listing_rate_limit",
+      key: `fav:${sub}`,
+      limit: 30,
+      windowMs: 60 * 60 * 1000,
+      message: "Saatte en fazla 30 favori ekleyebilirsiniz",
+    });
     const { listing_id } = c.req.valid("json");
     await favoriteService.add(c.env.DB, sub, listing_id);
     const listing = await listingRepository.findById(c.env.DB, listing_id)

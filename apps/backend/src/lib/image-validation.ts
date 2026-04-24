@@ -5,8 +5,7 @@ export async function validateImageMagicBytes(file: File): Promise<boolean> {
   const isWebp =
     buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46 &&
     buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50;
-  const isGif = buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46;
-  return isJpeg || isPng || isWebp || isGif;
+  return isJpeg || isPng || isWebp;
 }
 
 export function getImageExtension(mimeType: string): string {

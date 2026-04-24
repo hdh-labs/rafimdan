@@ -1,4 +1,7 @@
 import { Hono } from "hono";
+import { zValidator } from "@hono/zod-validator";
+import { z } from "zod";
+import { adminModerateSchema } from "../schemas/listing.schemas";
 import type { MiddlewareHandler } from "hono";
 import type { HonoEnv } from "../types/env";
 import type { AdminStats } from "@rafimdan/shared";
@@ -10,6 +13,7 @@ import { adminLogRepository } from "../repositories/admin-log.repository";
 import { notificationRepository } from "../repositories/notification.repository";
 import { AppError } from "../errors";
 import { extractStorageKey } from "../lib/storage";
+import { handleError } from "../lib/handle-error";
 
 const adminAuthMiddleware: MiddlewareHandler<HonoEnv> = async (c, next) => {
   const authHeader = c.req.header("Authorization");
@@ -38,12 +42,17 @@ const adminAuthMiddleware: MiddlewareHandler<HonoEnv> = async (c, next) => {
 const admin = new Hono<HonoEnv>();
 admin.use("/*", adminAuthMiddleware);
 
-function handleError(c: Parameters<MiddlewareHandler<HonoEnv>>[0], err: unknown) {
-  if (err instanceof AppError) {
-    return c.json({ error: err.message, status: "error", code: err.code }, err.statusCode as 400);
-  }
-  return c.json({ error: "Sunucu hatası", status: "error", code: "INTERNAL_ERROR" }, 500);
-}
+const resolveReportSchema = z.object({
+  status: z.enum(["resolved", "dismissed"]),
+});
+
+
+const updateUserSchema = z.object({
+  is_active: z.union([z.literal(0), z.literal(1)]).optional(),
+  is_admin: z.union([z.literal(0), z.literal(1)]).optional(),
+  ban_reason: z.string().optional(),
+});
+
 
 // ---------------------------------------------------------------------------
 // Stats
@@ -81,20 +90,15 @@ admin.get("/reports", async (c) => {
   }
 });
 
-admin.patch("/reports/:id", async (c) => {
+admin.patch("/reports/:id", zValidator("json", resolveReportSchema), async (c) => {
   try {
     const id = c.req.param("id");
-    const body = await c.req.json<{ status?: string }>();
-    const ALLOWED = ["resolved", "dismissed"] as const;
-    type ResolveStatus = typeof ALLOWED[number];
-    if (!ALLOWED.includes(body.status as ResolveStatus)) {
-      return c.json({ error: "Geçersiz durum", status: "error", code: "INVALID_STATUS" }, 400);
-    }
-    await reportService.resolve(c.env.DB, id, body.status as ResolveStatus);
+    const { status } = c.req.valid("json");
+    await reportService.resolve(c.env.DB, id, status);
     await adminLogRepository.insert(c.env.DB, {
       id: crypto.randomUUID(),
       admin_id: c.get("user").sub,
-      action: body.status === "resolved" ? "report_resolve" : "report_dismiss",
+      action: status === "resolved" ? "report_resolve" : "report_dismiss",
       target_type: "report",
       target_id: id,
       meta: {},
@@ -109,11 +113,19 @@ admin.patch("/reports/:id", async (c) => {
 // Admin: Listings
 // ---------------------------------------------------------------------------
 
+const ADMIN_LISTING_STATUSES = ["active", "pending", "rejected", "sold", "all"] as const;
+type AdminListingStatus = typeof ADMIN_LISTING_STATUSES[number];
+
 admin.get("/listings", async (c) => {
   try {
-    const status = c.req.query("status");
-    const page = Number(c.req.query("page") ?? 1);
-    const limit = Number(c.req.query("limit") ?? 30);
+    const rawStatus = c.req.query("status") ?? "all";
+    const status: AdminListingStatus = (ADMIN_LISTING_STATUSES as readonly string[]).includes(rawStatus)
+      ? rawStatus as AdminListingStatus
+      : "all";
+    const pageRaw = Number(c.req.query("page") ?? 1);
+    const limitRaw = Number(c.req.query("limit") ?? 30);
+    const page = Number.isFinite(pageRaw) && pageRaw >= 1 ? Math.floor(pageRaw) : 1;
+    const limit = Number.isFinite(limitRaw) && limitRaw >= 1 ? Math.min(Math.floor(limitRaw), 100) : 30;
     const result = await listingRepository.findAllAdmin(c.env.DB, { status, page, limit });
     return c.json({ data: result, status: "ok" });
   } catch (err) {
@@ -121,19 +133,16 @@ admin.get("/listings", async (c) => {
   }
 });
 
-admin.patch("/listings/:slug/status", async (c) => {
+admin.patch("/listings/:slug/status", zValidator("json", adminModerateSchema), async (c) => {
   try {
     const slug = c.req.param("slug");
-    const body = await c.req.json<{ status?: string; reason?: string }>();
-    const ALLOWED = ["active", "pending", "rejected"] as const;
-    type ModerationStatus = typeof ALLOWED[number];
-    if (!ALLOWED.includes(body.status as ModerationStatus)) {
-      return c.json({ error: "Geçersiz durum", status: "error", code: "INVALID_STATUS" }, 400);
-    }
-    const status = body.status as ModerationStatus;
+    const { status, reason: rawReason } = c.req.valid("json");
     const listing = await listingRepository.findBySlug(c.env.DB, slug);
     if (!listing) return c.json({ error: "Bulunamadı", status: "error", code: "NOT_FOUND" }, 404);
-    const reason = status === "rejected" ? (body.reason ?? null) : null;
+    if (listing.status === "sold") {
+      return c.json({ error: "Satılmış ilan modere edilemez", status: "error", code: "INVALID_TRANSITION" }, 422);
+    }
+    const reason = status === "rejected" ? (rawReason ?? null) : null;
     const updated = await listingRepository.moderate(c.env.DB, listing.id, status, reason);
     const adminId = c.get("user").sub;
     const action = status === "active" ? "listing_approve"
@@ -209,14 +218,14 @@ admin.get("/users", async (c) => {
   }
 });
 
-admin.patch("/users/:id", async (c) => {
+admin.patch("/users/:id", zValidator("json", updateUserSchema), async (c) => {
   try {
     const id = c.req.param("id");
     const adminId = c.get("user").sub;
     if (id === adminId) {
       return c.json({ error: "Kendi hesabınızı değiştiremezsiniz", status: "error", code: "SELF_MODIFY" }, 403);
     }
-    const body = await c.req.json<{ is_active?: number; is_admin?: number; ban_reason?: string }>();
+    const body = c.req.valid("json");
 
     if (body.is_admin === 0 || body.is_active === 0) {
       const target = await userRepository.findById(c.env.DB, id);
