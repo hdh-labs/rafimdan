@@ -100,18 +100,6 @@ watch(() => form.listing_type, () => {
   Object.keys(errors).forEach((k) => delete errors[k])
 })
 
-watch(() => form.direction, (dir) => {
-  if (dir === "request") {
-    form.price_type = "free"
-    form.price = ""
-    form.condition = ""
-    delete errors.price
-    delete errors.condition
-  } else {
-    form.price_type = "fixed"
-  }
-})
-
 watch(() => form.price_type, (val) => {
   if (val === "free" || val === "trade") form.price = ""
   delete errors.price
@@ -271,32 +259,7 @@ const descPlaceholder = computed(() => {
         </label>
       </div>
 
-      <!-- Yön (Satıyorum / Arıyorum) -->
-      <div>
-        <span id="direction-label" class="block text-sm font-medium text-foreground mb-2">Ne yapmak istiyorsun?</span>
-        <div role="group" aria-labelledby="direction-label" class="grid grid-cols-2 gap-3">
-          <label
-            class="flex flex-col items-center gap-1.5 py-3 px-4 rounded-lg border-2 cursor-pointer transition-colors"
-            :class="form.direction === 'offer'
-              ? 'border-brand bg-brand text-brand-foreground'
-              : 'border-border hover:bg-muted'"
-          >
-            <input v-model="form.direction" type="radio" value="offer" class="sr-only" />
-            <span class="text-sm font-semibold">Satıyorum / Veriyorum</span>
-            <span class="text-xs opacity-70">Eşyan veya hizmetin var</span>
-          </label>
-          <label
-            class="flex flex-col items-center gap-1.5 py-3 px-4 rounded-lg border-2 cursor-pointer transition-colors"
-            :class="form.direction === 'request'
-              ? 'border-brand bg-brand text-brand-foreground'
-              : 'border-border hover:bg-muted'"
-          >
-            <input v-model="form.direction" type="radio" value="request" class="sr-only" />
-            <span class="text-sm font-semibold">Arıyorum</span>
-            <span class="text-xs opacity-70">Almak veya bulmak istiyorsun</span>
-          </label>
-        </div>
-      </div>
+      <!-- Yön (sadece offer, MVP'de "Arıyorum" yok) -->
 
       <!-- Başlık -->
       <div>
