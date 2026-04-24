@@ -507,12 +507,12 @@ async function submitReport() {
             </div>
           </div>
 
-          <div class="grid grid-cols-2 gap-2 text-center">
+          <div :class="listing.seller.sold_count > 0 ? 'grid-cols-2' : 'grid-cols-1'" class="grid gap-2 text-center">
             <div class="rounded-md bg-muted px-2 py-2">
               <p class="text-sm font-semibold text-foreground">{{ listing.seller.active_count }}</p>
               <p class="text-[11px] text-muted-foreground">Aktif ilan</p>
             </div>
-            <div class="rounded-md bg-muted px-2 py-2">
+            <div v-if="listing.seller.sold_count > 0" class="rounded-md bg-muted px-2 py-2">
               <p class="text-sm font-semibold text-foreground">{{ listing.seller.sold_count }}</p>
               <p class="text-[11px] text-muted-foreground">Satış</p>
             </div>
@@ -552,7 +552,7 @@ async function submitReport() {
           class="flex items-center justify-center gap-2 w-full border border-border hover:bg-muted font-medium py-3 rounded-lg cursor-pointer transition-colors text-sm"
         >
           <LogIn class="size-4" />
-          Giriş yap ve iletişime geç
+          Google ile giriş yap, WhatsApp'tan ulaş
         </NuxtLink>
         <div v-else-if="!isOwner" class="text-center space-y-1.5">
           <p class="text-sm text-muted-foreground">Satıcı henüz iletişim bilgisi eklememiş.</p>
@@ -668,7 +668,7 @@ async function submitReport() {
         class="flex items-center justify-center gap-2 w-full border border-border hover:bg-muted font-medium py-3 rounded-lg cursor-pointer transition-colors text-sm"
       >
         <LogIn class="size-4" aria-hidden="true" />
-        Giriş yap ve iletişime geç
+        Google ile giriş yap, WhatsApp'tan ulaş
       </NuxtLink>
     </div>
   </Teleport>

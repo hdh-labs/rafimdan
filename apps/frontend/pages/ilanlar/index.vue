@@ -121,6 +121,17 @@ const hasFilters = computed(
   () => draft.city || draft.district || draft.category || draft.price_type || draft.condition || draft.q,
 )
 
+const activeCategoryName = computed(() => {
+  if (!draft.category) return null
+  for (const cat of categories.value) {
+    if (cat.slug === draft.category) return cat.name
+    for (const child of cat.children) {
+      if (child.slug === draft.category) return child.name
+    }
+  }
+  return null
+})
+
 const activeFilterCount = computed(() =>
   [draft.city, draft.district, draft.category, draft.price_type, draft.condition]
     .filter(Boolean).length,
@@ -311,18 +322,28 @@ useSeoMeta({
         </div>
 
         <template v-else>
-          <div v-if="listings.length === 0" class="py-16 text-center space-y-2">
+          <div v-if="listings.length === 0" class="py-16 text-center space-y-3">
             <p class="text-muted-foreground text-sm">
               <template v-if="draft.q">"{{ draft.q }}" için sonuç bulunamadı.</template>
+              <template v-else-if="activeCategoryName">{{ activeCategoryName }} kategorisinde henüz ilan yok.</template>
               <template v-else>Bu filtrelere uygun ilan yok.</template>
             </p>
-            <button
-              v-if="hasFilters"
-              class="text-sm text-foreground underline underline-offset-2 cursor-pointer"
-              @click="clearFilters"
-            >
-              Filtreleri temizle
-            </button>
+            <div class="flex flex-col items-center gap-2">
+              <NuxtLink
+                v-if="activeCategoryName && !draft.q"
+                to="/ilan-ver"
+                class="text-sm font-medium text-foreground underline underline-offset-2 cursor-pointer"
+              >
+                İlk ilanı sen ver →
+              </NuxtLink>
+              <button
+                v-if="hasFilters"
+                class="text-sm text-muted-foreground underline underline-offset-2 cursor-pointer"
+                @click="clearFilters"
+              >
+                Filtreleri temizle
+              </button>
+            </div>
           </div>
 
           <div v-else class="grid grid-cols-2 sm:grid-cols-3 gap-4">
