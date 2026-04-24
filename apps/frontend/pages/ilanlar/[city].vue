@@ -11,11 +11,17 @@ const route = useRoute()
 const router = useRouter()
 const config = useRuntimeConfig()
 const siteUrl = (config.public.siteUrl as string) || "https://rafimdan.com"
-const city = computed(() => route.params.city as string)
-
-if (!IL_NAMES.includes(route.params.city as string)) {
+const rawCity = route.params.city as string
+const matchedCity = IL_NAMES.find(
+  (c) => c.toLocaleLowerCase("tr") === rawCity.toLocaleLowerCase("tr"),
+)
+if (!matchedCity) {
   throw createError({ statusCode: 404, message: "Şehir bulunamadı" })
 }
+if (rawCity !== matchedCity) {
+  await navigateTo(`/ilanlar/${matchedCity}`, { redirectCode: 301 })
+}
+const city = matchedCity
 
 const { data: categoriesRes } = await useFetch<CategoriesResp>("/api/categories")
 const categories = computed(() => categoriesRes.value?.data ?? [])
@@ -27,11 +33,11 @@ const draft = reactive({
   sort: (route.query.sort as string) || "recent",
 })
 
-const ilceler = computed(() => getIlceler(city.value))
+const ilceler = computed(() => getIlceler(city))
 
 const { data: listingsRes, pending, error: listingsError } = await useFetch<ListingsResp>(
   () => {
-    const p = new URLSearchParams({ city: city.value, limit: "20" })
+    const p = new URLSearchParams({ city, limit: "20" })
     if (route.query.district) p.set("district", route.query.district as string)
     if (route.query.category) p.set("category", route.query.category as string)
     if (route.query.price_type) p.set("price_type", route.query.price_type as string)
@@ -51,6 +57,17 @@ const hasFilters = computed(
   () => draft.district || draft.category || draft.price_type || draft.sort !== "recent",
 )
 
+const activeCategoryName = computed(() => {
+  if (!draft.category) return null
+  for (const cat of categories.value) {
+    if (cat.slug === draft.category) return cat.name
+    for (const child of cat.children) {
+      if (child.slug === draft.category) return child.name
+    }
+  }
+  return null
+})
+
 watch(() => route.query, (q) => {
   draft.district = (q.district as string) || ""
   draft.category = (q.category as string) || ""
@@ -64,7 +81,7 @@ function applyFilters() {
   if (draft.category) query.category = draft.category
   if (draft.price_type) query.price_type = draft.price_type
   if (draft.sort !== "recent") query.sort = draft.sort
-  router.push({ params: { city: city.value }, query })
+  router.push({ params: { city }, query })
 }
 
 function clearFilters() {
@@ -82,13 +99,11 @@ function goToPage(p: number) {
 }
 
 useSeoMeta({
-  title: () => `${city.value} İkinci El İlanları — Rafımdan`,
-  description: () =>
-    `${city.value}'deki ikinci el ilanlar. Kargosuz, ahali ile yüz yüze alışveriş.`,
-  ogTitle: () => `${city.value} İlanları — Rafımdan`,
-  ogDescription: () =>
-    `${city.value} yakınındaki ikinci el ilanlar. Kargosuz, yüz yüze alışveriş.`,
-  ogUrl: () => `${siteUrl}/ilanlar/${route.params.city as string}`,
+  title: `${city} İkinci El İlanları — Rafımdan`,
+  description: `${city}'deki ikinci el ilanlar. Kargosuz, ahali ile yüz yüze alışveriş.`,
+  ogTitle: `${city} İlanları — Rafımdan`,
+  ogDescription: `${city} yakınındaki ikinci el ilanlar. Kargosuz, yüz yüze alışveriş.`,
+  ogUrl: `${siteUrl}/ilanlar/${city}`,
 })
 </script>
 
@@ -196,22 +211,27 @@ useSeoMeta({
     </div>
 
     <template v-else>
-      <div v-if="listings.length === 0" class="py-16 text-center">
-        <p class="text-muted-foreground text-sm">{{ city }} için sonuç bulunamadı.</p>
-        <button
-          v-if="hasFilters"
-          class="mt-3 text-sm text-foreground underline underline-offset-2 cursor-pointer"
-          @click="clearFilters"
-        >
-          Filtreleri temizle
-        </button>
-        <NuxtLink
-          v-else
-          to="/ilan-ver"
-          class="mt-3 inline-block text-sm text-foreground underline underline-offset-2 cursor-pointer"
-        >
-          İlk ilanı sen ver
-        </NuxtLink>
+      <div v-if="listings.length === 0" class="py-16 text-center space-y-3">
+        <p class="text-muted-foreground text-sm">
+          <template v-if="activeCategoryName">{{ city }}'de {{ activeCategoryName }} kategorisinde henüz ilan yok.</template>
+          <template v-else>{{ city }} için sonuç bulunamadı.</template>
+        </p>
+        <div class="flex flex-col items-center gap-2">
+          <NuxtLink
+            v-if="activeCategoryName || !hasFilters"
+            to="/ilan-ver"
+            class="text-sm font-medium text-foreground underline underline-offset-2 cursor-pointer"
+          >
+            İlk ilanı sen ver →
+          </NuxtLink>
+          <button
+            v-if="hasFilters"
+            class="text-sm text-muted-foreground underline underline-offset-2 cursor-pointer"
+            @click="clearFilters"
+          >
+            Filtreleri temizle
+          </button>
+        </div>
       </div>
 
       <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
