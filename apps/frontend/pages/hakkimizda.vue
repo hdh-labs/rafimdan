@@ -16,6 +16,27 @@ useSeoMeta({
       </p>
     </header>
 
+    <section class="rounded-xl border border-border bg-muted/40 p-5 space-y-3">
+      <p class="text-sm text-foreground leading-relaxed">
+        Selamün aleyküm 👋
+      </p>
+      <p class="text-sm text-foreground leading-relaxed">
+        Bismillah diyip rafımdaki eşyaları satmaya karar verdim. Başka bir siteye yükleyip
+        WhatsApp'a story atmaktansa neden kendimize ait bir yer olmasın dedim —
+        rafimdan.com böyle doğdu.
+      </p>
+      <p class="text-sm text-foreground leading-relaxed">
+        Sonradan gördüm ki bu sadece ben değilim — grupta kimi eşya satıyor, kimi bir şey
+        arıyor, kimi veriyor; hepsi kaybolup gidiyordu. Neden bunların hepsi bir arada olmasın?
+      </p>
+      <p class="text-sm text-foreground leading-relaxed">
+        Kargo yok, komisyon yok. Giriş için sadece Google hesabınız yeterli, tek tıkla
+        oluyor. Gerisini satıcıyla WhatsApp'tan hallediyorsunuz.
+      </p>
+      <p class="text-sm text-foreground leading-relaxed">Bakar mısınız? 🙏</p>
+      <p class="text-xs text-muted-foreground">— Halil, ahaliden biri</p>
+    </section>
+
     <section class="space-y-4">
       <h2 class="text-lg font-semibold text-foreground">Neden Rafımdan?</h2>
       <p class="text-sm text-muted-foreground leading-relaxed">
@@ -54,7 +75,7 @@ useSeoMeta({
     <section class="space-y-4">
       <h2 class="text-lg font-semibold text-foreground">İletişim</h2>
       <p class="text-sm text-muted-foreground leading-relaxed">
-        Rafımdan henüz yerel topluluklarla büyüyen küçük bir platform. Görüş ve önerilerini ilanlar üzerinden satıcılarla doğrudan paylaşabilir, platforma dair geri bildirimlerini ilerleyen dönemde açılacak kanallardan iletebilirsin.
+        Rafımdan, yerel topluluklarla büyüyen küçük bir platform. Görüş ve önerilerini WhatsApp grubumuzdan iletebilirsin.
       </p>
     </section>
   </div>
