@@ -22,6 +22,7 @@ import {
   InvalidFileTypeError,
   TooManyPhotosError,
   NoWhatsappError,
+  AppError,
 } from "../errors";
 import { PHOTO_ALLOWED_TYPES as ALLOWED_TYPES, PHOTO_MAX_FILE_SIZE as MAX_FILE_SIZE } from "../lib/photo-config";
 
