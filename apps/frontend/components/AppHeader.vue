@@ -172,7 +172,7 @@ onUnmounted(() => {
               v-if="menuOpen"
               role="menu"
               class="absolute right-0 top-full mt-1.5 w-44 bg-background border border-border rounded-lg shadow-md py-1 z-50"
-              @focusout="(e: FocusEvent) => { if (!($event.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null)) closeMenu() }"
+              @focusout="(e: FocusEvent) => { if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null)) closeMenu() }"
             >
               <NuxtLink
                 v-if="authStore.user?.slug"
