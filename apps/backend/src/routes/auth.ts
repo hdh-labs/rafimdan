@@ -10,7 +10,6 @@ import { updateProfileSchema } from "../schemas/auth.schemas";
 import { REFRESH_TOKEN_MAX_AGE_SECONDS } from "../lib/jwt";
 import { validateImageMagicBytes, getImageExtension } from "../lib/image-validation";
 import { handleError } from "../lib/handle-error";
-import { checkRateLimit } from "../lib/rate-limit";
 
 const auth = new Hono<HonoEnv>();
 
@@ -54,18 +53,8 @@ function getCallbackUrl(c: Context<HonoEnv>): string {
 // GET /google — OAuth başlat
 // ---------------------------------------------------------------------------
 
-const AUTH_RATE_LIMIT = { limit: 10, windowMs: 60 * 60 * 1000 };
-const REFRESH_RATE_LIMIT = { limit: 30, windowMs: 60 * 60 * 1000 };
-
 auth.get("/google", async (c) => {
   try {
-    const ip = c.req.header("cf-connecting-ip") ?? c.req.header("x-forwarded-for") ?? "unknown";
-    await checkRateLimit(c.env.DB, {
-      table: "auth_rate_limit",
-      key: `google:${ip}`,
-      ...AUTH_RATE_LIMIT,
-      message: "Çok fazla giriş denemesi. Bir saat sonra tekrar deneyin.",
-    });
     const callbackUrl = getCallbackUrl(c);
     const { url } = await authService.buildGoogleAuthUrlWithState(c.env, callbackUrl);
     return c.redirect(url, 302);
@@ -143,13 +132,6 @@ auth.post("/refresh", async (c) => {
         401,
       );
     }
-    await checkRateLimit(c.env.DB, {
-      table: "auth_rate_limit",
-      key: `refresh:${refreshToken.slice(-16)}`,
-      ...REFRESH_RATE_LIMIT,
-      message: "Çok fazla yenileme isteği. Bir saat sonra tekrar deneyin.",
-    });
-
     const result = await authService.refreshAccessToken(c.env.DB, c.env, refreshToken);
     setRefreshCookie(c, result.refreshToken);
 
